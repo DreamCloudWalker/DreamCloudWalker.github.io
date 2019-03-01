@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <title>LearnOpenGLES</title>
+        <script src="public/gl-matrix.js"></script>
+        <script src="public/three/three.js"></script>
+        <script src="public/three/OBJLoader.js"></script>
+        <style type="text/css">
+            div#canvas-frame {
+                border: none;
+                cursor: pointer;
+                width: 1440px;
+                height: 720px;
+                background-color: rgb(238, 238, 238);
+            }
+            div#horizontal {
+                display: flex;
+            }
+            div#id_modelmatrix {
+                display: flex;
+            }
+            div#id_viewmatrix {
+                display: none;
+            }
+            div#id_projmatrix {
+                display: none;
+            }
+            div#id_rotatematrix {
+                display: none;
+            }
+            div#id_axisangle {
+                display: none;
+            }
+            div#id_quaternion {
+                display: none;
+            }
+            div#matrix {
+                margin: 10px;
+            }
+        </style>
+        <script src="learnOpenGLES.js"></script>
+    </head>
+
+    <body onload="main();" style="background: #ffffff" onkeypress="onKeyPress(event)">
+        <div id="vertical">
+            <div id="horizontal">
+                <div style="width: 230px; background: #ffffff">
+                    <ul>
+                        <div id="FPS">FPS: </div>
+                        <li>渲染管线</li>
+                        <li>变换矩阵</li>
+                            <ul>
+                                <li><a href="#TOC1.1" onclick="alert('矩阵运算')">矩阵运算</a></li>
+                                <li><a href="#TOC1.2" onclick="demoModelMatrix()">模型矩阵</a></li>
+                                <li><a href="#TOC1.3" onclick="demoViewMatrix()">视图矩阵</a></li>
+                                <li><a href="#TOC1.4" onclick="demoProjMatrix()">投影矩阵</a></li>
+                                <li><a href="#TOC1.5" onclick="demoRotateMatrix()">欧拉角、万向节</a></li>
+                                <li><a href="#TOC1.6" onclick="demoAxisAngle()">轴角</a></li>
+                                <li><a href="#TOC1.7" onclick="demoQuaternion()">四元数</a></li>
+                            </ul>
+                        <li>纹理</li>
+                            <ul>
+                                <li><a href="#TOC2.1">UV坐标</a></li>
+                                <li><a href="#TOC2.2">透明排序</a></li>
+                                <li><a href="#TOC2.3">采样器</a></li>
+                                <li><a href="#TOC2.4">Mipmap</a></li>
+                            </ul>
+                        </li>
+                        <li>光照</li>
+                            <ul>
+                                <li><a href="#TOC3.1">环境光</a></li>
+                                <li><a href="#TOC3.2">漫射光</a></li>
+                                <li><a href="#TOC3.3">镜面光</a></li>
+                                <li><a href="#TOC3.4">光照模型</a></li>
+                                <li><a href="#TOC3.5">Phong光照</a></li>
+                                <li><a href="#TOC3.6">逐顶点&逐像素光照</a></li>
+                                <li><a href="#TOC3.7">菲涅尔效果</a></li>
+                                <li><a href="#TOC3.8">法线贴图</a></li>
+                                <li><a href="#TOC3.9">镜头光晕</a></li>
+                                <li><a href="#TOC3.10">FBO、RTT、阴影</a></li>
+                            </ul>
+                        </li>
+                        <li>场景管理</li>
+                            <ul>
+                                <li><a href="#TOC4.1">场景树</a></li>
+                                <li><a href="#TOC4.2">四叉/八叉树</a></li>
+                                <li><a href="#TOC4.3">LOD层次细节</a></li>
+                            </ul>
+                        </li>
+                    </ul> 
+                </div>
+
+                <canvas id="glcanvas" width="1440" height="720"></canvas>
+            </div>
+            <div id="id_modelmatrix">
+                <h4>模型矩阵</h4>
+                <div style="border: 3px solid #cccccc; width: 30em; margin: 1em;">
+                    ModelMatrix
+                    <div id="horizontal">
+                        <br/>m0<input   id="id_m00"   style="width: 3.5em;" type="number" value="1" step="0.1" oninput="updateModelMatrixByInput()"/>
+                        <br/>, m4<input id="id_m01"   style="width: 3.5em;" type="number" value="0" step="0.1" oninput="updateModelMatrixByInput()"/>
+                        <br/>, m8<input id="id_m02"   style="width: 3.5em;" type="number" value="0" step="0.1" oninput="updateModelMatrixByInput()"/>
+                        <br/>, m12<input id="id_m03"   style="width: 3.5em;" type="number" value="0" step="0.1" oninput="updateModelMatrixByInput()"/>
+                    </div>
+                    <div id="horizontal">
+                        <br/>m1<input   id="id_m10"   style="width: 3.5em;" type="number" value="0" step="0.1" oninput="updateModelMatrixByInput()"/>
+                        <br/>, m5<input id="id_m11"   style="width: 3.5em;" type="number" value="1" step="0.1" oninput="updateModelMatrixByInput()"/>
+                        <br/>, m9<input id="id_m12"   style="width: 3.5em;" type="number" value="0" step="0.1" oninput="updateModelMatrixByInput()"/>
+                        <br/>, m13<input id="id_m13"   style="width: 3.5em;" type="number" value="0" step="0.1" oninput="updateModelMatrixByInput()"/>
+                    </div>
+                    <div id="horizontal">
+                        <br/>m2<input   id="id_m20"   style="width: 3.5em;" type="number" value="0" step="0.1" oninput="updateModelMatrixByInput()"/>
+                        <br/>, m6<input id="id_m21"   style="width: 3.5em;" type="number" value="0" step="0.1" oninput="updateModelMatrixByInput()"/>
+                        <br/>, m10<input id="id_m22"   style="width: 3.5em;" type="number" value="1" step="0.1" oninput="updateModelMatrixByInput()"/>
+                        <br/>, m14<input id="id_m23"   style="width: 3.5em;" type="number" value="0" step="0.1" oninput="updateModelMatrixByInput()"/>
+                    </div>
+                    <div id="horizontal">
+                        <br/>m3<input   id="id_m30"   style="width: 3.5em;" type="number" value="0" step="0.1" oninput="updateModelMatrixByInput()"/>
+                        <br/>, m7<input id="id_m31"   style="width: 3.5em;" type="number" value="0" step="0.1" oninput="updateModelMatrixByInput()"/>
+                        <br/>, m11<input id="id_m32"   style="width: 3.5em;" type="number" value="0" step="0.1" oninput="updateModelMatrixByInput()"/>
+                        <br/>, m15<input id="id_m33"   style="width: 3.5em;" type="number" value="1" step="0.1" oninput="updateModelMatrixByInput()"/>
+                    </div>
+                </div>
+                <div>
+                    <h4>欧拉角旋转</h4>
+                    <div style="border: 3px solid #cccccc; width: 30em; margin: 1em;">
+                        EulerAngle
+                        <div id="horizontal">
+                            <br/>pitch<input  id="id_pitch" style="width: 3.5em;" type="number" value="0" step="5" oninput="updateEulerAngleByInput()"/>
+                            <br/>, yaw<input  id="id_yaw"   style="width: 3.5em;" type="number" value="0" step="5" oninput="updateEulerAngleByInput()"/>
+                            <br/>, roll<input id="id_roll"  style="width: 3.5em;" type="number" value="0" step="5" oninput="updateEulerAngleByInput()"/>
+                        </div>
+                    </div>
+                    <h4>平移</h4>
+                    <div style="border: 3px solid #cccccc; width: 30em; margin: 1em;">
+                        glTranslate
+                        <div id="horizontal">
+                            <br/>translateX<input   id="id_translate_x" style="width: 3.5em;" type="number" value="0" step="0.1" oninput="updateTranslateByInput()"/>
+                            <br/>, translateY<input id="id_translate_y" style="width: 3.5em;" type="number" value="0" step="0.1" oninput="updateTranslateByInput()"/>
+                            <br/>, translateZ<input id="id_translate_z" style="width: 3.5em;" type="number" value="0" step="0.1" oninput="updateTranslateByInput()"/>
+                        </div>
+                    </div>
+                    <h4>缩放</h4>
+                    <div style="border: 3px solid #cccccc; width: 30em; margin: 1em;">
+                        glScale
+                        <div id="horizontal">
+                            <br/>scaleX<input   id="id_scale_x" style="width: 3.5em;" type="number" value="1.0" step="0.1" oninput="updateScaleByInput()"/>
+                            <br/>, scaleY<input id="id_scale_y" style="width: 3.5em;" type="number" value="1.0" step="0.1" oninput="updateScaleByInput()"/>
+                            <br/>, scaleZ<input id="id_scale_z" style="width: 3.5em;" type="number" value="1.0" step="0.1" oninput="updateScaleByInput()"/>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div id="id_viewmatrix">
+                <h4>视图变换</h4>
+                <div style="border: 3px solid #cccccc; width: 30em; margin: 1em;">
+                    gluLookAt
+                    <div id="horizontal">
+                        <br/>eyeX<input  id="id_eye_x"  style="width: 3.5em;" type="number" value="0" step="0.1" oninput="updateViewMatrixByInput()"/>
+                        <br/>, eyeY<input id="id_eye_y"   style="width: 3.5em;" type="number" value="0" step="0.1" oninput="updateViewMatrixByInput()"/>
+                        <br/>, eyeZ<input id="id_eye_z"  style="width: 3.5em;" type="number" value="5.0" step="0.1" oninput="updateViewMatrixByInput()"/>
+                    </div>
+                    <div id="horizontal">
+                        <br/>lookAtX<input  id="id_lookat_x"  style="width: 3.5em;" type="number" value="0" step="0.1" oninput="updateViewMatrixByInput()"/>
+                        <br/>, lookAtY<input id="id_lookat_y"   style="width: 3.5em;" type="number" value="0" step="0.1" oninput="updateViewMatrixByInput()"/>
+                        <br/>, lookAtZ<input id="id_lookat_z"  style="width: 3.5em;" type="number" value="0" step="0.1" oninput="updateViewMatrixByInput()"/>
+                    </div>
+                    <div id="horizontal">
+                        <br/>cameraUpX<input  id="id_cameraup_x"  style="width: 3.5em;" type="number" value="0" step="0.1" oninput="updateViewMatrixByInput()"/>
+                        <br/>, cameraUpY<input id="id_cameraup_y"   style="width: 3.5em;" type="number" value="1.0" step="0.1" oninput="updateViewMatrixByInput()"/>
+                        <br/>, cameraUpZ<input id="id_cameraup_z"  style="width: 3.5em;" type="number" value="0" step="0.1" oninput="updateViewMatrixByInput()"/>
+                    </div>
+                </div>
+                <h4>视图矩阵</h4>
+                <div style="border: 3px solid #cccccc; width: 30em; margin: 1em;">
+                    ViewMatrix = 
+                    <div id="horizontal" style="margin: 5px">
+                        <img src="./texture/matrixL.png">
+                        <div id="matrix">
+                                 <label id="id_viewmatrix_m00">1.00</label><br/>
+                            <br/><label id="id_viewmatrix_m10">0.00</label><br/>
+                            <br/><label id="id_viewmatrix_m20">0.00</label><br/>
+                            <br/><label id="id_viewmatrix_m30">0.00</label>
+                        </div>
+                        <div id="matrix">
+                                 <label id="id_viewmatrix_m01">1.00</label><br/>
+                            <br/><label id="id_viewmatrix_m11">0.00</label><br/>
+                            <br/><label id="id_viewmatrix_m21">0.00</label><br/>
+                            <br/><label id="id_viewmatrix_m31">0.00</label>
+                        </div>
+                        <div id="matrix">
+                                 <label id="id_viewmatrix_m02">1.00</label><br/>
+                            <br/><label id="id_viewmatrix_m12">0.00</label><br/>
+                            <br/><label id="id_viewmatrix_m22">0.00</label><br/>
+                            <br/><label id="id_viewmatrix_m32">0.00</label>
+                        </div>
+                        <div id="matrix">
+                                 <label id="id_viewmatrix_m03">1.00</label><br/>
+                            <br/><label id="id_viewmatrix_m13">0.00</label><br/>
+                            <br/><label id="id_viewmatrix_m23">0.00</label><br/>
+                            <br/><label id="id_viewmatrix_m33">0.00</label>
+                        </div>
+    
+                        <img src="./texture/matrixR.png">
+                    </div>
+                </div>
+            </div>
+            <div id="id_projmatrix">
+                <h4>透视投影变换</h4>
+                <div style="border: 3px solid #cccccc; width: 30em; margin: 1em;">
+                    gluPerspective
+                    <div id="horizontal">
+                        <br/>fov<input id="id_fov" style="width: 3.5em;" type="number" value="50" step="1.0" oninput="updateProjMatrixByInput()"/>
+                        <br/>, aspect<input id="id_aspect" style="width: 3.5em;" type="number" value="1.0" step="0.1" oninput="updateProjMatrixByInput()"/>
+                        <br/>, zNear<input id="id_near" style="width: 3.5em;" type="number" value="1.0" step="0.1" oninput="updateProjMatrixByInput()"/>
+                        <br/>, zFar<input id="id_far" style="width: 3.5em;" type="number" value="10.0" step="0.1" oninput="updateProjMatrixByInput()"/>
+                    </div>
+                </div>
+                <h4>投影矩阵</h4>
+                <div style="border: 3px solid #cccccc; width: 30em; margin: 1em;">
+                    ProjMatrix = 
+                    <div id="horizontal" style="margin: 5px">
+                        <img src="./texture/matrixL.png">
+                        <div id="matrix">
+                                 <label id="id_projmatrix_m00">1.00</label><br/>
+                            <br/><label id="id_projmatrix_m10">0.00</label><br/>
+                            <br/><label id="id_projmatrix_m20">0.00</label><br/>
+                            <br/><label id="id_projmatrix_m30">0.00</label>
+                        </div>
+                        <div id="matrix">
+                                 <label id="id_projmatrix_m01">1.00</label><br/>
+                            <br/><label id="id_projmatrix_m11">0.00</label><br/>
+                            <br/><label id="id_projmatrix_m21">0.00</label><br/>
+                            <br/><label id="id_projmatrix_m31">0.00</label>
+                        </div>
+                        <div id="matrix">
+                                 <label id="id_projmatrix_m02">1.00</label><br/>
+                            <br/><label id="id_projmatrix_m12">0.00</label><br/>
+                            <br/><label id="id_projmatrix_m22">0.00</label><br/>
+                            <br/><label id="id_projmatrix_m32">0.00</label>
+                        </div>
+                        <div id="matrix">
+                                 <label id="id_projmatrix_m03">1.00</label><br/>
+                            <br/><label id="id_projmatrix_m13">0.00</label><br/>
+                            <br/><label id="id_projmatrix_m23">0.00</label><br/>
+                            <br/><label id="id_projmatrix_m33">0.00</label>
+                        </div>
+    
+                        <img src="./texture/matrixR.png">
+                    </div>
+                </div>
+            </div>
+            <div id="id_rotatematrix">
+                <h4>欧拉角旋转</h4>
+                <div style="border: 3px solid #cccccc; width: 30em; margin: 1em;">
+                    EulerAngle
+                    <div id="horizontal">
+                        <br/>pitch<input  id="id_pitch_eular" style="width: 3.5em;" type="number" value="0" step="5" oninput="updateEulerAngleByInputEular()"/>
+                        <br/>, yaw<input  id="id_yaw_eular"   style="width: 3.5em;" type="number" value="0" step="5" oninput="updateEulerAngleByInputEular()"/>
+                        <br/>, roll<input id="id_roll_eular"  style="width: 3.5em;" type="number" value="0" step="5" oninput="updateEulerAngleByInputEular()"/>
+                    </div>
+                </div>
+                <h4>旋转矩阵</h4>
+                <div style="border: 3px solid #cccccc; width: 48em; margin: 1em; padding: 5px">
+                    RotateMatrix = (ZYX顺规——因为物体坐标系相对世界坐标系z-y-x旋转顺序时，将最后的物体坐标系向世界坐标系转换时需要逆序进行，因此矩阵反序相乘)
+                    <div id="horizontal" style="margin: 5px">
+                        <img src="./texture/matrixL.png">
+                        <div id="matrix">
+                                 <label id="id_rotatematrix_m00">1.00</label><br/>
+                            <br/><label id="id_rotatematrix_m10">0.00</label><br/>
+                            <br/><label id="id_rotatematrix_m20">0.00</label>
+                        </div>
+                        <div id="matrix">
+                                 <label id="id_rotatematrix_m01">0.00</label><br/>
+                            <br/><label id="id_rotatematrix_m11">1.00</label><br/>
+                            <br/><label id="id_rotatematrix_m21">0.00</label>
+                        </div>
+                        <div id="matrix">
+                                 <label id="id_rotatematrix_m02">0.00</label><br/>
+                            <br/><label id="id_rotatematrix_m12">0.00</label><br/>
+                            <br/><label id="id_rotatematrix_m22">1.00</label>
+                        </div>
+                        <img src="./texture/matrixR.png">
+
+                        <label>=</label>
+
+                        <img src="./texture/matrixL.png">
+                        <div id="matrix">
+                                 <label id="id_rotate_z_matrix_m00">1.00</label><br/>
+                            <br/><label id="id_rotate_z_matrix_m10">0.00</label><br/>
+                            <br/><label id="id_rotate_z_matrix_m20">0.00</label>
+                        </div>
+                        <div id="matrix">
+                                 <label id="id_rotate_z_matrix_m01">0.00</label><br/>
+                            <br/><label id="id_rotate_z_matrix_m11">1.00</label><br/>
+                            <br/><label id="id_rotate_z_matrix_m21">0.00</label>
+                        </div>
+                        <div id="matrix">
+                                 <label id="id_rotate_z_matrix_m02">0.00</label><br/>
+                            <br/><label id="id_rotate_z_matrix_m12">0.00</label><br/>
+                            <br/><label id="id_rotate_z_matrix_m22">1.00</label>
+                        </div>
+                        <img src="./texture/matrixR.png">
+
+                        <label>*</label>
+
+                        <img src="./texture/matrixL.png">
+                        <div id="matrix">
+                                 <label id="id_rotate_y_matrix_m00">1.00</label><br/>
+                            <br/><label id="id_rotate_y_matrix_m10">0.00</label><br/>
+                            <br/><label id="id_rotate_y_matrix_m20">0.00</label>
+                        </div>
+                        <div id="matrix">
+                                 <label id="id_rotate_y_matrix_m01">0.00</label><br/>
+                            <br/><label id="id_rotate_y_matrix_m11">1.00</label><br/>
+                            <br/><label id="id_rotate_y_matrix_m21">0.00</label>
+                        </div>
+                        <div id="matrix">
+                                 <label id="id_rotate_y_matrix_m02">0.00</label><br/>
+                            <br/><label id="id_rotate_y_matrix_m12">0.00</label><br/>
+                            <br/><label id="id_rotate_y_matrix_m22">1.00</label>
+                        </div>
+                        <img src="./texture/matrixR.png">
+
+                        <label>*</label>
+
+                        <img src="./texture/matrixL.png">
+                        <div id="matrix">
+                                 <label id="id_rotate_x_matrix_m00">1.00</label><br/>
+                            <br/><label id="id_rotate_x_matrix_m10">0.00</label><br/>
+                            <br/><label id="id_rotate_x_matrix_m20">0.00</label>
+                        </div>
+                        <div id="matrix">
+                                 <label id="id_rotate_x_matrix_m01">0.00</label><br/>
+                            <br/><label id="id_rotate_x_matrix_m11">1.00</label><br/>
+                            <br/><label id="id_rotate_x_matrix_m21">0.00</label>
+                        </div>
+                        <div id="matrix">
+                                 <label id="id_rotate_x_matrix_m02">0.00</label><br/>
+                            <br/><label id="id_rotate_x_matrix_m12">0.00</label><br/>
+                            <br/><label id="id_rotate_x_matrix_m22">1.00</label>
+                        </div>
+                        <img src="./texture/matrixR.png">
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div id="id_axisangle">
+            <h4>轴角旋转</h4>
+            <div style="border: 3px solid #cccccc; width: 30em; margin: 1em;">
+                <div id="horizontal" style="margin: 5px">
+                    <br/>axis, x = <input  id="id_axis_x" style="width: 3.5em;" type="number" value="1" step="1" oninput="updateAxisAngleValue()"/>
+                    <br/>, y = <input  id="id_axis_y" style="width: 3.5em;" type="number" value="0" step="1" oninput="updateAxisAngleValue()"/>
+                    <br/>, z = <input id="id_axis_z" style="width: 3.5em;" type="number" value="0" step="1" oninput="updateAxisAngleValue()"/>
+                </div>
+                <div id="horizontal" style="margin: 5px">
+                    <br/>angle = <input  id="id_axis_angle" style="width: 3.5em;" type="number" value="0" step="5" oninput="updateAxisAngleValue()"/>
+                </div>
+            </div>
+            <h4>旋转矩阵</h4>
+            <div style="border: 3px solid #cccccc; width: 48em; margin: 1em; padding: 5px">
+                RotateMatrix = 
+                <div id="horizontal" style="margin: 5px">
+                    <img src="./texture/matrixL.png">
+                    <div id="matrix">
+                             <label id="id_aa_rotatematrix_m00">1.00</label><br/>
+                        <br/><label id="id_aa_rotatematrix_m10">0.00</label><br/>
+                        <br/><label id="id_aa_rotatematrix_m20">0.00</label>
+                    </div>
+                    <div id="matrix">
+                             <label id="id_aa_rotatematrix_m01">0.00</label><br/>
+                        <br/><label id="id_aa_rotatematrix_m11">1.00</label><br/>
+                        <br/><label id="id_aa_rotatematrix_m21">0.00</label>
+                    </div>
+                    <div id="matrix">
+                             <label id="id_aa_rotatematrix_m02">0.00</label><br/>
+                        <br/><label id="id_aa_rotatematrix_m12">0.00</label><br/>
+                        <br/><label id="id_aa_rotatematrix_m22">1.00</label>
+                    </div>
+
+                    <img src="./texture/matrixR.png">
+                </div>
+            </div>
+        </div>
+        <div id="id_quaternion">
+            <h4>四元数旋转</h4>
+            <div style="border: 3px solid #cccccc; width: 30em; margin: 1em;">
+                <div id="horizontal" style="margin: 5px">
+                    <br/>quaternion, x = <input  id="id_quat_x" style="width: 3.5em;" type="number" value="0" step="0.1" oninput="updateQuaternionValue()"/>
+                    <br/>, y = <input  id="id_quat_y" style="width: 3.5em;" type="number" value="0" step="0.1" oninput="updateQuaternionValue()"/>
+                    <br/>, z = <input  id="id_quat_z" style="width: 3.5em;" type="number" value="0" step="0.1" oninput="updateQuaternionValue()"/>
+                    <br/>, w = <input  id="id_quat_w" style="width: 3.5em;" type="number" value="1" step="0.1" oninput="updateQuaternionValue()"/>
+                </div>
+            </div>
+            <h4>旋转矩阵</h4>
+            <div style="border: 3px solid #cccccc; width: 48em; margin: 1em; padding: 5px">
+                RotateMatrix = 
+                <div id="horizontal" style="margin: 5px">
+                    <img src="./texture/matrixL.png">
+                    <div id="matrix">
+                             <label id="id_quat_rotatematrix_m00">1.00</label><br/>
+                        <br/><label id="id_quat_rotatematrix_m10">0.00</label><br/>
+                        <br/><label id="id_quat_rotatematrix_m20">0.00</label>
+                    </div>
+                    <div id="matrix">
+                             <label id="id_quat_rotatematrix_m01">0.00</label><br/>
+                        <br/><label id="id_quat_rotatematrix_m11">1.00</label><br/>
+                        <br/><label id="id_quat_rotatematrix_m21">0.00</label>
+                    </div>
+                    <div id="matrix">
+                             <label id="id_quat_rotatematrix_m02">0.00</label><br/>
+                        <br/><label id="id_quat_rotatematrix_m12">0.00</label><br/>
+                        <br/><label id="id_quat_rotatematrix_m22">1.00</label>
+                    </div>
+
+                    <img src="./texture/matrixR.png">
+                </div>
+            </div>
+        </div>
+    </div>
+    </body>
+</html>
