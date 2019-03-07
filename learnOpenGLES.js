@@ -129,8 +129,6 @@ var mMouseDown = false;
 var mLastMouseX = null;
 var mLastMouseY = null;
 var mDragMainView = true;
-// html need refresh status 
-var mNeedRefreshViewMatrix = false;
 
 
 function onKeyPress(event) {
@@ -1239,10 +1237,22 @@ function handleMouseMove(event) {
     }
 }
 
-function demoModelMatrix() {
-    mNeedRefreshViewMatrix = false;
+function demoMvpMatrix() {
     mNeedDrawGimbal = false;
     mNeedDrawAngleAxis = false;
+    document.getElementById("id_mvpmatrix").style.display = 'flex';
+    document.getElementById("id_modelmatrix").style.display = 'none';
+    document.getElementById("id_viewmatrix").style.display = 'none';
+    document.getElementById("id_projmatrix").style.display = 'none';
+    document.getElementById("id_rotatematrix").style.display = 'none';
+    document.getElementById("id_axisangle").style.display = 'none';
+    document.getElementById("id_quaternion").style.display = 'none';
+}
+
+function demoModelMatrix() {
+    mNeedDrawGimbal = false;
+    mNeedDrawAngleAxis = false;
+    document.getElementById("id_mvpmatrix").style.display = 'none';
     document.getElementById("id_modelmatrix").style.display = 'flex';
     document.getElementById("id_viewmatrix").style.display = 'none';
     document.getElementById("id_projmatrix").style.display = 'none';
@@ -1252,9 +1262,9 @@ function demoModelMatrix() {
 }
 
 function demoViewMatrix() {
-    mNeedRefreshViewMatrix = true;
     mNeedDrawGimbal = false;
     mNeedDrawAngleAxis = false;
+    document.getElementById("id_mvpmatrix").style.display = 'none';
     document.getElementById("id_modelmatrix").style.display = 'none';
     document.getElementById("id_viewmatrix").style.display = 'flex';
     document.getElementById("id_projmatrix").style.display = 'none';
@@ -1264,9 +1274,9 @@ function demoViewMatrix() {
 }
 
 function demoProjMatrix() {
-    mNeedRefreshViewMatrix = false;
     mNeedDrawGimbal = false;
     mNeedDrawAngleAxis = false;
+    document.getElementById("id_mvpmatrix").style.display = 'none';
     document.getElementById("id_modelmatrix").style.display = 'none';
     document.getElementById("id_viewmatrix").style.display = 'none';
     document.getElementById("id_projmatrix").style.display = 'flex';
@@ -1276,9 +1286,9 @@ function demoProjMatrix() {
 }
 
 function demoRotateMatrix() {
-    mNeedRefreshViewMatrix = false;
     mNeedDrawGimbal = true;
     mNeedDrawAngleAxis = false;
+    document.getElementById("id_mvpmatrix").style.display = 'none';
     document.getElementById("id_modelmatrix").style.display = 'none';
     document.getElementById("id_viewmatrix").style.display = 'none';
     document.getElementById("id_projmatrix").style.display = 'none';
@@ -1288,9 +1298,9 @@ function demoRotateMatrix() {
 }
 
 function demoAxisAngle() {
-    mNeedRefreshViewMatrix = false;
     mNeedDrawGimbal = false;
     mNeedDrawAngleAxis = true;
+    document.getElementById("id_mvpmatrix").style.display = 'none';
     document.getElementById("id_modelmatrix").style.display = 'none';
     document.getElementById("id_viewmatrix").style.display = 'none';
     document.getElementById("id_projmatrix").style.display = 'none';
@@ -1300,9 +1310,9 @@ function demoAxisAngle() {
 }
 
 function demoQuaternion() {
-    mNeedRefreshViewMatrix = false;
     mNeedDrawGimbal = false;
     mNeedDrawAngleAxis = false;
+    document.getElementById("id_mvpmatrix").style.display = 'none';
     document.getElementById("id_modelmatrix").style.display = 'none';
     document.getElementById("id_viewmatrix").style.display = 'none';
     document.getElementById("id_projmatrix").style.display = 'none';
@@ -1931,6 +1941,23 @@ function updateHtmlParamByRender() {
     document.getElementById("id_m32").value = mModelMatrix[11].toFixed(2);
     document.getElementById("id_m33").value = mModelMatrix[15].toFixed(2);
 
+    document.getElementById("id_mvp_model_m00").innerHTML = mModelMatrix[0].toFixed(2);
+    document.getElementById("id_mvp_model_m01").innerHTML = mModelMatrix[4].toFixed(2);
+    document.getElementById("id_mvp_model_m02").innerHTML = mModelMatrix[8].toFixed(2);
+    document.getElementById("id_mvp_model_m03").innerHTML = mModelMatrix[12].toFixed(2);
+    document.getElementById("id_mvp_model_m10").innerHTML = mModelMatrix[1].toFixed(2);
+    document.getElementById("id_mvp_model_m11").innerHTML = mModelMatrix[5].toFixed(2);
+    document.getElementById("id_mvp_model_m12").innerHTML = mModelMatrix[9].toFixed(2);
+    document.getElementById("id_mvp_model_m13").innerHTML = mModelMatrix[13].toFixed(2);
+    document.getElementById("id_mvp_model_m20").innerHTML = mModelMatrix[2].toFixed(2);
+    document.getElementById("id_mvp_model_m21").innerHTML = mModelMatrix[6].toFixed(2);
+    document.getElementById("id_mvp_model_m22").innerHTML = mModelMatrix[10].toFixed(2);
+    document.getElementById("id_mvp_model_m23").innerHTML = mModelMatrix[14].toFixed(2);
+    document.getElementById("id_mvp_model_m30").innerHTML = mModelMatrix[3].toFixed(2);
+    document.getElementById("id_mvp_model_m31").innerHTML = mModelMatrix[7].toFixed(2);
+    document.getElementById("id_mvp_model_m32").innerHTML = mModelMatrix[11].toFixed(2);
+    document.getElementById("id_mvp_model_m33").innerHTML = mModelMatrix[15].toFixed(2);
+
     document.getElementById("id_pitch").value = mPitching * RADIUS_TO_DEGREE;
     document.getElementById("id_yaw").value = mYawing * RADIUS_TO_DEGREE;
     document.getElementById("id_roll").value = mRolling * RADIUS_TO_DEGREE;
@@ -1950,18 +1977,16 @@ function updateViewMatrixByMouse() {
     mat4.lookAt(mViewMatrix, mEye, mLookAtCenter, mCameraUp);
     mat4.copy(mVIMatrix, mViewMatrix);
     mat4.invert(mVIMatrix, mVIMatrix);
-    if (mNeedRefreshViewMatrix) {
-        document.getElementById("id_eye_x").value = mEye[0];
-        document.getElementById("id_eye_y").value = mEye[1];
-        document.getElementById("id_eye_z").value = mEye[2];
-        document.getElementById("id_lookat_x").value = mLookAtCenter[0];
-        document.getElementById("id_lookat_y").value = mLookAtCenter[1];
-        document.getElementById("id_lookat_z").value = mLookAtCenter[2];
-        document.getElementById("id_cameraup_x").value = mCameraUp[0];
-        document.getElementById("id_cameraup_y").value = mCameraUp[1];
-        document.getElementById("id_cameraup_z").value = mCameraUp[2];
-        updateViewMatrixHtml();
-    }
+    document.getElementById("id_eye_x").value = mEye[0];
+    document.getElementById("id_eye_y").value = mEye[1];
+    document.getElementById("id_eye_z").value = mEye[2];
+    document.getElementById("id_lookat_x").value = mLookAtCenter[0];
+    document.getElementById("id_lookat_y").value = mLookAtCenter[1];
+    document.getElementById("id_lookat_z").value = mLookAtCenter[2];
+    document.getElementById("id_cameraup_x").value = mCameraUp[0];
+    document.getElementById("id_cameraup_y").value = mCameraUp[1];
+    document.getElementById("id_cameraup_z").value = mCameraUp[2];
+    updateViewMatrixHtml();
     updateViewFrustumPose();
 }
 
@@ -2001,6 +2026,23 @@ function updateViewMatrixHtml() {
     document.getElementById("id_viewmatrix_m31").innerHTML = mViewMatrix[7].toFixed(2);
     document.getElementById("id_viewmatrix_m32").innerHTML = mViewMatrix[11].toFixed(2);
     document.getElementById("id_viewmatrix_m33").innerHTML = mViewMatrix[15].toFixed(2);
+
+    document.getElementById("id_mvp_view_m00").innerHTML = mViewMatrix[0].toFixed(2);
+    document.getElementById("id_mvp_view_m01").innerHTML = mViewMatrix[4].toFixed(2);
+    document.getElementById("id_mvp_view_m02").innerHTML = mViewMatrix[8].toFixed(2);
+    document.getElementById("id_mvp_view_m03").innerHTML = mViewMatrix[12].toFixed(2);
+    document.getElementById("id_mvp_view_m10").innerHTML = mViewMatrix[1].toFixed(2);
+    document.getElementById("id_mvp_view_m11").innerHTML = mViewMatrix[5].toFixed(2);
+    document.getElementById("id_mvp_view_m12").innerHTML = mViewMatrix[9].toFixed(2);
+    document.getElementById("id_mvp_view_m13").innerHTML = mViewMatrix[13].toFixed(2);
+    document.getElementById("id_mvp_view_m20").innerHTML = mViewMatrix[2].toFixed(2);
+    document.getElementById("id_mvp_view_m21").innerHTML = mViewMatrix[6].toFixed(2);
+    document.getElementById("id_mvp_view_m22").innerHTML = mViewMatrix[10].toFixed(2);
+    document.getElementById("id_mvp_view_m23").innerHTML = mViewMatrix[14].toFixed(2);
+    document.getElementById("id_mvp_view_m30").innerHTML = mViewMatrix[3].toFixed(2);
+    document.getElementById("id_mvp_view_m31").innerHTML = mViewMatrix[7].toFixed(2);
+    document.getElementById("id_mvp_view_m32").innerHTML = mViewMatrix[11].toFixed(2);
+    document.getElementById("id_mvp_view_m33").innerHTML = mViewMatrix[15].toFixed(2);
 }
 
 function updateProjMatrixHtml() {
@@ -2020,6 +2062,23 @@ function updateProjMatrixHtml() {
     document.getElementById("id_projmatrix_m31").innerHTML = mProjectionMatrix[7].toFixed(2);
     document.getElementById("id_projmatrix_m32").innerHTML = mProjectionMatrix[11].toFixed(2);
     document.getElementById("id_projmatrix_m33").innerHTML = mProjectionMatrix[15].toFixed(2);
+
+    document.getElementById("id_mvp_proj_m00").innerHTML = mProjectionMatrix[0].toFixed(2);
+    document.getElementById("id_mvp_proj_m01").innerHTML = mProjectionMatrix[4].toFixed(2);
+    document.getElementById("id_mvp_proj_m02").innerHTML = mProjectionMatrix[8].toFixed(2);
+    document.getElementById("id_mvp_proj_m03").innerHTML = mProjectionMatrix[12].toFixed(2);
+    document.getElementById("id_mvp_proj_m10").innerHTML = mProjectionMatrix[1].toFixed(2);
+    document.getElementById("id_mvp_proj_m11").innerHTML = mProjectionMatrix[5].toFixed(2);
+    document.getElementById("id_mvp_proj_m12").innerHTML = mProjectionMatrix[9].toFixed(2);
+    document.getElementById("id_mvp_proj_m13").innerHTML = mProjectionMatrix[13].toFixed(2);
+    document.getElementById("id_mvp_proj_m20").innerHTML = mProjectionMatrix[2].toFixed(2);
+    document.getElementById("id_mvp_proj_m21").innerHTML = mProjectionMatrix[6].toFixed(2);
+    document.getElementById("id_mvp_proj_m22").innerHTML = mProjectionMatrix[10].toFixed(2);
+    document.getElementById("id_mvp_proj_m23").innerHTML = mProjectionMatrix[14].toFixed(2);
+    document.getElementById("id_mvp_proj_m30").innerHTML = mProjectionMatrix[3].toFixed(2);
+    document.getElementById("id_mvp_proj_m31").innerHTML = mProjectionMatrix[7].toFixed(2);
+    document.getElementById("id_mvp_proj_m32").innerHTML = mProjectionMatrix[11].toFixed(2);
+    document.getElementById("id_mvp_proj_m33").innerHTML = mProjectionMatrix[15].toFixed(2);
 }
 
 function updateHtmlRotateMatrixByRender() {

@@ -17,8 +17,11 @@
             div#horizontal {
                 display: flex;
             }
+            div#id_mvpmatrix {
+                display: flex
+            }
             div#id_modelmatrix {
-                display: flex;
+                display: none;
             }
             div#id_viewmatrix {
                 display: none;
@@ -51,12 +54,12 @@
                         <li>渲染管线</li>
                         <li>变换矩阵</li>
                             <ul>
-                                <li><a href="#TOC1.1" onclick="alert('矩阵运算')">矩阵运算</a></li>
+                                <li><a href="#TOC1.1" onclick="demoMvpMatrix()">MVP</a></li>
                                 <li><a href="#TOC1.2" onclick="demoModelMatrix()">模型矩阵</a></li>
                                 <li><a href="#TOC1.3" onclick="demoViewMatrix()">视图矩阵</a></li>
                                 <li><a href="#TOC1.4" onclick="demoProjMatrix()">投影矩阵</a></li>
                                 <li><a href="#TOC1.5" onclick="demoRotateMatrix()">欧拉角、万向节</a></li>
-                                <li><a href="#TOC1.6" onclick="demoAxisAngle()">轴角</a></li>
+                                <li><a href="#TOC1.6" onclick="demoAxisAngle()">轴-角</a></li>
                                 <li><a href="#TOC1.7" onclick="demoQuaternion()">四元数</a></li>
                             </ul>
                         <li>纹理</li>
@@ -92,6 +95,127 @@
                 </div>
 
                 <canvas id="glcanvas" width="1440" height="720"></canvas>
+            </div>
+            <div id="id_mvpmatrix">
+                <h4>MVP矩阵</h4>
+                <div style="border: 3px solid #cccccc; width: 60em; margin: 1em; padding: 5px">
+                    MVP = ProjMatrix * ViewMatrix * ModelMatrix
+                    <div id="horizontal" style="margin: 5px">
+                        <img src="./texture/matrixL.png">
+                        <div id="matrix">
+                                 <label id="id_mvp_m00">1.00</label><br/>
+                            <br/><label id="id_mvp_m10">0.00</label><br/>
+                            <br/><label id="id_mvp_m20">0.00</label><br/>
+                            <br/><label id="id_mvp_m30">0.00</label>
+                        </div>
+                        <div id="matrix">
+                                 <label id="id_mvp_m01">0.00</label><br/>
+                            <br/><label id="id_mvp_m11">1.00</label><br/>
+                            <br/><label id="id_mvp_m21">0.00</label><br/>
+                            <br/><label id="id_mvp_m31">0.00</label>
+                        </div>
+                        <div id="matrix">
+                                 <label id="id_mvp_m02">0.00</label><br/>
+                            <br/><label id="id_mvp_m12">0.00</label><br/>
+                            <br/><label id="id_mvp_m22">1.00</label><br/>
+                            <br/><label id="id_mvp_m32">0.00</label>
+                        </div>
+                        <div id="matrix">
+                                 <label id="id_mvp_m03">0.00</label><br/>
+                            <br/><label id="id_mvp_m13">0.00</label><br/>
+                            <br/><label id="id_mvp_m23">0.00</label><br/>
+                            <br/><label id="id_mvp_m33">1.00</label>
+                        </div>
+                        <img src="./texture/matrixR.png">
+
+                        <label>=</label>
+
+                        <img src="./texture/matrixL.png">
+                        <div id="matrix">
+                                 <label id="id_mvp_proj_m00">1.00</label><br/>
+                            <br/><label id="id_mvp_proj_m10">0.00</label><br/>
+                            <br/><label id="id_mvp_proj_m20">0.00</label><br/>
+                            <br/><label id="id_mvp_proj_m30">0.00</label>
+                        </div>
+                        <div id="matrix">
+                                 <label id="id_mvp_proj_m01">0.00</label><br/>
+                            <br/><label id="id_mvp_proj_m11">1.00</label><br/>
+                            <br/><label id="id_mvp_proj_m21">0.00</label><br/>
+                            <br/><label id="id_mvp_proj_m31">0.00</label>
+                        </div>
+                        <div id="matrix">
+                                 <label id="id_mvp_proj_m02">0.00</label><br/>
+                            <br/><label id="id_mvp_proj_m12">0.00</label><br/>
+                            <br/><label id="id_mvp_proj_m22">1.00</label><br/>
+                            <br/><label id="id_mvp_proj_m32">0.00</label>
+                        </div>
+                        <div id="matrix">
+                                 <label id="id_mvp_proj_m03">0.00</label><br/>
+                            <br/><label id="id_mvp_proj_m13">0.00</label><br/>
+                            <br/><label id="id_mvp_proj_m23">0.00</label><br/>
+                            <br/><label id="id_mvp_proj_m33">1.00</label>
+                        </div>
+                        <img src="./texture/matrixR.png">
+
+                        <label>*</label>
+
+                        <img src="./texture/matrixL.png">
+                        <div id="matrix">
+                                 <label id="id_mvp_view_m00">1.00</label><br/>
+                            <br/><label id="id_mvp_view_m10">0.00</label><br/>
+                            <br/><label id="id_mvp_view_m20">0.00</label><br/>
+                            <br/><label id="id_mvp_view_m30">0.00</label>
+                        </div>
+                        <div id="matrix">
+                                 <label id="id_mvp_view_m01">0.00</label><br/>
+                            <br/><label id="id_mvp_view_m11">1.00</label><br/>
+                            <br/><label id="id_mvp_view_m21">0.00</label><br/>
+                            <br/><label id="id_mvp_view_m31">0.00</label>
+                        </div>
+                        <div id="matrix">
+                                 <label id="id_mvp_view_m02">0.00</label><br/>
+                            <br/><label id="id_mvp_view_m12">0.00</label><br/>
+                            <br/><label id="id_mvp_view_m22">1.00</label><br/>
+                            <br/><label id="id_mvp_view_m32">0.00</label>
+                        </div>
+                        <div id="matrix">
+                                 <label id="id_mvp_view_m03">0.00</label><br/>
+                            <br/><label id="id_mvp_view_m13">0.00</label><br/>
+                            <br/><label id="id_mvp_view_m23">0.00</label><br/>
+                            <br/><label id="id_mvp_view_m33">1.00</label>
+                        </div>
+                        <img src="./texture/matrixR.png">
+
+                        <label>*</label>
+
+                        <img src="./texture/matrixL.png">
+                        <div id="matrix">
+                                 <label id="id_mvp_model_m00">1.00</label><br/>
+                            <br/><label id="id_mvp_model_m10">0.00</label><br/>
+                            <br/><label id="id_mvp_model_m20">0.00</label><br/>
+                            <br/><label id="id_mvp_model_m30">0.00</label>
+                        </div>
+                        <div id="matrix">
+                                 <label id="id_mvp_model_m01">0.00</label><br/>
+                            <br/><label id="id_mvp_model_m11">1.00</label><br/>
+                            <br/><label id="id_mvp_model_m21">0.00</label><br/>
+                            <br/><label id="id_mvp_model_m31">0.00</label>
+                        </div>
+                        <div id="matrix">
+                                 <label id="id_mvp_model_m02">0.00</label><br/>
+                            <br/><label id="id_mvp_model_m12">0.00</label><br/>
+                            <br/><label id="id_mvp_model_m22">1.00</label><br/>
+                            <br/><label id="id_mvp_model_m32">0.00</label>
+                        </div>
+                        <div id="matrix">
+                                 <label id="id_mvp_model_m03">0.00</label><br/>
+                            <br/><label id="id_mvp_model_m13">0.00</label><br/>
+                            <br/><label id="id_mvp_model_m23">0.00</label><br/>
+                            <br/><label id="id_mvp_model_m33">1.00</label>
+                        </div>
+                        <img src="./texture/matrixR.png">
+                    </div>
+                </div>
             </div>
             <div id="id_modelmatrix">
                 <h4>模型矩阵</h4>
