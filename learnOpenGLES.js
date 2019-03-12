@@ -74,6 +74,7 @@ var mMITMatrix = mat4.create();
 var mViewMatrix = mat4.create();
 var mVIMatrix = mat4.create();
 var mProjectionMatrix = mat4.create();
+var mMvpMatrix = mat4.create();
 var mGodViewMatrix = mat4.create();
 var mGodVIMatrix = mat4.create();
 var mGodProjectionMatrix = mat4.create();
@@ -1674,6 +1675,11 @@ function drawObject(gl, lightingProgram, buffers, diffuseTexture, normalTexture,
     mat4.invert(mMITMatrix, mMITMatrix);
     mat4.transpose(mMITMatrix, mMITMatrix);
 
+    mMvpMatrix = mat4.create();
+    mat4.multiply(mMvpMatrix, mModelMatrix, mMvpMatrix);
+    mat4.multiply(mMvpMatrix, mViewMatrix, mMvpMatrix);
+    mat4.multiply(mMvpMatrix, mProjectionMatrix, mMvpMatrix);
+
     // Tell WebGL how to pull out the positions from the position
     // buffer into the vertexPosition attribute.
     {
@@ -1957,6 +1963,23 @@ function updateHtmlParamByRender() {
     document.getElementById("id_mvp_model_m31").innerHTML = mModelMatrix[7].toFixed(2);
     document.getElementById("id_mvp_model_m32").innerHTML = mModelMatrix[11].toFixed(2);
     document.getElementById("id_mvp_model_m33").innerHTML = mModelMatrix[15].toFixed(2);
+
+    document.getElementById("id_mvp_m00").innerHTML = mMvpMatrix[0].toFixed(2);
+    document.getElementById("id_mvp_m01").innerHTML = mMvpMatrix[4].toFixed(2);
+    document.getElementById("id_mvp_m02").innerHTML = mMvpMatrix[8].toFixed(2);
+    document.getElementById("id_mvp_m03").innerHTML = mMvpMatrix[12].toFixed(2);
+    document.getElementById("id_mvp_m10").innerHTML = mMvpMatrix[1].toFixed(2);
+    document.getElementById("id_mvp_m11").innerHTML = mMvpMatrix[5].toFixed(2);
+    document.getElementById("id_mvp_m12").innerHTML = mMvpMatrix[9].toFixed(2);
+    document.getElementById("id_mvp_m13").innerHTML = mMvpMatrix[13].toFixed(2);
+    document.getElementById("id_mvp_m20").innerHTML = mMvpMatrix[2].toFixed(2);
+    document.getElementById("id_mvp_m21").innerHTML = mMvpMatrix[6].toFixed(2);
+    document.getElementById("id_mvp_m22").innerHTML = mMvpMatrix[10].toFixed(2);
+    document.getElementById("id_mvp_m23").innerHTML = mMvpMatrix[14].toFixed(2);
+    document.getElementById("id_mvp_m30").innerHTML = mMvpMatrix[3].toFixed(2);
+    document.getElementById("id_mvp_m31").innerHTML = mMvpMatrix[7].toFixed(2);
+    document.getElementById("id_mvp_m32").innerHTML = mMvpMatrix[11].toFixed(2);
+    document.getElementById("id_mvp_m33").innerHTML = mMvpMatrix[15].toFixed(2);
 
     document.getElementById("id_pitch").value = mPitching * RADIUS_TO_DEGREE;
     document.getElementById("id_yaw").value = mYawing * RADIUS_TO_DEGREE;
