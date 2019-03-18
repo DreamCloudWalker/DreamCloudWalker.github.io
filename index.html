@@ -215,6 +215,69 @@
                         </div>
                         <img src="./texture/matrixR.png">
                     </div>
+                    
+                    CVV_Coord = MvpMatrix * Coord
+                    <div id="horizontal" style="margin: 5px">
+                        <img src="./texture/matrixL.png">
+                        <div id="matrix">
+                                 <label id="id_mvp_coord_homog_x">1.00</label><br/>
+                            <br/><label id="id_mvp_coord_homog_y">0.00</label><br/>
+                            <br/><label id="id_mvp_coord_homog_z">0.00</label><br/>
+                            <br/><label id="id_mvp_coord_homog_w">0.00</label>
+                        </div>
+                        <img src="./texture/matrixR.png">
+
+                        <label>=</label>
+
+                        <img src="./texture/matrixL.png">
+                        <div id="matrix">
+                                 <label id="id_mvp_coord_x">1.00</label><br/>
+                            <br/><label id="id_mvp_coord_y">0.00</label><br/>
+                            <br/><label id="id_mvp_coord_z">0.00</label><br/>
+                            <br/><label id="id_mvp_coord_w">0.00</label>
+                        </div>
+                        <img src="./texture/matrixR.png">
+
+                        <label>=</label>
+
+                        <img src="./texture/matrixL.png">
+                        <div id="matrix">
+                                 <label id="id_mvp_mult_m00">1.00</label><br/>
+                            <br/><label id="id_mvp_mult_m10">0.00</label><br/>
+                            <br/><label id="id_mvp_mult_m20">0.00</label><br/>
+                            <br/><label id="id_mvp_mult_m30">0.00</label>
+                        </div>
+                        <div id="matrix">
+                                 <label id="id_mvp_mult_m01">0.00</label><br/>
+                            <br/><label id="id_mvp_mult_m11">1.00</label><br/>
+                            <br/><label id="id_mvp_mult_m21">0.00</label><br/>
+                            <br/><label id="id_mvp_mult_m31">0.00</label>
+                        </div>
+                        <div id="matrix">
+                                 <label id="id_mvp_mult_m02">0.00</label><br/>
+                            <br/><label id="id_mvp_mult_m12">0.00</label><br/>
+                            <br/><label id="id_mvp_mult_m22">1.00</label><br/>
+                            <br/><label id="id_mvp_mult_m32">0.00</label>
+                        </div>
+                        <div id="matrix">
+                                 <label id="id_mvp_mult_m03">0.00</label><br/>
+                            <br/><label id="id_mvp_mult_m13">0.00</label><br/>
+                            <br/><label id="id_mvp_mult_m23">0.00</label><br/>
+                            <br/><label id="id_mvp_mult_m33">1.00</label>
+                        </div>
+                        <img src="./texture/matrixR.png">
+
+                        <label>*</label>
+
+                        <img src="./texture/matrixL.png">
+                        <div id="matrix">
+                                 <label id="id_coord_x">1.00</label><br/>
+                            <br/><label id="id_coord_y">0.00</label><br/>
+                            <br/><label id="id_coord_z">0.00</label><br/>
+                            <br/><label id="id_coord_w">0.00</label>
+                        </div>
+                        <img src="./texture/matrixR.png">
+                    </div>
                 </div>
             </div>
             <div id="id_modelmatrix">
@@ -222,26 +285,26 @@
                 <div style="border: 3px solid #cccccc; width: 30em; margin: 1em;">
                     ModelMatrix
                     <div id="horizontal">
-                        <br/>m0<input   id="id_m00"   style="width: 3.5em;" type="number" value="1" step="0.1" oninput="updateModelMatrixByInput()"/>
-                        <br/>, m4<input id="id_m01"   style="width: 3.5em;" type="number" value="0" step="0.1" oninput="updateModelMatrixByInput()"/>
-                        <br/>, m8<input id="id_m02"   style="width: 3.5em;" type="number" value="0" step="0.1" oninput="updateModelMatrixByInput()"/>
+                        <br/>m 0<input   id="id_m00"   style="width: 3.5em;" type="number" value="1" step="0.1" oninput="updateModelMatrixByInput()"/>
+                        <br/>, m 4<input id="id_m01"   style="width: 3.5em;" type="number" value="0" step="0.1" oninput="updateModelMatrixByInput()"/>
+                        <br/>, m 8<input id="id_m02"   style="width: 3.5em;" type="number" value="0" step="0.1" oninput="updateModelMatrixByInput()"/>
                         <br/>, m12<input id="id_m03"   style="width: 3.5em;" type="number" value="0" step="0.1" oninput="updateModelMatrixByInput()"/>
                     </div>
                     <div id="horizontal">
-                        <br/>m1<input   id="id_m10"   style="width: 3.5em;" type="number" value="0" step="0.1" oninput="updateModelMatrixByInput()"/>
-                        <br/>, m5<input id="id_m11"   style="width: 3.5em;" type="number" value="1" step="0.1" oninput="updateModelMatrixByInput()"/>
-                        <br/>, m9<input id="id_m12"   style="width: 3.5em;" type="number" value="0" step="0.1" oninput="updateModelMatrixByInput()"/>
+                        <br/>m 1<input   id="id_m10"   style="width: 3.5em;" type="number" value="0" step="0.1" oninput="updateModelMatrixByInput()"/>
+                        <br/>, m 5<input id="id_m11"   style="width: 3.5em;" type="number" value="1" step="0.1" oninput="updateModelMatrixByInput()"/>
+                        <br/>, m 9<input id="id_m12"   style="width: 3.5em;" type="number" value="0" step="0.1" oninput="updateModelMatrixByInput()"/>
                         <br/>, m13<input id="id_m13"   style="width: 3.5em;" type="number" value="0" step="0.1" oninput="updateModelMatrixByInput()"/>
                     </div>
                     <div id="horizontal">
-                        <br/>m2<input   id="id_m20"   style="width: 3.5em;" type="number" value="0" step="0.1" oninput="updateModelMatrixByInput()"/>
-                        <br/>, m6<input id="id_m21"   style="width: 3.5em;" type="number" value="0" step="0.1" oninput="updateModelMatrixByInput()"/>
+                        <br/>m 2<input   id="id_m20"   style="width: 3.5em;" type="number" value="0" step="0.1" oninput="updateModelMatrixByInput()"/>
+                        <br/>, m 6<input id="id_m21"   style="width: 3.5em;" type="number" value="0" step="0.1" oninput="updateModelMatrixByInput()"/>
                         <br/>, m10<input id="id_m22"   style="width: 3.5em;" type="number" value="1" step="0.1" oninput="updateModelMatrixByInput()"/>
                         <br/>, m14<input id="id_m23"   style="width: 3.5em;" type="number" value="0" step="0.1" oninput="updateModelMatrixByInput()"/>
                     </div>
                     <div id="horizontal">
-                        <br/>m3<input   id="id_m30"   style="width: 3.5em;" type="number" value="0" step="0.1" oninput="updateModelMatrixByInput()"/>
-                        <br/>, m7<input id="id_m31"   style="width: 3.5em;" type="number" value="0" step="0.1" oninput="updateModelMatrixByInput()"/>
+                        <br/>m 3<input   id="id_m30"   style="width: 3.5em;" type="number" value="0" step="0.1" oninput="updateModelMatrixByInput()"/>
+                        <br/>, m 7<input id="id_m31"   style="width: 3.5em;" type="number" value="0" step="0.1" oninput="updateModelMatrixByInput()"/>
                         <br/>, m11<input id="id_m32"   style="width: 3.5em;" type="number" value="0" step="0.1" oninput="updateModelMatrixByInput()"/>
                         <br/>, m15<input id="id_m33"   style="width: 3.5em;" type="number" value="1" step="0.1" oninput="updateModelMatrixByInput()"/>
                     </div>
