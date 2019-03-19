@@ -81,6 +81,7 @@ var mGodProjectionMatrix = mat4.create();
 var mGodMvpMatrix = mat4.create();
 // draw assist object use mMvpMatrix
 var mNeedDrawAssistObject = true;
+var mCurrentViewport = [0, 0, 0, 0];
 var mAssistCoord = vec4.fromValues(1.0, 0.0, 0.0, 1.0);
 var mAssistMvpCoord = vec4.create();
 var mAssistMvpHomogCoord = vec4.create();
@@ -1931,6 +1932,16 @@ function drawScene(gl, basicProgram, diffuseLightingProgram, phongLightingProgra
         } else {
             vec4.copy(mAssistMvpHomogCoord, mAssistMvpCoord);
         }
+
+        // update screen coord
+        // gl.glGetIntegerv(gl.GL_VIEWPORT, mCurrentViewport, 0);
+        // mAssistScreenCoord[0] = mCurrentViewport[0] + (1 + mAssistMvpHomogCoord[0]) * mCurrentViewport[2] / 2;
+        // mAssistScreenCoord[1] = mCurrentViewport[1] + (1 + mAssistMvpHomogCoord[1]) * mCurrentViewport[3] / 2;
+        mAssistScreenCoord[0] = 0 + (1 + mAssistMvpHomogCoord[0]) * mViewportWidth / 2;
+        mAssistScreenCoord[1] = 0 + (1 + mAssistMvpHomogCoord[1]) * mViewportHeight / 2;
+        mAssistScreenCoord[2] = (1 + mAssistMvpHomogCoord[2]) / 2;
+        mAssistScreenCoord[3] = 1.0;
+
         drawElements(gl, basicProgram, mAssistObjectBuffer, mAssistObjectBuffer.drawCnt, mMvpMatrix, gl.TRIANGLE_STRIP, deltaTime);
     }
 
@@ -2092,6 +2103,11 @@ function updateHtmlParamByRender() {
     document.getElementById("id_mvp_coord_homog_y").innerHTML = mAssistMvpHomogCoord[1].toFixed(2);
     document.getElementById("id_mvp_coord_homog_z").innerHTML = mAssistMvpHomogCoord[2].toFixed(2);
     document.getElementById("id_mvp_coord_homog_w").innerHTML = mAssistMvpHomogCoord[3].toFixed(2);
+
+    document.getElementById("id_screen_coord_x").innerHTML = mAssistScreenCoord[0].toFixed(2);
+    document.getElementById("id_screen_coord_y").innerHTML = mAssistScreenCoord[1].toFixed(2);
+    document.getElementById("id_screen_coord_z").innerHTML = mAssistScreenCoord[2].toFixed(2);
+    document.getElementById("id_screen_coord_w").innerHTML = mAssistScreenCoord[3].toFixed(2);
 
     document.getElementById("id_mvp_mult_m00").innerHTML = mMvpMatrix[0].toFixed(2);
     document.getElementById("id_mvp_mult_m01").innerHTML = mMvpMatrix[4].toFixed(2);
