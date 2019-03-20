@@ -80,7 +80,7 @@ var mGodVIMatrix = mat4.create();
 var mGodProjectionMatrix = mat4.create();
 var mGodMvpMatrix = mat4.create();
 // draw assist object use mMvpMatrix
-var mNeedDrawAssistObject = true;
+var mNeedDrawAssistObject = false;
 var mCurrentViewport = [0, 0, 0, 0];
 var mAssistCoord = vec4.fromValues(1.0, 0.0, 0.0, 1.0);
 var mAssistMvpCoord = vec4.create();
@@ -1249,6 +1249,7 @@ function handleMouseMove(event) {
 function demoMvpMatrix() {
     mNeedDrawGimbal = false;
     mNeedDrawAngleAxis = false;
+    mNeedDrawAssistObject = true;
     document.getElementById("id_mvpmatrix").style.display = 'flex';
     document.getElementById("id_modelmatrix").style.display = 'none';
     document.getElementById("id_viewmatrix").style.display = 'none';
@@ -1261,6 +1262,7 @@ function demoMvpMatrix() {
 function demoModelMatrix() {
     mNeedDrawGimbal = false;
     mNeedDrawAngleAxis = false;
+    mNeedDrawAssistObject = false;
     document.getElementById("id_mvpmatrix").style.display = 'none';
     document.getElementById("id_modelmatrix").style.display = 'flex';
     document.getElementById("id_viewmatrix").style.display = 'none';
@@ -1273,6 +1275,7 @@ function demoModelMatrix() {
 function demoViewMatrix() {
     mNeedDrawGimbal = false;
     mNeedDrawAngleAxis = false;
+    mNeedDrawAssistObject = false;
     document.getElementById("id_mvpmatrix").style.display = 'none';
     document.getElementById("id_modelmatrix").style.display = 'none';
     document.getElementById("id_viewmatrix").style.display = 'flex';
@@ -1285,6 +1288,7 @@ function demoViewMatrix() {
 function demoProjMatrix() {
     mNeedDrawGimbal = false;
     mNeedDrawAngleAxis = false;
+    mNeedDrawAssistObject = false;
     document.getElementById("id_mvpmatrix").style.display = 'none';
     document.getElementById("id_modelmatrix").style.display = 'none';
     document.getElementById("id_viewmatrix").style.display = 'none';
@@ -1297,6 +1301,7 @@ function demoProjMatrix() {
 function demoRotateMatrix() {
     mNeedDrawGimbal = true;
     mNeedDrawAngleAxis = false;
+    mNeedDrawAssistObject = false;
     document.getElementById("id_mvpmatrix").style.display = 'none';
     document.getElementById("id_modelmatrix").style.display = 'none';
     document.getElementById("id_viewmatrix").style.display = 'none';
@@ -1309,6 +1314,7 @@ function demoRotateMatrix() {
 function demoAxisAngle() {
     mNeedDrawGimbal = false;
     mNeedDrawAngleAxis = true;
+    mNeedDrawAssistObject = false;
     document.getElementById("id_mvpmatrix").style.display = 'none';
     document.getElementById("id_modelmatrix").style.display = 'none';
     document.getElementById("id_viewmatrix").style.display = 'none';
@@ -1321,6 +1327,7 @@ function demoAxisAngle() {
 function demoQuaternion() {
     mNeedDrawGimbal = false;
     mNeedDrawAngleAxis = false;
+    mNeedDrawAssistObject = false;
     document.getElementById("id_mvpmatrix").style.display = 'none';
     document.getElementById("id_modelmatrix").style.display = 'none';
     document.getElementById("id_viewmatrix").style.display = 'none';
@@ -1986,6 +1993,11 @@ function drawScene(gl, basicProgram, diffuseLightingProgram, phongLightingProgra
         if (null != mFarBuffer) {
             drawArrays(gl, basicProgram, mFarBuffer, mFarPlaneVertices.length / 3, mViewFrustumMvpMatrix, gl.TRIANGLES, deltaTime);
         }
+
+        // if (mNeedDrawAssistObject && null != mAssistObjectBuffer) {  // TODO change mvp
+        //     drawElements(gl, basicProgram, mAssistObjectBuffer, mAssistObjectBuffer.drawCnt, mMvpMatrix, gl.TRIANGLE_STRIP, deltaTime);
+        // }
+
         // if (mNeedDrawGimbal && null != mPivotBuffer) {
         //     drawGimbalElements(gl, diffuseLightingProgram, mPivotBuffer, mPivotBuffer.drawCnt, mGimbalMvpMatrix, gl.TRIANGLE_STRIP, deltaTime, true, true, true, true);
         // }
