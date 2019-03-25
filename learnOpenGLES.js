@@ -1246,10 +1246,25 @@ function handleMouseMove(event) {
     }
 }
 
+function demoShader() {
+    mNeedDrawGimbal = false;
+    mNeedDrawAngleAxis = false;
+    mNeedDrawAssistObject = false;
+    document.getElementById("id_shader").style.display = 'flex';
+    document.getElementById("id_mvpmatrix").style.display = 'none';
+    document.getElementById("id_modelmatrix").style.display = 'none';
+    document.getElementById("id_viewmatrix").style.display = 'none';
+    document.getElementById("id_projmatrix").style.display = 'none';
+    document.getElementById("id_rotatematrix").style.display = 'none';
+    document.getElementById("id_axisangle").style.display = 'none';
+    document.getElementById("id_quaternion").style.display = 'none';
+}
+
 function demoMvpMatrix() {
     mNeedDrawGimbal = false;
     mNeedDrawAngleAxis = false;
     mNeedDrawAssistObject = true;
+    document.getElementById("id_shader").style.display = 'none';
     document.getElementById("id_mvpmatrix").style.display = 'flex';
     document.getElementById("id_modelmatrix").style.display = 'none';
     document.getElementById("id_viewmatrix").style.display = 'none';
@@ -1263,6 +1278,7 @@ function demoModelMatrix() {
     mNeedDrawGimbal = false;
     mNeedDrawAngleAxis = false;
     mNeedDrawAssistObject = false;
+    document.getElementById("id_shader").style.display = 'none';
     document.getElementById("id_mvpmatrix").style.display = 'none';
     document.getElementById("id_modelmatrix").style.display = 'flex';
     document.getElementById("id_viewmatrix").style.display = 'none';
@@ -1276,6 +1292,7 @@ function demoViewMatrix() {
     mNeedDrawGimbal = false;
     mNeedDrawAngleAxis = false;
     mNeedDrawAssistObject = false;
+    document.getElementById("id_shader").style.display = 'none';
     document.getElementById("id_mvpmatrix").style.display = 'none';
     document.getElementById("id_modelmatrix").style.display = 'none';
     document.getElementById("id_viewmatrix").style.display = 'flex';
@@ -1289,6 +1306,7 @@ function demoProjMatrix() {
     mNeedDrawGimbal = false;
     mNeedDrawAngleAxis = false;
     mNeedDrawAssistObject = false;
+    document.getElementById("id_shader").style.display = 'none';
     document.getElementById("id_mvpmatrix").style.display = 'none';
     document.getElementById("id_modelmatrix").style.display = 'none';
     document.getElementById("id_viewmatrix").style.display = 'none';
@@ -1302,6 +1320,7 @@ function demoRotateMatrix() {
     mNeedDrawGimbal = true;
     mNeedDrawAngleAxis = false;
     mNeedDrawAssistObject = false;
+    document.getElementById("id_shader").style.display = 'none';
     document.getElementById("id_mvpmatrix").style.display = 'none';
     document.getElementById("id_modelmatrix").style.display = 'none';
     document.getElementById("id_viewmatrix").style.display = 'none';
@@ -1315,6 +1334,7 @@ function demoAxisAngle() {
     mNeedDrawGimbal = false;
     mNeedDrawAngleAxis = true;
     mNeedDrawAssistObject = false;
+    document.getElementById("id_shader").style.display = 'none';
     document.getElementById("id_mvpmatrix").style.display = 'none';
     document.getElementById("id_modelmatrix").style.display = 'none';
     document.getElementById("id_viewmatrix").style.display = 'none';
@@ -1328,6 +1348,7 @@ function demoQuaternion() {
     mNeedDrawGimbal = false;
     mNeedDrawAngleAxis = false;
     mNeedDrawAssistObject = false;
+    document.getElementById("id_shader").style.display = 'none';
     document.getElementById("id_mvpmatrix").style.display = 'none';
     document.getElementById("id_modelmatrix").style.display = 'none';
     document.getElementById("id_viewmatrix").style.display = 'none';
@@ -1335,6 +1356,17 @@ function demoQuaternion() {
     document.getElementById("id_rotatematrix").style.display = 'none';
     document.getElementById("id_axisangle").style.display = 'none';
     document.getElementById("id_quaternion").style.display = 'flex';
+}
+
+// Chrome addEventListener onmousewheel
+// IE attachEvent onmousewheel
+// FireFox addEventListener DOMMouseScroll
+function addEvent(obj, xEvent, fn) {
+    if (obj.attachEvent) {
+        obj.attachEvent('on' + xEvent, fn);
+    } else {
+        obj.addEventListener(xEvent, fn, false);
+    }
 }
 
 function main() {
@@ -1353,6 +1385,7 @@ function main() {
     canvas.onmouseup = handleMouseUp;
     canvas.onmousemove = handleMouseMove;
     canvas.onmouseout = handleMouseOut;
+    // mouse wheel
 
     mViewportWidth = canvas.clientWidth / 2;
     mViewportHeight = canvas.clientHeight;

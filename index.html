@@ -17,8 +17,11 @@
             div#horizontal {
                 display: flex;
             }
+            div#id_shader {
+                display: none;
+            }
             div#id_mvpmatrix {
-                display: none
+                display: none;
             }
             div#id_modelmatrix {
                 display: flex;
@@ -52,6 +55,9 @@
                     <ul>
                         <div id="FPS">FPS: </div>
                         <li>渲染管线</li>
+                            <ul>
+                                <li><a href="#TOC0.1" onclick="demoShader()">着色器</a></li>
+                            </ul>
                         <li>变换矩阵</li>
                             <ul>
                                 <li><a href="#TOC1.1" onclick="demoModelMatrix()">模型矩阵</a></li>
@@ -95,6 +101,35 @@
                 </div>
 
                 <canvas id="glcanvas" width="1440" height="720"></canvas>
+            </div>
+            <div id="id_shader">
+                <h4>着色器</h4>
+                <div style="border: 3px solid #cccccc; width: 99em; margin: 2em;">
+                    VertexShader
+                    <textarea rows="10" cols="88" id="id_vertex_shader">
+attribute vec4 aPosition;
+attribute vec4 aColor;
+
+uniform mat4 uMVPMatrix;
+
+varying lowp vec4 vColor;
+
+void main() {
+    gl_Position = uMVPMatrix * aPosition;
+    vColor = aColor;
+}
+                    </textarea>
+                    &nbsp;&nbsp;FragmentShader
+                    <textarea rows="10" cols="87" id="id_fragment_shader">
+precision mediump float;
+
+varying lowp vec4 vColor;
+
+void main() {
+    gl_FragColor = vColor;
+}
+                    </textarea>
+                </div>
             </div>
             <div id="id_mvpmatrix">
                 <h4>MVP矩阵</h4>
