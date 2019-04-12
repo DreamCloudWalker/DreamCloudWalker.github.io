@@ -1246,6 +1246,21 @@ function handleMouseMove(event) {
     }
 }
 
+function demoCobraManeuvre() {
+    mNeedDrawGimbal = false;
+    mNeedDrawAngleAxis = false;
+    mNeedDrawAssistObject = false;
+    document.getElementById("id_shader").style.display = 'none';
+    document.getElementById("id_mvpmatrix").style.display = 'none';
+    document.getElementById("id_modelmatrix").style.display = 'none';
+    document.getElementById("id_viewmatrix").style.display = 'none';
+    document.getElementById("id_projmatrix").style.display = 'none';
+    document.getElementById("id_rotatematrix").style.display = 'none';
+    document.getElementById("id_axisangle").style.display = 'none';
+    document.getElementById("id_quaternion").style.display = 'none';
+    document.getElementById("id_cobramaneuvre").style.display = 'flex';
+}
+
 function demoShader() {
     mNeedDrawGimbal = false;
     mNeedDrawAngleAxis = false;
@@ -1258,6 +1273,7 @@ function demoShader() {
     document.getElementById("id_rotatematrix").style.display = 'none';
     document.getElementById("id_axisangle").style.display = 'none';
     document.getElementById("id_quaternion").style.display = 'none';
+    document.getElementById("id_cobramaneuvre").style.display = 'none';
 }
 
 function demoMvpMatrix() {
@@ -1272,6 +1288,7 @@ function demoMvpMatrix() {
     document.getElementById("id_rotatematrix").style.display = 'none';
     document.getElementById("id_axisangle").style.display = 'none';
     document.getElementById("id_quaternion").style.display = 'none';
+    document.getElementById("id_cobramaneuvre").style.display = 'none';
 }
 
 function demoModelMatrix() {
@@ -1286,6 +1303,7 @@ function demoModelMatrix() {
     document.getElementById("id_rotatematrix").style.display = 'none';
     document.getElementById("id_axisangle").style.display = 'none';
     document.getElementById("id_quaternion").style.display = 'none';
+    document.getElementById("id_cobramaneuvre").style.display = 'none';
 }
 
 function demoViewMatrix() {
@@ -1300,6 +1318,7 @@ function demoViewMatrix() {
     document.getElementById("id_rotatematrix").style.display = 'none';
     document.getElementById("id_axisangle").style.display = 'none';
     document.getElementById("id_quaternion").style.display = 'none';
+    document.getElementById("id_cobramaneuvre").style.display = 'none';
 }
 
 function demoProjMatrix() {
@@ -1314,6 +1333,7 @@ function demoProjMatrix() {
     document.getElementById("id_rotatematrix").style.display = 'none';
     document.getElementById("id_axisangle").style.display = 'none';
     document.getElementById("id_quaternion").style.display = 'none';
+    document.getElementById("id_cobramaneuvre").style.display = 'none';
 }
 
 function demoRotateMatrix() {
@@ -1328,6 +1348,7 @@ function demoRotateMatrix() {
     document.getElementById("id_rotatematrix").style.display = 'flex';
     document.getElementById("id_axisangle").style.display = 'none';
     document.getElementById("id_quaternion").style.display = 'none';
+    document.getElementById("id_cobramaneuvre").style.display = 'none';
 }
 
 function demoAxisAngle() {
@@ -1342,6 +1363,7 @@ function demoAxisAngle() {
     document.getElementById("id_rotatematrix").style.display = 'none';
     document.getElementById("id_axisangle").style.display = 'flex';
     document.getElementById("id_quaternion").style.display = 'none';
+    document.getElementById("id_cobramaneuvre").style.display = 'none';
 }
 
 function demoQuaternion() {
@@ -1356,6 +1378,7 @@ function demoQuaternion() {
     document.getElementById("id_rotatematrix").style.display = 'none';
     document.getElementById("id_axisangle").style.display = 'none';
     document.getElementById("id_quaternion").style.display = 'flex';
+    document.getElementById("id_cobramaneuvre").style.display = 'none';
 }
 
 // Chrome addEventListener onmousewheel

@@ -41,6 +41,9 @@
             div#id_quaternion {
                 display: none;
             }
+            div#id_cobramaneuvre {
+                display: none;
+            }
             div#matrix {
                 margin: 10px;
             }
@@ -67,6 +70,7 @@
                                 <li><a href="#TOC1.5" onclick="demoViewMatrix()">视图矩阵</a></li>
                                 <li><a href="#TOC1.6" onclick="demoProjMatrix()">投影矩阵</a></li>
                                 <li><a href="#TOC1.7" onclick="demoMvpMatrix()">MVP</a></li>
+                                <li><a href="#TOC1.7" onclick="demoCobraManeuvre()">眼镜蛇+落叶飘动画</a></li>
                             </ul>
                         <li>纹理</li>
                             <ul>
@@ -313,7 +317,7 @@ void main() {
                         </div>
                         <img src="./texture/matrixR.png">
                     </div>
-
+                    glViewport(0, 0, 720, 720);<br/>
                     ScreenCoord.x = viewPort[0] + (1 + CVV_Coord.x) * viewPort[2] / 2;<br/>
                     ScreenCoord.y = viewPort[1] + (1 + CVV_Coord.y) * viewPort[3] / 2;
                     <div id="horizontal" style="margin: 5px">
@@ -652,6 +656,10 @@ void main() {
                     <img src="./texture/matrixR.png">
                 </div>
             </div>
+        </div>
+        <div id="id_cobramaneuvre">
+            <h4 style="width: 230px; background: #ffffff">眼镜蛇+落叶飘动画演示</h4>
+            <img src="./texture/cobra.gif">
         </div>
     </div>
     </body>
