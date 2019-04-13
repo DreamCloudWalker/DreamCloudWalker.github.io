@@ -30,6 +30,10 @@ const TubeDir = {
     DIR_Y: 1, 
     DIR_Z: 2,
 };
+// cobra anim frame cnt
+const COBRA_STEP1_FRAME_CNT = 600;
+const FALLING_LEAF_FRAME_CNT = 600;
+const COBRA_STEP2_FRAME_CNT = 600;
 // chapter
 var mChapterTitle = ChapterTitle.CHAPTER_MATRIX;
 // draw object
@@ -138,7 +142,15 @@ var mMouseDown = false;
 var mLastMouseX = null;
 var mLastMouseY = null;
 var mDragMainView = true;
-
+// cobra anim
+var mNeedDrawCobraAnim = false;
+var mCobraAnimFrameEllapse = 0;
+var mCobraAnimInterpolateQuat = quat.create();
+var mCobraAnimRotateMatrix = mat4.create();
+var mCobraInitQuat = quat.create();
+var mCobraStep1Quat = quat.create();    // quat.fromEuler(COBRA_STEP1_QUAT, 120, 0, 0);
+var mFallingLeafQuat = quat.create();   // quat.fromEuler(FALLING_LEAF_QUAT, 80, 0, 360);
+var mCobraStep2Quat = quat.create();    // quat.fromEuler(COBRA_STEP2_QUAT, 0, 0, 0);
 
 function onKeyPress(event) {
     var key;
@@ -1250,6 +1262,7 @@ function demoCobraManeuvre() {
     mNeedDrawGimbal = false;
     mNeedDrawAngleAxis = false;
     mNeedDrawAssistObject = false;
+    mNeedDrawCobraAnim = true;
     document.getElementById("id_shader").style.display = 'none';
     document.getElementById("id_mvpmatrix").style.display = 'none';
     document.getElementById("id_modelmatrix").style.display = 'none';
@@ -1265,6 +1278,7 @@ function demoShader() {
     mNeedDrawGimbal = false;
     mNeedDrawAngleAxis = false;
     mNeedDrawAssistObject = false;
+    mNeedDrawCobraAnim = false;
     document.getElementById("id_shader").style.display = 'flex';
     document.getElementById("id_mvpmatrix").style.display = 'none';
     document.getElementById("id_modelmatrix").style.display = 'none';
@@ -1280,6 +1294,7 @@ function demoMvpMatrix() {
     mNeedDrawGimbal = false;
     mNeedDrawAngleAxis = false;
     mNeedDrawAssistObject = true;
+    mNeedDrawCobraAnim = false;
     document.getElementById("id_shader").style.display = 'none';
     document.getElementById("id_mvpmatrix").style.display = 'flex';
     document.getElementById("id_modelmatrix").style.display = 'none';
@@ -1295,6 +1310,7 @@ function demoModelMatrix() {
     mNeedDrawGimbal = false;
     mNeedDrawAngleAxis = false;
     mNeedDrawAssistObject = false;
+    mNeedDrawCobraAnim = false;
     document.getElementById("id_shader").style.display = 'none';
     document.getElementById("id_mvpmatrix").style.display = 'none';
     document.getElementById("id_modelmatrix").style.display = 'flex';
@@ -1310,6 +1326,7 @@ function demoViewMatrix() {
     mNeedDrawGimbal = false;
     mNeedDrawAngleAxis = false;
     mNeedDrawAssistObject = false;
+    mNeedDrawCobraAnim = false;
     document.getElementById("id_shader").style.display = 'none';
     document.getElementById("id_mvpmatrix").style.display = 'none';
     document.getElementById("id_modelmatrix").style.display = 'none';
@@ -1325,6 +1342,7 @@ function demoProjMatrix() {
     mNeedDrawGimbal = false;
     mNeedDrawAngleAxis = false;
     mNeedDrawAssistObject = false;
+    mNeedDrawCobraAnim = false;
     document.getElementById("id_shader").style.display = 'none';
     document.getElementById("id_mvpmatrix").style.display = 'none';
     document.getElementById("id_modelmatrix").style.display = 'none';
@@ -1340,6 +1358,7 @@ function demoRotateMatrix() {
     mNeedDrawGimbal = true;
     mNeedDrawAngleAxis = false;
     mNeedDrawAssistObject = false;
+    mNeedDrawCobraAnim = false;
     document.getElementById("id_shader").style.display = 'none';
     document.getElementById("id_mvpmatrix").style.display = 'none';
     document.getElementById("id_modelmatrix").style.display = 'none';
@@ -1355,6 +1374,7 @@ function demoAxisAngle() {
     mNeedDrawGimbal = false;
     mNeedDrawAngleAxis = true;
     mNeedDrawAssistObject = false;
+    mNeedDrawCobraAnim = false;
     document.getElementById("id_shader").style.display = 'none';
     document.getElementById("id_mvpmatrix").style.display = 'none';
     document.getElementById("id_modelmatrix").style.display = 'none';
@@ -1370,6 +1390,7 @@ function demoQuaternion() {
     mNeedDrawGimbal = false;
     mNeedDrawAngleAxis = false;
     mNeedDrawAssistObject = false;
+    mNeedDrawCobraAnim = false;
     document.getElementById("id_shader").style.display = 'none';
     document.getElementById("id_mvpmatrix").style.display = 'none';
     document.getElementById("id_modelmatrix").style.display = 'none';
@@ -1402,6 +1423,11 @@ function main() {
         alert("Unable to initialize WebGL. Your browser or machine may not support it.");
         return;
     }
+
+    // initialize anim params
+    mCobraStep1Quat = quat.fromEuler(mCobraStep1Quat, 120, 0, 0);
+    mFallingLeafQuat = quat.fromEuler(mFallingLeafQuat, 80, 0, 360);
+    mCobraStep2Quat = quat.fromEuler(mCobraStep2Quat, 0, 0, 0);
 
     // mouse
     canvas.onmousedown = handleMouseDown;
@@ -1795,21 +1821,42 @@ function drawObject(gl, lightingProgram, buffers, diffuseTexture, normalTexture,
                 mModelMatrix,     // matrix to translate
                 [mTranslateX, mTranslateY, mTranslateZ]);  // amount to translate
 
-    mat4.rotate(mModelMatrix,  // destination matrix
-                mModelMatrix,  // matrix to rotate
-                mRolling,               // amount to rotate in radians
-                [0, 0, 1]);        // axis to rotate around
-    mat4.rotate(mModelMatrix,  // destination matrix
-                mModelMatrix,  // matrix to rotate
-                mYawing,           // amount to rotate in radians
-                [0, 1, 0]);        // axis to rotate around
-    mat4.rotate(mModelMatrix,  // destination matrix
-                mModelMatrix,  // matrix to rotate
-                mPitching,               // amount to rotate in radians
-                [1, 0, 0]);        // axis to rotate around
-    
-    // use axis-angle to rotate
-    mat4.rotate(mModelMatrix, mModelMatrix, mRotAngle, mRotAxis);
+    if (mNeedDrawCobraAnim) {
+        var progress = 0.0;
+        if (mCobraAnimFrameEllapse <= COBRA_STEP1_FRAME_CNT) {
+            progress = mCobraAnimFrameEllapse / COBRA_STEP1_FRAME_CNT;
+            mCobraAnimInterpolateQuat = quat.slerp(mCobraAnimInterpolateQuat, mCobraInitQuat, mCobraStep1Quat, progress);
+        } else if ((mCobraAnimFrameEllapse > COBRA_STEP1_FRAME_CNT) && (mCobraAnimFrameEllapse <= (COBRA_STEP1_FRAME_CNT + FALLING_LEAF_FRAME_CNT))) {
+            progress = (mCobraAnimFrameEllapse - COBRA_STEP1_FRAME_CNT) / FALLING_LEAF_FRAME_CNT;
+            mCobraAnimInterpolateQuat = quat.slerp(mCobraAnimInterpolateQuat, mCobraStep1Quat, mFallingLeafQuat, progress);
+        } else if ((mCobraAnimFrameEllapse > (COBRA_STEP1_FRAME_CNT + FALLING_LEAF_FRAME_CNT)) 
+            && (mCobraAnimFrameEllapse <= (COBRA_STEP1_FRAME_CNT + FALLING_LEAF_FRAME_CNT + COBRA_STEP2_FRAME_CNT))) {
+                progress = (mCobraAnimFrameEllapse - COBRA_STEP1_FRAME_CNT - FALLING_LEAF_FRAME_CNT) / COBRA_STEP2_FRAME_CNT;
+                mCobraAnimInterpolateQuat = quat.slerp(mCobraAnimInterpolateQuat, mFallingLeafQuat, mCobraStep2Quat, progress);
+        } else {
+            mCobraAnimFrameEllapse = 0;
+        }
+        mCobraAnimFrameEllapse++;
+
+        mat4.fromQuat(mCobraAnimRotateMatrix, mCobraAnimInterpolateQuat);
+        mat4.multiply(mModelMatrix, mModelMatrix, mCobraAnimRotateMatrix);
+    } else {
+        mat4.rotate(mModelMatrix,  // destination matrix
+                    mModelMatrix,  // matrix to rotate
+                    mRolling,               // amount to rotate in radians
+                    [0, 0, 1]);        // axis to rotate around
+        mat4.rotate(mModelMatrix,  // destination matrix
+                    mModelMatrix,  // matrix to rotate
+                    mYawing,           // amount to rotate in radians
+                    [0, 1, 0]);        // axis to rotate around
+        mat4.rotate(mModelMatrix,  // destination matrix
+                    mModelMatrix,  // matrix to rotate
+                    mPitching,               // amount to rotate in radians
+                    [1, 0, 0]);        // axis to rotate around
+        
+        // use axis-angle to rotate
+        mat4.rotate(mModelMatrix, mModelMatrix, mRotAngle, mRotAxis);
+    }
 
     // // use quaternion to rotate
     // mQuatRatateMatrix = mat4.create();
