@@ -31,9 +31,13 @@ const TubeDir = {
     DIR_Z: 2,
 };
 // cobra anim frame cnt
-const COBRA_STEP1_FRAME_CNT = 600;
-const FALLING_LEAF_FRAME_CNT = 600;
-const COBRA_STEP2_FRAME_CNT = 600;
+const COBRA_STEP1_FRAME_CNT = 30;
+const FALLING_LEAF1_FRAME_CNT = 15;
+const FALLING_LEAF2_FRAME_CNT = 20;
+const FALLING_LEAF3_FRAME_CNT = 25;
+const FALLING_LEAF4_FRAME_CNT = 30;
+const COBRA_STEP2_FRAME_CNT = 50;
+const COBRA_Y_OFFSET = 1.3;
 // chapter
 var mChapterTitle = ChapterTitle.CHAPTER_MATRIX;
 // draw object
@@ -149,8 +153,12 @@ var mCobraAnimInterpolateQuat = quat.create();
 var mCobraAnimRotateMatrix = mat4.create();
 var mCobraInitQuat = quat.create();
 var mCobraStep1Quat = quat.create();    // quat.fromEuler(COBRA_STEP1_QUAT, 120, 0, 0);
-var mFallingLeafQuat = quat.create();   // quat.fromEuler(FALLING_LEAF_QUAT, 80, 0, 360);
+var mFallingLeaf1Quat = quat.create();   // quat.fromEuler(FALLING_LEAF_QUAT, 110, 0, 90);
+var mFallingLeaf2Quat = quat.create();   // quat.fromEuler(FALLING_LEAF_QUAT, 100, 0, 180);
+var mFallingLeaf3Quat = quat.create();   // quat.fromEuler(FALLING_LEAF_QUAT, 90, 0, 270);
+var mFallingLeaf4Quat = quat.create();   // quat.fromEuler(FALLING_LEAF_QUAT, 80, 0, 360);
 var mCobraStep2Quat = quat.create();    // quat.fromEuler(COBRA_STEP2_QUAT, 0, 0, 0);
+var mCobraYOffset = 0.0;
 
 function onKeyPress(event) {
     var key;
@@ -1272,6 +1280,27 @@ function demoCobraManeuvre() {
     document.getElementById("id_axisangle").style.display = 'none';
     document.getElementById("id_quaternion").style.display = 'none';
     document.getElementById("id_cobramaneuvre").style.display = 'flex';
+
+    // update mEye
+    mEye[0] = EYE_INIT_POS_Z;
+    mEye[1] = 0;
+    mEye[2] = 0;
+
+    // update view matrix
+    mat4.lookAt(mViewMatrix, mEye, mLookAtCenter, mCameraUp);
+    mat4.copy(mVIMatrix, mViewMatrix);
+    mat4.invert(mVIMatrix, mVIMatrix);
+    document.getElementById("id_eye_x").value = mEye[0];
+    document.getElementById("id_eye_y").value = mEye[1];
+    document.getElementById("id_eye_z").value = mEye[2];
+    document.getElementById("id_lookat_x").value = mLookAtCenter[0];
+    document.getElementById("id_lookat_y").value = mLookAtCenter[1];
+    document.getElementById("id_lookat_z").value = mLookAtCenter[2];
+    document.getElementById("id_cameraup_x").value = mCameraUp[0];
+    document.getElementById("id_cameraup_y").value = mCameraUp[1];
+    document.getElementById("id_cameraup_z").value = mCameraUp[2];
+    updateViewMatrixHtml();
+    updateViewFrustumPose();
 }
 
 function demoShader() {
@@ -1426,7 +1455,10 @@ function main() {
 
     // initialize anim params
     mCobraStep1Quat = quat.fromEuler(mCobraStep1Quat, 120, 0, 0);
-    mFallingLeafQuat = quat.fromEuler(mFallingLeafQuat, 80, 0, 360);
+    mFallingLeaf1Quat = quat.fromEuler(mFallingLeaf1Quat, 100, -20, 90);
+    mFallingLeaf2Quat = quat.fromEuler(mFallingLeaf2Quat, 80, -40, 180);
+    mFallingLeaf3Quat = quat.fromEuler(mFallingLeaf3Quat, 60, -20, 270);
+    mFallingLeaf4Quat = quat.fromEuler(mFallingLeaf4Quat, 40, 0, 360);
     mCobraStep2Quat = quat.fromEuler(mCobraStep2Quat, 0, 0, 0);
 
     // mouse
@@ -1819,24 +1851,39 @@ function drawObject(gl, lightingProgram, buffers, diffuseTexture, normalTexture,
     mModelMatrix = mat4.create();
     mat4.translate(mModelMatrix,     // destination matrix
                 mModelMatrix,     // matrix to translate
-                [mTranslateX, mTranslateY, mTranslateZ]);  // amount to translate
+                [mTranslateX, mTranslateY + mCobraYOffset, mTranslateZ]);  // amount to translate
 
     if (mNeedDrawCobraAnim) {
         var progress = 0.0;
         if (mCobraAnimFrameEllapse <= COBRA_STEP1_FRAME_CNT) {
             progress = mCobraAnimFrameEllapse / COBRA_STEP1_FRAME_CNT;
             mCobraAnimInterpolateQuat = quat.slerp(mCobraAnimInterpolateQuat, mCobraInitQuat, mCobraStep1Quat, progress);
-        } else if ((mCobraAnimFrameEllapse > COBRA_STEP1_FRAME_CNT) && (mCobraAnimFrameEllapse <= (COBRA_STEP1_FRAME_CNT + FALLING_LEAF_FRAME_CNT))) {
-            progress = (mCobraAnimFrameEllapse - COBRA_STEP1_FRAME_CNT) / FALLING_LEAF_FRAME_CNT;
-            mCobraAnimInterpolateQuat = quat.slerp(mCobraAnimInterpolateQuat, mCobraStep1Quat, mFallingLeafQuat, progress);
-        } else if ((mCobraAnimFrameEllapse > (COBRA_STEP1_FRAME_CNT + FALLING_LEAF_FRAME_CNT)) 
-            && (mCobraAnimFrameEllapse <= (COBRA_STEP1_FRAME_CNT + FALLING_LEAF_FRAME_CNT + COBRA_STEP2_FRAME_CNT))) {
-                progress = (mCobraAnimFrameEllapse - COBRA_STEP1_FRAME_CNT - FALLING_LEAF_FRAME_CNT) / COBRA_STEP2_FRAME_CNT;
-                mCobraAnimInterpolateQuat = quat.slerp(mCobraAnimInterpolateQuat, mFallingLeafQuat, mCobraStep2Quat, progress);
+        } else if ((mCobraAnimFrameEllapse > COBRA_STEP1_FRAME_CNT) && (mCobraAnimFrameEllapse <= (COBRA_STEP1_FRAME_CNT + FALLING_LEAF1_FRAME_CNT))) {
+            progress = (mCobraAnimFrameEllapse - COBRA_STEP1_FRAME_CNT) / FALLING_LEAF1_FRAME_CNT;
+            mCobraAnimInterpolateQuat = quat.slerp(mCobraAnimInterpolateQuat, mCobraStep1Quat, mFallingLeaf1Quat, progress);
+        } else if ((mCobraAnimFrameEllapse > (COBRA_STEP1_FRAME_CNT + FALLING_LEAF1_FRAME_CNT)) 
+            && (mCobraAnimFrameEllapse <= (COBRA_STEP1_FRAME_CNT + FALLING_LEAF1_FRAME_CNT + FALLING_LEAF2_FRAME_CNT))) {
+                progress = (mCobraAnimFrameEllapse - COBRA_STEP1_FRAME_CNT - FALLING_LEAF1_FRAME_CNT) / FALLING_LEAF2_FRAME_CNT;
+                mCobraAnimInterpolateQuat = quat.slerp(mCobraAnimInterpolateQuat, mFallingLeaf1Quat, mFallingLeaf2Quat, progress);
+        } else if ((mCobraAnimFrameEllapse > (COBRA_STEP1_FRAME_CNT + FALLING_LEAF1_FRAME_CNT + FALLING_LEAF2_FRAME_CNT)) 
+            && (mCobraAnimFrameEllapse <= (COBRA_STEP1_FRAME_CNT + FALLING_LEAF1_FRAME_CNT + FALLING_LEAF2_FRAME_CNT + FALLING_LEAF3_FRAME_CNT))) {
+                progress = (mCobraAnimFrameEllapse - COBRA_STEP1_FRAME_CNT - FALLING_LEAF1_FRAME_CNT - FALLING_LEAF2_FRAME_CNT) / FALLING_LEAF3_FRAME_CNT;
+                mCobraAnimInterpolateQuat = quat.slerp(mCobraAnimInterpolateQuat, mFallingLeaf2Quat, mFallingLeaf3Quat, progress);
+        } else if ((mCobraAnimFrameEllapse > (COBRA_STEP1_FRAME_CNT + FALLING_LEAF1_FRAME_CNT + FALLING_LEAF2_FRAME_CNT + FALLING_LEAF3_FRAME_CNT)) 
+            && (mCobraAnimFrameEllapse <= (COBRA_STEP1_FRAME_CNT + FALLING_LEAF1_FRAME_CNT + FALLING_LEAF2_FRAME_CNT + FALLING_LEAF3_FRAME_CNT + FALLING_LEAF4_FRAME_CNT))) {
+                progress = (mCobraAnimFrameEllapse - COBRA_STEP1_FRAME_CNT - FALLING_LEAF1_FRAME_CNT - FALLING_LEAF2_FRAME_CNT - FALLING_LEAF3_FRAME_CNT) / FALLING_LEAF4_FRAME_CNT;
+                mCobraAnimInterpolateQuat = quat.slerp(mCobraAnimInterpolateQuat, mFallingLeaf3Quat, mFallingLeaf4Quat, progress);
+        } else if ((mCobraAnimFrameEllapse > (COBRA_STEP1_FRAME_CNT + FALLING_LEAF1_FRAME_CNT + FALLING_LEAF2_FRAME_CNT + FALLING_LEAF3_FRAME_CNT + FALLING_LEAF4_FRAME_CNT)) 
+            && (mCobraAnimFrameEllapse <= (COBRA_STEP1_FRAME_CNT + FALLING_LEAF1_FRAME_CNT + FALLING_LEAF2_FRAME_CNT + FALLING_LEAF3_FRAME_CNT + FALLING_LEAF4_FRAME_CNT + COBRA_STEP2_FRAME_CNT))) {
+                progress = (mCobraAnimFrameEllapse - COBRA_STEP1_FRAME_CNT - FALLING_LEAF1_FRAME_CNT - FALLING_LEAF2_FRAME_CNT - FALLING_LEAF3_FRAME_CNT - FALLING_LEAF4_FRAME_CNT) / COBRA_STEP2_FRAME_CNT;
+                mCobraAnimInterpolateQuat = quat.slerp(mCobraAnimInterpolateQuat, mFallingLeaf4Quat, mCobraStep2Quat, progress);
         } else {
             mCobraAnimFrameEllapse = 0;
         }
-        mCobraAnimFrameEllapse++;
+
+        var heightProgress = mCobraAnimFrameEllapse / (COBRA_STEP1_FRAME_CNT + FALLING_LEAF1_FRAME_CNT + FALLING_LEAF2_FRAME_CNT + FALLING_LEAF3_FRAME_CNT + FALLING_LEAF4_FRAME_CNT + COBRA_STEP2_FRAME_CNT);
+        var heightOffset = (0.5 - Math.abs(heightProgress - 0.5)) * 2.0;  // 0 ~ 1 ~ 0
+        mCobraYOffset = COBRA_Y_OFFSET * heightOffset;
 
         mat4.fromQuat(mCobraAnimRotateMatrix, mCobraAnimInterpolateQuat);
         mat4.multiply(mModelMatrix, mModelMatrix, mCobraAnimRotateMatrix);
@@ -2026,6 +2073,7 @@ function drawScene(gl, basicProgram, diffuseLightingProgram, phongLightingProgra
             drawObject(gl, phongLightingProgram, mObjectBuffer[i], mObjectDiffuseTexture, mObjectNormalTexture, mObjectBuffer[i].drawCnt, deltaTime, false);
         }
     }
+    mCobraAnimFrameEllapse++;
 
     // draw assist object use 
     mMvpMatrix = mat4.create();
