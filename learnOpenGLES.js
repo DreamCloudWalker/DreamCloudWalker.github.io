@@ -37,6 +37,7 @@ const FALLING_LEAF2_FRAME_CNT = 20;
 const FALLING_LEAF3_FRAME_CNT = 25;
 const FALLING_LEAF4_FRAME_CNT = 30;
 const COBRA_STEP2_FRAME_CNT = 50;
+const COBRA_Z_OFFSET = 1.3;
 const COBRA_Y_OFFSET = 1.3;
 // chapter
 var mChapterTitle = ChapterTitle.CHAPTER_MATRIX;
@@ -45,6 +46,10 @@ var mRadius = 1.0;
 var mObjectBuffer = [];
 var mObjectDiffuseTexture = null;
 var mObjectNormalTexture = null;
+// draw background
+var mBackgroundBuffer = null;
+var mBackgroundTexture = null;
+var mBackgroundUvs = [];
 // draw Gimbal
 var mNeedDrawGimbal = false;
 var mPivotBuffer = null;
@@ -158,6 +163,7 @@ var mFallingLeaf2Quat = quat.create();   // quat.fromEuler(FALLING_LEAF_QUAT, 10
 var mFallingLeaf3Quat = quat.create();   // quat.fromEuler(FALLING_LEAF_QUAT, 90, 0, 270);
 var mFallingLeaf4Quat = quat.create();   // quat.fromEuler(FALLING_LEAF_QUAT, 80, 0, 360);
 var mCobraStep2Quat = quat.create();    // quat.fromEuler(COBRA_STEP2_QUAT, 0, 0, 0);
+var mCobraZOffset = 0.0;
 var mCobraYOffset = 0.0;
 
 function onKeyPress(event) {
@@ -249,6 +255,65 @@ function initBasicShader(gl) {
         },
         uniformLocations: {
             uMVPMatrixHandle: gl.getUniformLocation(shaderProgram, 'uMVPMatrix'),
+        },
+    };
+
+    return programInfo;
+}
+
+function initBackgroundShader(gl) {
+    // Vertex shader program
+    const vsSource = `
+        attribute vec4 aPosition;
+        attribute vec2 aTexCoord;
+
+        varying vec2 vTexCoord;
+
+        void main() {
+            gl_Position = aPosition;    // multi identity matrix
+            vTexCoord = aTexCoord;
+        }
+    `;
+
+    // Fragment shader program
+    const fsSource = `
+        precision mediump float;
+
+        uniform sampler2D uTexSampler;
+
+        varying vec2 vTexCoord;
+
+        void main() {
+            vec4 color = texture2D(uTexSampler, vTexCoord);
+            gl_FragColor = color;
+        }
+    `;
+
+    // Initialize a shader program
+    const vertexShader = loadShader(gl, gl.VERTEX_SHADER, vsSource);
+    const fragmentShader = loadShader(gl, gl.FRAGMENT_SHADER, fsSource);
+  
+    // Create the shader program
+    const shaderProgram = gl.createProgram();
+    gl.attachShader(shaderProgram, vertexShader);
+    gl.attachShader(shaderProgram, fragmentShader);
+    gl.linkProgram(shaderProgram);
+  
+    // If creating the shader program failed, alert
+    if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
+        alert('Unable to initialize the shader program: ' + gl.getProgramInfoLog(shaderProgram));
+        return null;
+    }
+
+    // Collect all the info needed to use the shader program
+    const programInfo = {
+        program: shaderProgram,
+        attribLocations: {
+            vertexPosition: gl.getAttribLocation(shaderProgram, 'aPosition'),
+            textureCoord: gl.getAttribLocation(shaderProgram, 'aTexCoord'),
+        },
+        uniformLocations: {
+            uTexSamplerHandle: gl.getUniformLocation(shaderProgram, 'uTexSampler'),
         },
     };
 
@@ -1164,6 +1229,50 @@ function initTubeBuffers(gl, innerRadius, outerRadius, height, steps, color, dir
     };
 }
 
+function initBackgroundBuffers(gl) {
+    const vertexCoords = [
+        [-1.0,  -1.0, 1.0],
+        [ 1.0,  -1.0, 1.0],
+        [-1.0,   1.0, 1.0],
+        [ 1.0,   1.0, 1.0],
+    ];
+
+    var vertices = [];
+    for (var j = 0; j < vertexCoords.length; ++j) {
+        const v = vertexCoords[j];
+    
+        // Repeat each color four times for the four vertices of the face
+        vertices = vertices.concat(v);  // merge arrays to one
+    }
+
+    const uvCoords = [
+        0.0, 1.0, 
+        0.5, 1.0, 
+        0.0, 0.0, 
+        0.5, 0.0
+    ];
+    mBackgroundUvs.splice(0, mBackgroundUvs.length);  // clear
+    for (var i = 0; i < uvCoords.length; i++) {
+        mBackgroundUvs.push(uvCoords[i]);
+    }
+
+    const positionBuffer = gl.createBuffer();
+    // Select the positionBuffer as the one to apply buffer operations to from here out.
+    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+
+    // Create a buffer for the viewFrustum's color.
+    const uvBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, uvBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(mBackgroundUvs), gl.DYNAMIC_DRAW);
+
+    return {
+        position: positionBuffer,
+        uv: uvBuffer,
+        drawCnt: vertices.length / 3,
+    };
+}
+
 function initObjectBuffers(gl) {
     // read file
     function onProgress(xhr) {
@@ -1505,6 +1614,7 @@ function main() {
 
     // init shader
     const basicProgram = initBasicShader(gl);
+    const backgroundProgram = initBackgroundShader(gl);
     const diffuseLightingProgram = initDiffuseLightingShader(gl);
     const phongLightingProgram = initPhongLightingShader(gl);
 
@@ -1512,7 +1622,8 @@ function main() {
     initObjectBuffers(gl);
     // texture
     mObjectDiffuseTexture = loadTexture(gl, './texture/Su-27_diffuse.png');
-    mObjectNormalTexture = loadTexture(gl, './texture/Gridnt.jpg');
+    mObjectNormalTexture = loadTexture(gl, './texture/Su-27_normal.png');
+    mBackgroundTexture = loadTexture(gl, './texture/bg_sky.jpg');
     
     udpateViewFrustum();
     setViewFrustumColor();
@@ -1531,6 +1642,9 @@ function main() {
     mGimbalYBuffer = initTubeBuffers(gl, 1.4 ,1.5, 0.1, 30, vec4.fromValues(0.0, 1.0, 0.0, 1.0), TubeDir.DIR_Y);
     mGimbalZBuffer = initTubeBuffers(gl, 1.6 ,1.7, 0.1, 30, vec4.fromValues(0.0, 0.0, 1.0, 1.0), TubeDir.DIR_Z);
 
+    // background
+    mBackgroundBuffer = initBackgroundBuffers(gl);
+
     var then = 0;
     var oneSecThen = 0;
     // Draw the scene repeatedly
@@ -1539,7 +1653,7 @@ function main() {
         const deltaTime = now - then;
         then = now;
         // draw scene
-        drawScene(gl, basicProgram, diffuseLightingProgram, phongLightingProgram, deltaTime);
+        drawScene(gl, basicProgram, backgroundProgram, diffuseLightingProgram, phongLightingProgram, deltaTime);
 
         if (now - oneSecThen > 1) {
             oneSecThen = now;
@@ -1604,6 +1718,60 @@ function loadTexture(gl, url) {
 
 function isPowerOf2(value) {
     return (value & (value - 1)) == 0;
+}
+
+function drawBackground(gl, backgroundProgram, buffers, texture, drawCount, deltaTime) {
+    // Tell WebGL how to pull out the positions from the position buffer into the vertexPosition attribute.
+    {
+        const numComponents = 3;
+        const type = gl.FLOAT;
+        const normalize = false;
+        const stride = 0;
+        const offset = 0;
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffers.position);
+        gl.vertexAttribPointer(
+            backgroundProgram.attribLocations.vertexPosition,
+            numComponents,
+            type,
+            normalize,
+            stride,
+            offset);
+        gl.enableVertexAttribArray(
+            backgroundProgram.attribLocations.vertexPosition);
+    }
+
+    // Tell WebGL how to pull out the texture coordinates from the texture coordinate buffer into the textureCoord attribute.
+    {
+        const numComponents = 2;
+        const type = gl.FLOAT;
+        const normalize = false;
+        const stride = 0;
+        const offset = 0;
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffers.uv);
+        gl.vertexAttribPointer(
+            backgroundProgram.attribLocations.textureCoord,
+            numComponents,
+            type,
+            normalize,
+            stride,
+            offset);
+        gl.enableVertexAttribArray(
+            backgroundProgram.attribLocations.textureCoord);
+    }
+
+    // Tell WebGL to use our backgroundProgram when drawing
+    gl.useProgram(backgroundProgram.program);
+
+    // Specify the texture to map onto the faces.
+    // Tell WebGL we want to affect texture unit 0
+    gl.activeTexture(gl.TEXTURE0);
+    // Bind the diffuseTexture to diffuseTexture unit 0
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    // Tell the shader we bound the diffuseTexture to diffuseTexture unit 0
+    gl.uniform1i(backgroundProgram.uniformLocations.uTexSamplerHandle, 0);
+
+    const drawOffset = 0;
+    gl.drawArrays(gl.TRIANGLE_STRIP, drawOffset, drawCount);
 }
 
 function drawArrays(gl, basicProgram, buffers, vertexCount, mvpMatrix, drawType, deltaTime) {
@@ -1851,7 +2019,7 @@ function drawObject(gl, lightingProgram, buffers, diffuseTexture, normalTexture,
     mModelMatrix = mat4.create();
     mat4.translate(mModelMatrix,     // destination matrix
                 mModelMatrix,     // matrix to translate
-                [mTranslateX, mTranslateY + mCobraYOffset, mTranslateZ]);  // amount to translate
+                [mTranslateX, mTranslateY + mCobraYOffset, mTranslateZ - mCobraZOffset]);  // amount to translate
 
     if (mNeedDrawCobraAnim) {
         var progress = 0.0;
@@ -1882,8 +2050,9 @@ function drawObject(gl, lightingProgram, buffers, diffuseTexture, normalTexture,
         }
 
         var heightProgress = mCobraAnimFrameEllapse / (COBRA_STEP1_FRAME_CNT + FALLING_LEAF1_FRAME_CNT + FALLING_LEAF2_FRAME_CNT + FALLING_LEAF3_FRAME_CNT + FALLING_LEAF4_FRAME_CNT + COBRA_STEP2_FRAME_CNT);
-        var heightOffset = (0.5 - Math.abs(heightProgress - 0.5)) * 2.0;  // 0 ~ 1 ~ 0
-        mCobraYOffset = COBRA_Y_OFFSET * heightOffset;
+        var offsetProgress = (0.5 - Math.abs(heightProgress - 0.5)) * 2.0;  // 0 ~ 1 ~ 0
+        mCobraYOffset = COBRA_Y_OFFSET * offsetProgress;
+        mCobraZOffset = COBRA_Z_OFFSET * offsetProgress;
 
         mat4.fromQuat(mCobraAnimRotateMatrix, mCobraAnimInterpolateQuat);
         mat4.multiply(mModelMatrix, mModelMatrix, mCobraAnimRotateMatrix);
@@ -1974,7 +2143,7 @@ function drawObject(gl, lightingProgram, buffers, diffuseTexture, normalTexture,
             offset);
         gl.enableVertexAttribArray(
             lightingProgram.attribLocations.textureCoord);
-      }
+    }
 
     // Tell WebGL which indices to use to index the vertices
     {
@@ -2034,7 +2203,7 @@ function drawObject(gl, lightingProgram, buffers, diffuseTexture, normalTexture,
     gl.drawArrays(gl.TRIANGLES, drawOffset, drawCount);
 }
 
-function drawScene(gl, basicProgram, diffuseLightingProgram, phongLightingProgram, deltaTime) {
+function drawScene(gl, basicProgram, backgroundProgram, diffuseLightingProgram, phongLightingProgram, deltaTime) {
     mTimeEllapse += deltaTime;
 
     mViewFrustumBuffer = updateViewFrustumBuffer(gl);
@@ -2067,6 +2236,9 @@ function drawScene(gl, basicProgram, diffuseLightingProgram, phongLightingProgra
     // Clear the canvas before we start drawing on it.
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.viewport(0, 0, mViewportWidth, mViewportHeight);
+
+    // draw background
+    drawBackground(gl, backgroundProgram, mBackgroundBuffer, mBackgroundTexture, mBackgroundBuffer.drawCnt, deltaTime);
 
     if (mObjectBuffer.length > 0) {
         for (var i = 0; i < mObjectBuffer.length; i++) {
@@ -2131,6 +2303,7 @@ function drawScene(gl, basicProgram, diffuseLightingProgram, phongLightingProgra
         drawArrays(gl, basicProgram, mAngleAxisBuffer, mAngleAxisVertices.length / 3, mAngleAxisMVPMatrix, gl.LINES, deltaTime);
     }
 
+    /* draw another screen */
     gl.viewport(mViewportWidth, 0, mViewportWidth, mViewportHeight);
     if (mObjectBuffer.length > 0 && null != mViewFrustumBuffer) {
         for (var i = 0; i < mObjectBuffer.length; i++) {
