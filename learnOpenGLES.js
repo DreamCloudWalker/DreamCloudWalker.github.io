@@ -49,6 +49,7 @@ var mObjectNormalTexture = null;
 // draw background
 var mBackgroundBuffer = null;
 var mBackgroundTexture = null;
+var mBackgroundVertices = [];
 var mBackgroundUvs = [];
 // draw Gimbal
 var mNeedDrawGimbal = false;
@@ -1229,7 +1230,7 @@ function initTubeBuffers(gl, innerRadius, outerRadius, height, steps, color, dir
     };
 }
 
-function initBackgroundBuffers(gl) {
+function initBackground() {
     const vertexCoords = [
         [-1.0,  -1.0, 1.0],
         [ 1.0,  -1.0, 1.0],
@@ -1237,29 +1238,45 @@ function initBackgroundBuffers(gl) {
         [ 1.0,   1.0, 1.0],
     ];
 
-    var vertices = [];
     for (var j = 0; j < vertexCoords.length; ++j) {
         const v = vertexCoords[j];
     
         // Repeat each color four times for the four vertices of the face
-        vertices = vertices.concat(v);  // merge arrays to one
+        mBackgroundVertices = mBackgroundVertices.concat(v);  // merge arrays to one
     }
 
     const uvCoords = [
-        0.0, 1.0, 
-        0.5, 1.0, 
-        0.0, 0.0, 
-        0.5, 0.0
+        0.0,    0.85, 
+        0.125,  0.85, 
+        0.0,    0.6, 
+        0.125,  0.6
     ];
     mBackgroundUvs.splice(0, mBackgroundUvs.length);  // clear
     for (var i = 0; i < uvCoords.length; i++) {
         mBackgroundUvs.push(uvCoords[i]);
     }
+}
 
+function updateBackgroundUv(progress) {
+    // mBackgroundUvs.splice(0, mBackgroundUvs.length);  // clear
+    for (var i = 0; i < mBackgroundUvs.length; i++) {
+        if (i % 2 == 0) {
+            mBackgroundUvs[i] += 0.004;
+        } else {
+            if (progress > 0.5) {
+                mBackgroundUvs[i] += 0.0003;
+            } else {
+                mBackgroundUvs[i] -= 0.0003;
+            }
+        }
+    }
+}
+
+function updateBackgroundBuffer(gl) {
     const positionBuffer = gl.createBuffer();
     // Select the positionBuffer as the one to apply buffer operations to from here out.
     gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(mBackgroundVertices), gl.STATIC_DRAW);
 
     // Create a buffer for the viewFrustum's color.
     const uvBuffer = gl.createBuffer();
@@ -1269,7 +1286,7 @@ function initBackgroundBuffers(gl) {
     return {
         position: positionBuffer,
         uv: uvBuffer,
-        drawCnt: vertices.length / 3,
+        drawCnt: mBackgroundVertices.length / 3,
     };
 }
 
@@ -1563,7 +1580,7 @@ function main() {
     }
 
     // initialize anim params
-    mCobraStep1Quat = quat.fromEuler(mCobraStep1Quat, 120, 0, 0);
+    mCobraStep1Quat = quat.fromEuler(mCobraStep1Quat, 120, 0, 30);
     mFallingLeaf1Quat = quat.fromEuler(mFallingLeaf1Quat, 100, -20, 90);
     mFallingLeaf2Quat = quat.fromEuler(mFallingLeaf2Quat, 80, -40, 180);
     mFallingLeaf3Quat = quat.fromEuler(mFallingLeaf3Quat, 60, -20, 270);
@@ -1643,7 +1660,8 @@ function main() {
     mGimbalZBuffer = initTubeBuffers(gl, 1.6 ,1.7, 0.1, 30, vec4.fromValues(0.0, 0.0, 1.0, 1.0), TubeDir.DIR_Z);
 
     // background
-    mBackgroundBuffer = initBackgroundBuffers(gl);
+    initBackground();
+    mBackgroundBuffer = updateBackgroundBuffer(gl);
 
     var then = 0;
     var oneSecThen = 0;
@@ -2049,8 +2067,10 @@ function drawObject(gl, lightingProgram, buffers, diffuseTexture, normalTexture,
             mCobraAnimFrameEllapse = 0;
         }
 
-        var heightProgress = mCobraAnimFrameEllapse / (COBRA_STEP1_FRAME_CNT + FALLING_LEAF1_FRAME_CNT + FALLING_LEAF2_FRAME_CNT + FALLING_LEAF3_FRAME_CNT + FALLING_LEAF4_FRAME_CNT + COBRA_STEP2_FRAME_CNT);
-        var offsetProgress = (0.5 - Math.abs(heightProgress - 0.5)) * 2.0;  // 0 ~ 1 ~ 0
+        // 0 ~ 1
+        var animProgress = mCobraAnimFrameEllapse / (COBRA_STEP1_FRAME_CNT + FALLING_LEAF1_FRAME_CNT + FALLING_LEAF2_FRAME_CNT 
+            + FALLING_LEAF3_FRAME_CNT + FALLING_LEAF4_FRAME_CNT + COBRA_STEP2_FRAME_CNT);
+        var offsetProgress = (0.5 - Math.abs(animProgress - 0.5)) * 2.0;  // 0 ~ 1 ~ 0
         mCobraYOffset = COBRA_Y_OFFSET * offsetProgress;
         mCobraZOffset = COBRA_Z_OFFSET * offsetProgress;
 
@@ -2238,6 +2258,12 @@ function drawScene(gl, basicProgram, backgroundProgram, diffuseLightingProgram, 
     gl.viewport(0, 0, mViewportWidth, mViewportHeight);
 
     // draw background
+    if (mNeedDrawCobraAnim) {
+        var animProgress = mCobraAnimFrameEllapse / (COBRA_STEP1_FRAME_CNT + FALLING_LEAF1_FRAME_CNT + FALLING_LEAF2_FRAME_CNT 
+            + FALLING_LEAF3_FRAME_CNT + FALLING_LEAF4_FRAME_CNT + COBRA_STEP2_FRAME_CNT);
+        updateBackgroundUv(animProgress);
+        mBackgroundBuffer = updateBackgroundBuffer(gl);
+    }
     drawBackground(gl, backgroundProgram, mBackgroundBuffer, mBackgroundTexture, mBackgroundBuffer.drawCnt, deltaTime);
 
     if (mObjectBuffer.length > 0) {
