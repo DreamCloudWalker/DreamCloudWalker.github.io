@@ -47,6 +47,7 @@ var mObjectBuffer = [];
 var mObjectDiffuseTexture = null;
 var mObjectNormalTexture = null;
 // draw background
+var mBackgroundProgram = null;
 var mBackgroundBuffer = null;
 var mBackgroundTexture = null;
 var mBackgroundVertices = [];
@@ -262,40 +263,21 @@ function initBasicShader(gl) {
     return programInfo;
 }
 
-function initBackgroundShader(gl) {
+function updateBackgroundShader() {
+    const canvas = document.querySelector("#glcanvas");
+    // Initialize the GL context
+    const gl = canvas.getContext("webgl") || canvas.getContext('experimental-webgl');
     // Vertex shader program
-    const vsSource = `
-        attribute vec4 aPosition;
-        attribute vec2 aTexCoord;
-
-        varying vec2 vTexCoord;
-
-        void main() {
-            gl_Position = aPosition;    // multi identity matrix
-            vTexCoord = aTexCoord;
-        }
-    `;
-
+    var vsSource = document.getElementById('id_vertex_shader').value;
     // Fragment shader program
-    const fsSource = `
-        precision mediump float;
-
-        uniform sampler2D uTexSampler;
-
-        varying vec2 vTexCoord;
-
-        void main() {
-            vec4 color = texture2D(uTexSampler, vTexCoord);
-            gl_FragColor = color;
-        }
-    `;
+    var fsSource = document.getElementById('id_fragment_shader').value;
 
     // Initialize a shader program
-    const vertexShader = loadShader(gl, gl.VERTEX_SHADER, vsSource);
-    const fragmentShader = loadShader(gl, gl.FRAGMENT_SHADER, fsSource);
+    var vertexShader = loadShader(gl, gl.VERTEX_SHADER, vsSource);
+    var fragmentShader = loadShader(gl, gl.FRAGMENT_SHADER, fsSource);
   
     // Create the shader program
-    const shaderProgram = gl.createProgram();
+    var shaderProgram = gl.createProgram();
     gl.attachShader(shaderProgram, vertexShader);
     gl.attachShader(shaderProgram, fragmentShader);
     gl.linkProgram(shaderProgram);
@@ -307,7 +289,7 @@ function initBackgroundShader(gl) {
     }
 
     // Collect all the info needed to use the shader program
-    const programInfo = {
+    mBackgroundProgram = {
         program: shaderProgram,
         attribLocations: {
             vertexPosition: gl.getAttribLocation(shaderProgram, 'aPosition'),
@@ -317,8 +299,6 @@ function initBackgroundShader(gl) {
             uTexSamplerHandle: gl.getUniformLocation(shaderProgram, 'uTexSampler'),
         },
     };
-
-    return programInfo;
 }
 
 function initDiffuseLightingShader(gl) {
@@ -1630,8 +1610,8 @@ function main() {
     mat4.copy(mViewFrustumMvpMatrix, mGodMvpMatrix);
 
     // init shader
+    updateBackgroundShader();
     const basicProgram = initBasicShader(gl);
-    const backgroundProgram = initBackgroundShader(gl);
     const diffuseLightingProgram = initDiffuseLightingShader(gl);
     const phongLightingProgram = initPhongLightingShader(gl);
 
@@ -1671,7 +1651,7 @@ function main() {
         const deltaTime = now - then;
         then = now;
         // draw scene
-        drawScene(gl, basicProgram, backgroundProgram, diffuseLightingProgram, phongLightingProgram, deltaTime);
+        drawScene(gl, basicProgram, diffuseLightingProgram, phongLightingProgram, deltaTime);
 
         if (now - oneSecThen > 1) {
             oneSecThen = now;
@@ -2223,7 +2203,7 @@ function drawObject(gl, lightingProgram, buffers, diffuseTexture, normalTexture,
     gl.drawArrays(gl.TRIANGLES, drawOffset, drawCount);
 }
 
-function drawScene(gl, basicProgram, backgroundProgram, diffuseLightingProgram, phongLightingProgram, deltaTime) {
+function drawScene(gl, basicProgram, diffuseLightingProgram, phongLightingProgram, deltaTime) {
     mTimeEllapse += deltaTime;
 
     mViewFrustumBuffer = updateViewFrustumBuffer(gl);
@@ -2264,7 +2244,7 @@ function drawScene(gl, basicProgram, backgroundProgram, diffuseLightingProgram, 
         updateBackgroundUv(animProgress);
         mBackgroundBuffer = updateBackgroundBuffer(gl);
     }
-    drawBackground(gl, backgroundProgram, mBackgroundBuffer, mBackgroundTexture, mBackgroundBuffer.drawCnt, deltaTime);
+    drawBackground(gl, mBackgroundProgram, mBackgroundBuffer, mBackgroundTexture, mBackgroundBuffer.drawCnt, deltaTime);
 
     if (mObjectBuffer.length > 0) {
         for (var i = 0; i < mObjectBuffer.length; i++) {

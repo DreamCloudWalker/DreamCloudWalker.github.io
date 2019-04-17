@@ -18,13 +18,13 @@
                 display: flex;
             }
             div#id_shader {
-                display: none;
+                display: flex;
             }
             div#id_mvpmatrix {
                 display: none;
             }
             div#id_modelmatrix {
-                display: flex;
+                display: none;
             }
             div#id_viewmatrix {
                 display: none;
@@ -107,32 +107,38 @@
                 <canvas id="glcanvas" width="1440" height="720"></canvas>
             </div>
             <div id="id_shader">
-                <h4 style="width: 230px; background: #ffffff">着色器</h4>
-                <div style="border: 3px solid #cccccc; width: 99em;">
-                    VertexShader
-                    <textarea rows="10" cols="88" id="id_vertex_shader">
+                <h4 style="width: 230px; background: #ffffff">着色器(左窗口背景绘制为例)</h4>
+                <div id="vertical">
+                    <div id="horizontal" style="width: 90em;">
+                        <div id="vertical">
+                            <b>VertexShader</b>
+                            <textarea spellcheck="false" rows="10" cols="95" id="id_vertex_shader">
 attribute vec4 aPosition;
-attribute vec4 aColor;
-
-uniform mat4 uMVPMatrix;
-
-varying lowp vec4 vColor;
+attribute vec2 aTexCoord;
+varying vec2 vTexCoord;
 
 void main() {
-    gl_Position = uMVPMatrix * aPosition;
-    vColor = aColor;
+    gl_Position = aPosition;    // multi identity matrix
+    vTexCoord = aTexCoord;
 }
-                    </textarea>
-                    &nbsp;&nbsp;FragmentShader
-                    <textarea rows="10" cols="87" id="id_fragment_shader">
+                            </textarea>
+                        </div>
+                        <div id="vertical">
+                            <b>FragmentShader</b>
+                            <textarea spellcheck="false" rows="10" cols="95" id="id_fragment_shader">
 precision mediump float;
 
-varying lowp vec4 vColor;
+uniform sampler2D uTexSampler;
+varying vec2 vTexCoord;
 
 void main() {
-    gl_FragColor = vColor;
+    vec4 color = texture2D(uTexSampler, vTexCoord);
+    gl_FragColor = color;
 }
-                    </textarea>
+                            </textarea>
+                        </div>
+                    </div>
+                    <button style="display:block; margin:0 auto; width: 200px; height: 30px" onclick="updateBackgroundShader()">编译并运行</button>
                 </div>
             </div>
             <div id="id_mvpmatrix">
