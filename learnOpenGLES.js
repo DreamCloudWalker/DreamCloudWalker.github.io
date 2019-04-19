@@ -1,10 +1,10 @@
 const TWO_PI = Math.PI * 2.0;
 const DEGREE_TO_RADIUS = Math.PI / 180;
 const RADIUS_TO_DEGREE = 180 / Math.PI;
-const AMBIENT_COLOR = vec4.fromValues(0.7, 0.7, 0.7, 1.0);
-const DIFFUSE_COLOR = vec4.fromValues(0.8, 0.8, 0.8, 1.0);
+const AMBIENT_COLOR = vec4.fromValues(1.0, 1.0, 1.0, 1.0);
+const DIFFUSE_COLOR = vec4.fromValues(1.0, 1.0, 1.0, 1.0);
 const SPECULAR_COLOR = vec4.fromValues(1.0, 1.0, 1.0, 1.0);
-const LIGHT_POSITION = vec3.fromValues(1.0, 1.0, 1.0);
+const LIGHT_POSITION = vec3.fromValues(-1.0, -1.0, -1.0);
 const SPECULAR_VALUE = 32.0;
 // proj
 const HALF_FOV = 25 * DEGREE_TO_RADIUS;
@@ -46,6 +46,8 @@ var mRadius = 1.0;
 var mObjectBuffer = [];
 var mObjectDiffuseTexture = null;
 var mObjectNormalTexture = null;
+// lighting
+var mLightProgram = null;
 // draw background
 var mBackgroundProgram = null;
 var mBackgroundBuffer = null;
@@ -380,79 +382,21 @@ function initDiffuseLightingShader(gl) {
     return programInfo;
 }
 
-function initPhongLightingShader(gl) {
+function updateLightShader() {
+    const canvas = document.querySelector("#glcanvas");
+    // Initialize the GL context
+    const gl = canvas.getContext("webgl") || canvas.getContext('experimental-webgl');
     // Vertex shader program
-    const vsSource = `
-        attribute vec4 aPosition;
-        attribute vec3 aNormal;
-        attribute vec2 aTexCoord;
-
-        uniform mat4 uModelMatrix;
-        uniform mat4 uViewMatrix;
-        uniform mat4 uProjectionMatrix;
-        uniform vec3 uLightDir;
-        uniform mat4 uVIMatrix;
-        uniform mat4 uMITMatrix;    // Inverse & Transpose of Model Matrix
-
-        varying vec4 vPosition;
-        varying vec2 vTexCoord;
-        varying vec3 vNormal;
-        varying vec3 vLightDir;
-        varying vec4 vViewDir;
-
-        void main() {
-            vec4 pntPos = uProjectionMatrix * uViewMatrix * uModelMatrix * aPosition;
-            gl_Position = pntPos;
-            vPosition = uModelMatrix * aPosition;
-            vNormal = normalize(vec3(uMITMatrix * vec4(aNormal, 0.0)));
-            vLightDir = normalize(uLightDir);
-            vViewDir = normalize(uVIMatrix * vec4(0.0, 0.0, 0.0, 1.0) - vPosition);
-            vTexCoord = aTexCoord;
-        }
-    `;
-
+    var vsSource = document.getElementById('id_light_vertex_shader').value;
     // Fragment shader program
-    const fsSource = `
-        precision mediump float;
-
-        uniform sampler2D uTexDiffuseSampler;
-        uniform sampler2D uTexNormalSampler;
-        uniform int uUseNormalMapping;
-
-        uniform float uSpecular;
-        uniform vec4 uKa;
-        uniform vec4 uKd;
-        uniform vec4 uKs;
-
-        varying vec4 vPosition;
-        varying vec2 vTexCoord;
-        varying vec3 vNormal;
-        varying vec3 vLightDir;
-        varying vec4 vViewDir;
-
-        void main() {
-            vec4 color = texture2D(uTexDiffuseSampler, vTexCoord);
-
-            vec3 reflectDir = normalize(2.0 * dot(vNormal, vLightDir) * vNormal - vLightDir);
-            vec4 ambientColor = uKa;
-            vec4 diffuseColor = vec4(uKd.rgb * clamp(dot(vNormal, vLightDir), 0.0, 1.0), uKd.a);
-            vec4 specularColor = vec4(uKs.rgb * pow(clamp(dot(reflectDir, vec3(vViewDir.xyz)), 0.0, 1.0), uSpecular), uKs.a);
-            if (1 == uUseNormalMapping) {
-                vec3 normal = texture2D(uTexNormalSampler, vTexCoord).rgb;
-                normal = normalize(normal * 2.0 - 1.0); // (0.0~1.0) -> (-1.0~1.0)
-                diffuseColor = diffuseColor * (max(0.0, dot(normal, vLightDir)));
-            }
-            gl_FragColor = (ambientColor + diffuseColor + specularColor) * color;
-            gl_FragColor.a = 1.0;
-        }
-    `;
+    var fsSource = document.getElementById('id_light_fragment_shader').value;
 
     // Initialize a shader program
-    const vertexShader = loadShader(gl, gl.VERTEX_SHADER, vsSource);
-    const fragmentShader = loadShader(gl, gl.FRAGMENT_SHADER, fsSource);
+    var vertexShader = loadShader(gl, gl.VERTEX_SHADER, vsSource);
+    var fragmentShader = loadShader(gl, gl.FRAGMENT_SHADER, fsSource);
   
     // Create the shader program
-    const shaderProgram = gl.createProgram();
+    var shaderProgram = gl.createProgram();
     gl.attachShader(shaderProgram, vertexShader);
     gl.attachShader(shaderProgram, fragmentShader);
     gl.linkProgram(shaderProgram);
@@ -463,8 +407,7 @@ function initPhongLightingShader(gl) {
         return null;
     }
 
-    // Collect all the info needed to use the shader program
-    const programInfo = {
+    mLightProgram = {
         program: shaderProgram,
         attribLocations: {
             vertexPosition: gl.getAttribLocation(shaderProgram, 'aPosition'),
@@ -486,9 +429,7 @@ function initPhongLightingShader(gl) {
             uTexNormalSampler: gl.getUniformLocation(shaderProgram, 'uTexNormalSampler'),
             uUseNormalMapping: gl.getUniformLocation(shaderProgram, 'uUseNormalMapping'),
         },
-    };
-
-    return programInfo;
+    }
 }
 
 // creates a shader of the given type, uploads the source and compiles it.
@@ -1372,6 +1313,23 @@ function handleMouseMove(event) {
     }
 }
 
+function demoLight() {
+    mNeedDrawGimbal = false;
+    mNeedDrawAngleAxis = false;
+    mNeedDrawAssistObject = false;
+    mNeedDrawCobraAnim = false;
+    document.getElementById("id_shader").style.display = 'none';
+    document.getElementById("id_mvpmatrix").style.display = 'none';
+    document.getElementById("id_modelmatrix").style.display = 'none';
+    document.getElementById("id_viewmatrix").style.display = 'none';
+    document.getElementById("id_projmatrix").style.display = 'none';
+    document.getElementById("id_rotatematrix").style.display = 'none';
+    document.getElementById("id_axisangle").style.display = 'none';
+    document.getElementById("id_quaternion").style.display = 'none';
+    document.getElementById("id_cobramaneuvre").style.display = 'none';
+    document.getElementById("id_lightdemo").style.display = 'flex';
+}
+
 function demoCobraManeuvre() {
     mNeedDrawGimbal = false;
     mNeedDrawAngleAxis = false;
@@ -1386,6 +1344,7 @@ function demoCobraManeuvre() {
     document.getElementById("id_axisangle").style.display = 'none';
     document.getElementById("id_quaternion").style.display = 'none';
     document.getElementById("id_cobramaneuvre").style.display = 'flex';
+    document.getElementById("id_lightdemo").style.display = 'none';
 
     // update mEye
     mEye[0] = EYE_INIT_POS_Z;
@@ -1423,6 +1382,7 @@ function demoShader() {
     document.getElementById("id_axisangle").style.display = 'none';
     document.getElementById("id_quaternion").style.display = 'none';
     document.getElementById("id_cobramaneuvre").style.display = 'none';
+    document.getElementById("id_lightdemo").style.display = 'none';
 }
 
 function demoMvpMatrix() {
@@ -1439,6 +1399,7 @@ function demoMvpMatrix() {
     document.getElementById("id_axisangle").style.display = 'none';
     document.getElementById("id_quaternion").style.display = 'none';
     document.getElementById("id_cobramaneuvre").style.display = 'none';
+    document.getElementById("id_lightdemo").style.display = 'none';
 }
 
 function demoModelMatrix() {
@@ -1455,6 +1416,7 @@ function demoModelMatrix() {
     document.getElementById("id_axisangle").style.display = 'none';
     document.getElementById("id_quaternion").style.display = 'none';
     document.getElementById("id_cobramaneuvre").style.display = 'none';
+    document.getElementById("id_lightdemo").style.display = 'none';
 }
 
 function demoViewMatrix() {
@@ -1471,6 +1433,7 @@ function demoViewMatrix() {
     document.getElementById("id_axisangle").style.display = 'none';
     document.getElementById("id_quaternion").style.display = 'none';
     document.getElementById("id_cobramaneuvre").style.display = 'none';
+    document.getElementById("id_lightdemo").style.display = 'none';
 }
 
 function demoProjMatrix() {
@@ -1487,6 +1450,7 @@ function demoProjMatrix() {
     document.getElementById("id_axisangle").style.display = 'none';
     document.getElementById("id_quaternion").style.display = 'none';
     document.getElementById("id_cobramaneuvre").style.display = 'none';
+    document.getElementById("id_lightdemo").style.display = 'none';
 }
 
 function demoRotateMatrix() {
@@ -1503,6 +1467,7 @@ function demoRotateMatrix() {
     document.getElementById("id_axisangle").style.display = 'none';
     document.getElementById("id_quaternion").style.display = 'none';
     document.getElementById("id_cobramaneuvre").style.display = 'none';
+    document.getElementById("id_lightdemo").style.display = 'none';
 }
 
 function demoAxisAngle() {
@@ -1519,6 +1484,7 @@ function demoAxisAngle() {
     document.getElementById("id_axisangle").style.display = 'flex';
     document.getElementById("id_quaternion").style.display = 'none';
     document.getElementById("id_cobramaneuvre").style.display = 'none';
+    document.getElementById("id_lightdemo").style.display = 'none';
 }
 
 function demoQuaternion() {
@@ -1535,6 +1501,7 @@ function demoQuaternion() {
     document.getElementById("id_axisangle").style.display = 'none';
     document.getElementById("id_quaternion").style.display = 'flex';
     document.getElementById("id_cobramaneuvre").style.display = 'none';
+    document.getElementById("id_lightdemo").style.display = 'none';
 }
 
 // Chrome addEventListener onmousewheel
@@ -1611,9 +1578,9 @@ function main() {
 
     // init shader
     updateBackgroundShader();
+    updateLightShader();
     const basicProgram = initBasicShader(gl);
     const diffuseLightingProgram = initDiffuseLightingShader(gl);
-    const phongLightingProgram = initPhongLightingShader(gl);
 
     // Here's where we call the routine that builds all the objects we'll be drawing.
     initObjectBuffers(gl);
@@ -1651,7 +1618,7 @@ function main() {
         const deltaTime = now - then;
         then = now;
         // draw scene
-        drawScene(gl, basicProgram, diffuseLightingProgram, phongLightingProgram, deltaTime);
+        drawScene(gl, basicProgram, diffuseLightingProgram, deltaTime);
 
         if (now - oneSecThen > 1) {
             oneSecThen = now;
@@ -2203,7 +2170,7 @@ function drawObject(gl, lightingProgram, buffers, diffuseTexture, normalTexture,
     gl.drawArrays(gl.TRIANGLES, drawOffset, drawCount);
 }
 
-function drawScene(gl, basicProgram, diffuseLightingProgram, phongLightingProgram, deltaTime) {
+function drawScene(gl, basicProgram, diffuseLightingProgram, deltaTime) {
     mTimeEllapse += deltaTime;
 
     mViewFrustumBuffer = updateViewFrustumBuffer(gl);
@@ -2248,7 +2215,7 @@ function drawScene(gl, basicProgram, diffuseLightingProgram, phongLightingProgra
 
     if (mObjectBuffer.length > 0) {
         for (var i = 0; i < mObjectBuffer.length; i++) {
-            drawObject(gl, phongLightingProgram, mObjectBuffer[i], mObjectDiffuseTexture, mObjectNormalTexture, mObjectBuffer[i].drawCnt, deltaTime, false);
+            drawObject(gl, mLightProgram, mObjectBuffer[i], mObjectDiffuseTexture, mObjectNormalTexture, mObjectBuffer[i].drawCnt, deltaTime, false);
         }
     }
     mCobraAnimFrameEllapse++;
@@ -2313,7 +2280,7 @@ function drawScene(gl, basicProgram, diffuseLightingProgram, phongLightingProgra
     gl.viewport(mViewportWidth, 0, mViewportWidth, mViewportHeight);
     if (mObjectBuffer.length > 0 && null != mViewFrustumBuffer) {
         for (var i = 0; i < mObjectBuffer.length; i++) {
-            drawObject(gl, phongLightingProgram, mObjectBuffer[i], mObjectDiffuseTexture, mObjectNormalTexture, mObjectBuffer[i].drawCnt, deltaTime, true);
+            drawObject(gl, mLightProgram, mObjectBuffer[i], mObjectDiffuseTexture, mObjectNormalTexture, mObjectBuffer[i].drawCnt, deltaTime, true);
         }
         drawArrays(gl, basicProgram, mAxisBuffer, mAxisVertices.length / 3, mGodMvpMatrix, gl.LINES, deltaTime);
         drawArrays(gl, basicProgram, mViewFrustumBuffer, mViewFrustumVertices.length / 3, mViewFrustumMvpMatrix, gl.LINES, deltaTime);

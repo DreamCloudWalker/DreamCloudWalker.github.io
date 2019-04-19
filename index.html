@@ -44,6 +44,9 @@
             div#id_cobramaneuvre {
                 display: none;
             }
+            div#id_lightdemo {
+                display: none;
+            }
             div#matrix {
                 margin: 10px;
             }
@@ -75,16 +78,14 @@
                         <li>纹理</li>
                             <ul>
                                 <li><a href="#TOC2.1">UV坐标</a></li>
-                                <li><a href="#TOC2.2">透明排序</a></li>
+                                <li><a href="#TOC2.2">混合与透明排序</a></li>
                                 <li><a href="#TOC2.3">采样器</a></li>
                                 <li><a href="#TOC2.4">Mipmap</a></li>
                             </ul>
                         </li>
                         <li>光照</li>
                             <ul>
-                                <li><a href="#TOC3.1">环境光</a></li>
-                                <li><a href="#TOC3.2">漫射光</a></li>
-                                <li><a href="#TOC3.3">镜面光</a></li>
+                                <li><a href="#TOC3.1" onclick="demoLight()">基本光照</a></li>
                                 <li><a href="#TOC3.4">光照模型</a></li>
                                 <li><a href="#TOC3.5">Phong光照</a></li>
                                 <li><a href="#TOC3.6">逐顶点&逐像素光照</a></li>
@@ -92,6 +93,7 @@
                                 <li><a href="#TOC3.8">法线贴图</a></li>
                                 <li><a href="#TOC3.9">镜头光晕</a></li>
                                 <li><a href="#TOC3.10">FBO、RTT、阴影</a></li>
+                                <li><a href="#TOC3.11">PBR</a></li>
                             </ul>
                         </li>
                         <li>场景管理</li>
@@ -666,6 +668,103 @@ void main() {
         <div id="id_cobramaneuvre">
             <h4 style="width: 230px; background: #ffffff">原型图：</h4>
             <img src="./texture/cobra.gif">
+        </div>
+        <div id="id_lightdemo">
+            <h5 style="width: 230px; background: #ffffff">基本光照：<br><br>
+                <input type="checkbox" id="ambientLight" checked />环境光<br>
+                <input type="checkbox" id="diffuseLight" checked />漫射光<br>
+                <input type="checkbox" id="specularLight" checked />镜面光<br><br>
+                <div style="border: 1px solid #cccccc; width: 200px; margin: 1px;">
+                    环境光颜色
+                    <br/>Red  : <input id="ColorA_Red"   style="width: 190px;" type="range" value="1.0" min="0.0" max="1.0" step="0.01" oninput="updateAmbientColor()"/><label id="label_ambient_red"></label>
+                    <br/>Green: <input id="ColorA_Green" style="width: 190px;" type="range" value="1.0" min="0.0" max="1.0" step="0.01" oninput="updateAmbientColor()"/><label id="label_ambient_green"></label>
+                    <br/>Blue : <input id="ColorA_Blue"  style="width: 190px;" type="range" value="1.0" min="0.0" max="1.0" step="0.01" oninput="updateAmbientColor()"/><label id="label_ambient_blue"></label>
+                </div>
+                <div style="border: 1px solid #cccccc; width: 200px; margin: 1px;">
+                    漫反射光颜色
+                    <br/>Red  : <input id="ColorA_Red"   style="width: 190px;" type="range" value="1.0" min="0.0" max="1.0" step="0.01" oninput="updateDiffuseColor()"/><label id="label_diffuse_red"></label>
+                    <br/>Green: <input id="ColorA_Green" style="width: 190px;" type="range" value="1.0" min="0.0" max="1.0" step="0.01" oninput="updateDiffuseColor()"/><label id="label_diffuse_green"></label>
+                    <br/>Blue : <input id="ColorA_Blue"  style="width: 190px;" type="range" value="1.0" min="0.0" max="1.0" step="0.01" oninput="updateDiffuseColor()"/><label id="label_diffuse_blue"></label>
+                </div>
+                <div style="border: 1px solid #cccccc; width: 200px; margin: 1px;">
+                    镜面光颜色
+                    <br/>Red  : <input id="ColorA_Red"   style="width: 190px;" type="range" value="1.0" min="0.0" max="1.0" step="0.01" oninput="updateSpecularColor()"/><label id="label_specular_red"></label>
+                    <br/>Green: <input id="ColorA_Green" style="width: 190px;" type="range" value="1.0" min="0.0" max="1.0" step="0.01" oninput="updateSpecularColor()"/><label id="label_specular_green"></label>
+                    <br/>Blue : <input id="ColorA_Blue"  style="width: 190px;" type="range" value="1.0" min="0.0" max="1.0" step="0.01" oninput="updateSpecularColor()"/><label id="label_specular_blue"></label>
+                </div>
+            </h5>
+            <div id="vertical">
+                <div id="horizontal" style="width: 90em;">
+                    <div id="vertical">
+                        <b>VertexShader</b>
+                        <textarea spellcheck="false" rows="30" cols="95" id="id_light_vertex_shader">
+attribute vec4 aPosition;
+attribute vec3 aNormal;
+attribute vec2 aTexCoord;
+
+uniform mat4 uModelMatrix;
+uniform mat4 uViewMatrix;
+uniform mat4 uProjectionMatrix;
+uniform vec3 uLightDir;
+uniform mat4 uVIMatrix;
+uniform mat4 uMITMatrix;    // Inverse & Transpose of Model Matrix
+
+varying vec4 vPosition;
+varying vec2 vTexCoord;
+varying vec3 vNormal;
+varying vec3 vLightDir;
+varying vec4 vViewDir;
+
+void main() {
+    vec4 pntPos = uProjectionMatrix * uViewMatrix * uModelMatrix * aPosition;
+    gl_Position = pntPos;
+    vPosition = uModelMatrix * aPosition;
+    vNormal = normalize(vec3(uMITMatrix * vec4(aNormal, 0.0)));
+    vLightDir = normalize(uLightDir);
+    vViewDir = normalize(uVIMatrix * vec4(0.0, 0.0, 0.0, 1.0) - vPosition);
+    vTexCoord = aTexCoord;
+}
+                        </textarea>
+                    </div>
+                    <div id="vertical">
+                        <b>FragmentShader</b>
+                        <textarea spellcheck="false" rows="30" cols="95" id="id_light_fragment_shader">
+precision mediump float;
+
+uniform sampler2D uTexDiffuseSampler;
+uniform sampler2D uTexNormalSampler;
+uniform int uUseNormalMapping;
+
+uniform float uSpecular;
+uniform vec4 uKa;
+uniform vec4 uKd;
+uniform vec4 uKs;
+
+varying vec4 vPosition;
+varying vec2 vTexCoord;
+varying vec3 vNormal;
+varying vec3 vLightDir;
+varying vec4 vViewDir;
+
+void main() {
+    vec4 color = texture2D(uTexDiffuseSampler, vTexCoord);
+
+    vec3 reflectDir = normalize(2.0 * dot(vNormal, vLightDir) * vNormal - vLightDir);
+    vec4 ambientColor = uKa;
+    vec4 diffuseColor = vec4(uKd.rgb * clamp(dot(vNormal, vLightDir), 0.0, 1.0), uKd.a);
+    vec4 specularColor = vec4(uKs.rgb * pow(clamp(dot(reflectDir, vec3(vViewDir.xyz)), 0.0, 1.0), uSpecular), uKs.a);
+    if (1 == uUseNormalMapping) {
+        vec3 normal = texture2D(uTexNormalSampler, vTexCoord).rgb;
+        normal = normalize(normal * 2.0 - 1.0); // (0.0~1.0) -> (-1.0~1.0)
+        diffuseColor = diffuseColor * (max(0.0, dot(normal, vLightDir)));
+    }
+    gl_FragColor = (ambientColor + diffuseColor + specularColor) * color;
+    gl_FragColor.a = 1.0;
+}
+                        </textarea>
+                    </div>
+                </div>
+                <button style="display:block; margin:0 auto; width: 200px; height: 30px" onclick="updateLightShader()">编译并运行</button>
         </div>
     </div>
     </body>
