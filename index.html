@@ -671,26 +671,26 @@ void main() {
         </div>
         <div id="id_lightdemo">
             <h5 style="width: 230px; background: #ffffff">基本光照：<br><br>
-                <input type="checkbox" id="ambientLight" checked />环境光<br>
-                <input type="checkbox" id="diffuseLight" checked />漫射光<br>
-                <input type="checkbox" id="specularLight" checked />镜面光<br><br>
+                <input type="checkbox" id="ambientLightCheckBox" checked onchange="updateLightSwitch()" />环境光<br>
+                <input type="checkbox" id="diffuseLightCheckBox" checked onchange="updateLightSwitch()" />漫射光<br>
+                <input type="checkbox" id="specularLightCheckBox" checked onchange="updateLightSwitch()" />镜面光<br><br>
                 <div style="border: 1px solid #cccccc; width: 200px; margin: 1px;">
                     环境光颜色
-                    <br/>Red  : <input id="ColorA_Red"   style="width: 190px;" type="range" value="1.0" min="0.0" max="1.0" step="0.01" oninput="updateAmbientColor()"/><label id="label_ambient_red"></label>
-                    <br/>Green: <input id="ColorA_Green" style="width: 190px;" type="range" value="1.0" min="0.0" max="1.0" step="0.01" oninput="updateAmbientColor()"/><label id="label_ambient_green"></label>
-                    <br/>Blue : <input id="ColorA_Blue"  style="width: 190px;" type="range" value="1.0" min="0.0" max="1.0" step="0.01" oninput="updateAmbientColor()"/><label id="label_ambient_blue"></label>
+                    <br/>Red  : <input id="ambient_color_red"   style="width: 160px;" type="range" value="1.0" min="0.0" max="1.0" step="0.01" oninput="updateAmbientColor()"/><label id="label_ambient_red"></label>
+                    <br/>Green: <input id="ambient_color_green" style="width: 160px;" type="range" value="1.0" min="0.0" max="1.0" step="0.01" oninput="updateAmbientColor()"/><label id="label_ambient_green"></label>
+                    <br/>Blue : <input id="ambient_color_blue"  style="width: 160px;" type="range" value="1.0" min="0.0" max="1.0" step="0.01" oninput="updateAmbientColor()"/><label id="label_ambient_blue"></label>
                 </div>
                 <div style="border: 1px solid #cccccc; width: 200px; margin: 1px;">
                     漫反射光颜色
-                    <br/>Red  : <input id="ColorA_Red"   style="width: 190px;" type="range" value="1.0" min="0.0" max="1.0" step="0.01" oninput="updateDiffuseColor()"/><label id="label_diffuse_red"></label>
-                    <br/>Green: <input id="ColorA_Green" style="width: 190px;" type="range" value="1.0" min="0.0" max="1.0" step="0.01" oninput="updateDiffuseColor()"/><label id="label_diffuse_green"></label>
-                    <br/>Blue : <input id="ColorA_Blue"  style="width: 190px;" type="range" value="1.0" min="0.0" max="1.0" step="0.01" oninput="updateDiffuseColor()"/><label id="label_diffuse_blue"></label>
+                    <br/>Red  : <input id="diffuse_color_red"   style="width: 160px;" type="range" value="1.0" min="0.0" max="1.0" step="0.01" oninput="updateDiffuseColor()"/><label id="label_diffuse_red"></label>
+                    <br/>Green: <input id="diffuse_color_green" style="width: 160px;" type="range" value="1.0" min="0.0" max="1.0" step="0.01" oninput="updateDiffuseColor()"/><label id="label_diffuse_green"></label>
+                    <br/>Blue : <input id="diffuse_color_blue"  style="width: 160px;" type="range" value="1.0" min="0.0" max="1.0" step="0.01" oninput="updateDiffuseColor()"/><label id="label_diffuse_blue"></label>
                 </div>
                 <div style="border: 1px solid #cccccc; width: 200px; margin: 1px;">
                     镜面光颜色
-                    <br/>Red  : <input id="ColorA_Red"   style="width: 190px;" type="range" value="1.0" min="0.0" max="1.0" step="0.01" oninput="updateSpecularColor()"/><label id="label_specular_red"></label>
-                    <br/>Green: <input id="ColorA_Green" style="width: 190px;" type="range" value="1.0" min="0.0" max="1.0" step="0.01" oninput="updateSpecularColor()"/><label id="label_specular_green"></label>
-                    <br/>Blue : <input id="ColorA_Blue"  style="width: 190px;" type="range" value="1.0" min="0.0" max="1.0" step="0.01" oninput="updateSpecularColor()"/><label id="label_specular_blue"></label>
+                    <br/>Red  : <input id="specular_color_red"   style="width: 160px;" type="range" value="1.0" min="0.0" max="1.0" step="0.01" oninput="updateSpecularColor()"/><label id="label_specular_red"></label>
+                    <br/>Green: <input id="specular_color_green" style="width: 160px;" type="range" value="1.0" min="0.0" max="1.0" step="0.01" oninput="updateSpecularColor()"/><label id="label_specular_green"></label>
+                    <br/>Blue : <input id="specular_color_blue"  style="width: 160px;" type="range" value="1.0" min="0.0" max="1.0" step="0.01" oninput="updateSpecularColor()"/><label id="label_specular_blue"></label>
                 </div>
             </h5>
             <div id="vertical">
@@ -735,6 +735,9 @@ uniform sampler2D uTexDiffuseSampler;
 uniform sampler2D uTexNormalSampler;
 uniform int uUseNormalMapping;
 
+uniform int uUseAmbient;
+uniform int uUseDiffuse;
+uniform int uUseSpecular;
 uniform float uSpecular;
 uniform vec4 uKa;
 uniform vec4 uKd;
@@ -748,12 +751,13 @@ varying vec4 vViewDir;
 
 void main() {
     vec4 color = texture2D(uTexDiffuseSampler, vTexCoord);
+    vec4 defaultColor = vec4(0.0, 0.0, 0.0, 0.0);
 
     vec3 reflectDir = normalize(2.0 * dot(vNormal, vLightDir) * vNormal - vLightDir);
-    vec4 ambientColor = uKa;
-    vec4 diffuseColor = vec4(uKd.rgb * clamp(dot(vNormal, vLightDir), 0.0, 1.0), uKd.a);
-    vec4 specularColor = vec4(uKs.rgb * pow(clamp(dot(reflectDir, vec3(vViewDir.xyz)), 0.0, 1.0), uSpecular), uKs.a);
-    if (1 == uUseNormalMapping) {
+    vec4 ambientColor = (1 == uUseAmbient) ? uKa : defaultColor;
+    vec4 diffuseColor = (1 == uUseDiffuse) ? vec4(uKd.rgb * clamp(dot(vNormal, vLightDir), 0.0, 1.0), uKd.a) : defaultColor;
+    vec4 specularColor = (1 == uUseSpecular) ? vec4(uKs.rgb * pow(clamp(dot(reflectDir, vec3(vViewDir.xyz)), 0.0, 1.0), uSpecular), uKs.a) : defaultColor;
+    if (1 == uUseNormalMapping && 1 == uUseDiffuse) {
         vec3 normal = texture2D(uTexNormalSampler, vTexCoord).rgb;
         normal = normalize(normal * 2.0 - 1.0); // (0.0~1.0) -> (-1.0~1.0)
         diffuseColor = diffuseColor * (max(0.0, dot(normal, vLightDir)));

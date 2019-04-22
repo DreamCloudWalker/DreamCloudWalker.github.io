@@ -48,6 +48,12 @@ var mObjectDiffuseTexture = null;
 var mObjectNormalTexture = null;
 // lighting
 var mLightProgram = null;
+var mAmbientColor = vec4.fromValues(1.0, 1.0, 1.0, 1.0);
+var mDiffuseColor = vec4.fromValues(1.0, 1.0, 1.0, 1.0);
+var mSpecularColor = vec4.fromValues(1.0, 1.0, 1.0, 1.0);
+var mUseAmbientColor = true;
+var mUseDiffuseColor = true;
+var mUseSpecularColor = true;
 // draw background
 var mBackgroundProgram = null;
 var mBackgroundBuffer = null;
@@ -382,6 +388,39 @@ function initDiffuseLightingShader(gl) {
     return programInfo;
 }
 
+function updateLightSwitch() {
+    mUseAmbientColor = document.getElementById("ambientLightCheckBox").checked;
+    mUseDiffuseColor = document.getElementById("diffuseLightCheckBox").checked;
+    mUseSpecularColor = document.getElementById("specularLightCheckBox").checked;
+}
+
+function updateAmbientColor() {
+    mAmbientColor[0] = document.getElementById("ambient_color_red").value;
+    mAmbientColor[1] = document.getElementById("ambient_color_green").value;
+    mAmbientColor[2] = document.getElementById("ambient_color_blue").value;
+    document.getElementById("label_ambient_red").innerHTML = mAmbientColor[0].toFixed(2);
+    document.getElementById("label_ambient_green").innerHTML = mAmbientColor[1].toFixed(2);
+    document.getElementById("label_ambient_blue").innerHTML = mAmbientColor[2].toFixed(2);
+}
+
+function updateDiffuseColor() {
+    mDiffuseColor[0] = document.getElementById("diffuse_color_red").value;
+    mDiffuseColor[1] = document.getElementById("diffuse_color_green").value;
+    mDiffuseColor[2] = document.getElementById("diffuse_color_blue").value;
+    document.getElementById("label_diffuse_red").innerHTML = mDiffuseColor[0].toFixed(2);
+    document.getElementById("label_diffuse_green").innerHTML = mDiffuseColor[1].toFixed(2);
+    document.getElementById("label_diffuse_blue").innerHTML = mDiffuseColor[2].toFixed(2);
+}
+
+function updateSpecularColor() {
+    mSpecularColor[0] = document.getElementById("specular_color_red").value;
+    mSpecularColor[1] = document.getElementById("specular_color_green").value;
+    mSpecularColor[2] = document.getElementById("specular_color_blue").value;
+    document.getElementById("label_specular_red").innerHTML = mSpecularColor[0].toFixed(2);
+    document.getElementById("label_specular_green").innerHTML = mSpecularColor[1].toFixed(2);
+    document.getElementById("label_specular_blue").innerHTML = mSpecularColor[2].toFixed(2);
+}
+
 function updateLightShader() {
     const canvas = document.querySelector("#glcanvas");
     // Initialize the GL context
@@ -428,6 +467,9 @@ function updateLightShader() {
             uTexDiffuseSampler: gl.getUniformLocation(shaderProgram, 'uTexDiffuseSampler'),
             uTexNormalSampler: gl.getUniformLocation(shaderProgram, 'uTexNormalSampler'),
             uUseNormalMapping: gl.getUniformLocation(shaderProgram, 'uUseNormalMapping'),
+            uUseAmbient: gl.getUniformLocation(shaderProgram, 'uUseAmbient'),
+            uUseDiffuse: gl.getUniformLocation(shaderProgram, 'uUseDiffuse'),
+            uUseSpecular: gl.getUniformLocation(shaderProgram, 'uUseSpecular'),
         },
     }
 }
@@ -1526,6 +1568,12 @@ function main() {
         return;
     }
 
+    // init light value
+    updateLightSwitch();
+    updateAmbientColor();
+    updateDiffuseColor();
+    updateSpecularColor();
+
     // initialize anim params
     mCobraStep1Quat = quat.fromEuler(mCobraStep1Quat, 120, 0, 30);
     mFallingLeaf1Quat = quat.fromEuler(mFallingLeaf1Quat, 100, -20, 90);
@@ -1970,8 +2018,12 @@ function drawGimbalElements(gl, diffuseLightingProgram, buffers, vertexCount, mv
     gl.useProgram(diffuseLightingProgram.program);
     gl.uniformMatrix4fv(diffuseLightingProgram.uniformLocations.uMVPMatrixHandle, false, mvpMatrix);
     gl.uniformMatrix4fv(diffuseLightingProgram.uniformLocations.uMITHandle, false, mGimbalMITMatrix);
-    gl.uniform4fv(diffuseLightingProgram.uniformLocations.uKaHandle, AMBIENT_COLOR);
-    gl.uniform4fv(diffuseLightingProgram.uniformLocations.uKdHandle, DIFFUSE_COLOR);
+    if (mUseAmbientColor) {
+        gl.uniform4fv(diffuseLightingProgram.uniformLocations.uKaHandle, mAmbientColor);
+    }
+    if (mUseDiffuseColor) {
+        gl.uniform4fv(diffuseLightingProgram.uniformLocations.uKdHandle, mDiffuseColor);
+    }
     gl.uniform3fv(diffuseLightingProgram.uniformLocations.uLightDirHandle, LIGHT_POSITION);
 
     const drawOffset = 0;
@@ -2158,9 +2210,24 @@ function drawObject(gl, lightingProgram, buffers, diffuseTexture, normalTexture,
     }
 
     gl.uniform1f(lightingProgram.uniformLocations.uSpecularHandle, SPECULAR_VALUE);
-    gl.uniform4fv(lightingProgram.uniformLocations.uKaHandle, AMBIENT_COLOR);
-    gl.uniform4fv(lightingProgram.uniformLocations.uKdHandle, DIFFUSE_COLOR);
-    gl.uniform4fv(lightingProgram.uniformLocations.uKsHandle, SPECULAR_COLOR);
+    if (mUseAmbientColor) {
+        gl.uniform1i(lightingProgram.uniformLocations.uUseAmbient, 1);
+        gl.uniform4fv(lightingProgram.uniformLocations.uKaHandle, mAmbientColor);
+    } else {
+        gl.uniform1i(lightingProgram.uniformLocations.uUseAmbient, 0);
+    }
+    if (mUseDiffuseColor) {
+        gl.uniform1i(lightingProgram.uniformLocations.uUseDiffuse, 1);
+        gl.uniform4fv(lightingProgram.uniformLocations.uKdHandle, mDiffuseColor);
+    } else {
+        gl.uniform1i(lightingProgram.uniformLocations.uUseDiffuse, 0);
+    }
+    if (mUseSpecularColor) {
+        gl.uniform1i(lightingProgram.uniformLocations.uUseSpecular, 1);
+        gl.uniform4fv(lightingProgram.uniformLocations.uKsHandle, mSpecularColor);
+    } else {
+        gl.uniform1i(lightingProgram.uniformLocations.uUseSpecular, 0);
+    }
     gl.uniform3fv(lightingProgram.uniformLocations.uLightDirHandle, LIGHT_POSITION);
 
     const drawOffset = 0;
