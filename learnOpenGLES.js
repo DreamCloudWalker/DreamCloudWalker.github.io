@@ -1,10 +1,10 @@
 const TWO_PI = Math.PI * 2.0;
 const DEGREE_TO_RADIUS = Math.PI / 180;
 const RADIUS_TO_DEGREE = 180 / Math.PI;
-const AMBIENT_COLOR = vec4.fromValues(1.0, 1.0, 1.0, 1.0);
+const AMBIENT_COLOR = vec4.fromValues(0.3, 0.3, 0.3, 1.0);
 const DIFFUSE_COLOR = vec4.fromValues(1.0, 1.0, 1.0, 1.0);
 const SPECULAR_COLOR = vec4.fromValues(1.0, 1.0, 1.0, 1.0);
-const LIGHT_POSITION = vec3.fromValues(-1.0, -1.0, -1.0);
+const LIGHT_POSITION = vec3.fromValues(1.0, -1.0, 1.0);
 const SPECULAR_VALUE = 32.0;
 // proj
 const HALF_FOV = 25 * DEGREE_TO_RADIUS;
@@ -48,7 +48,7 @@ var mObjectDiffuseTexture = null;
 var mObjectNormalTexture = null;
 // lighting
 var mLightProgram = null;
-var mAmbientColor = vec4.fromValues(1.0, 1.0, 1.0, 1.0);
+var mAmbientColor = vec4.fromValues(0.3, 0.3, 0.3, 1.0);
 var mDiffuseColor = vec4.fromValues(1.0, 1.0, 1.0, 1.0);
 var mSpecularColor = vec4.fromValues(1.0, 1.0, 1.0, 1.0);
 var mUseAmbientColor = true;
