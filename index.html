@@ -667,7 +667,18 @@ void main() {
         </div>
         <div id="id_cobramaneuvre">
             <h4 style="width: 230px; background: #ffffff">原型图：</h4>
-            <img src="./texture/cobra.gif">
+
+            <div id="vertical" style="margin: 5px">
+                <img src="./texture/cobra.gif">
+                <br><label>初始四元数 = </label><label id="id_cobra_init_quat">[0, 0, 0, 1]</label>
+                <br><label>Step1四元数 = quat.fromEuler(0,   0,   0) = </label><label id="id_cobra_step1_quat">[0, 0, 0, 1]</label>
+                <br><label>Step2四元数 = quat.fromEuler(120,   0,  30) = </label><label id="id_falling_leaf_step1_quat">[0, 0, 0, 1]</label>
+                <br><label>Step3四元数 = quat.fromEuler(100, -20,  90) = </label><label id="id_falling_leaf_step2_quat">[0, 0, 0, 1]</label>
+                <br><label>Step4四元数 = quat.fromEuler(80,  -40, 180) = </label><label id="id_falling_leaf_step3_quat">[0, 0, 0, 1]</label>
+                <br><label>Step5四元数 = quat.fromEuler(60,  -20, 270) = </label><label id="id_falling_leaf_step4_quat">[0, 0, 0, 1]</label>
+                <br><label>Step6四元数 = quat.fromEuler(40,    0, 360) = </label><label id="id_cobra_step2_quat">[0, 0, 0, 1]</label>
+                <br><br><label>插值四元数 = quat.fromEuler(0,   0,   0) = </label><label id="id_cobra_interpolate_quat">[0, 0, 0, 1]</label>
+            </div>
         </div>
         <div id="id_lightdemo">
             <h5 style="width: 230px; background: #ffffff">基本光照：<br><br>
@@ -676,9 +687,9 @@ void main() {
                 <input type="checkbox" id="specularLightCheckBox" checked onchange="updateLightSwitch()" />镜面光<br><br>
                 <div style="border: 1px solid #cccccc; width: 200px; margin: 1px;">
                     环境光颜色
-                    <br/>Red  : <input id="ambient_color_red"   style="width: 160px;" type="range" value="0.3" min="0.0" max="1.0" step="0.01" oninput="updateAmbientColor()"/><label id="label_ambient_red"></label>
-                    <br/>Green: <input id="ambient_color_green" style="width: 160px;" type="range" value="0.3" min="0.0" max="1.0" step="0.01" oninput="updateAmbientColor()"/><label id="label_ambient_green"></label>
-                    <br/>Blue : <input id="ambient_color_blue"  style="width: 160px;" type="range" value="0.3" min="0.0" max="1.0" step="0.01" oninput="updateAmbientColor()"/><label id="label_ambient_blue"></label>
+                    <br/>Red  : <input id="ambient_color_red"   style="width: 160px;" type="range" value="0.5" min="0.0" max="1.0" step="0.01" oninput="updateAmbientColor()"/><label id="label_ambient_red"></label>
+                    <br/>Green: <input id="ambient_color_green" style="width: 160px;" type="range" value="0.5" min="0.0" max="1.0" step="0.01" oninput="updateAmbientColor()"/><label id="label_ambient_green"></label>
+                    <br/>Blue : <input id="ambient_color_blue"  style="width: 160px;" type="range" value="0.5" min="0.0" max="1.0" step="0.01" oninput="updateAmbientColor()"/><label id="label_ambient_blue"></label>
                 </div>
                 <div style="border: 1px solid #cccccc; width: 200px; margin: 1px;">
                     漫反射光颜色

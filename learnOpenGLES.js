@@ -1,7 +1,7 @@
 const TWO_PI = Math.PI * 2.0;
 const DEGREE_TO_RADIUS = Math.PI / 180;
 const RADIUS_TO_DEGREE = 180 / Math.PI;
-const AMBIENT_COLOR = vec4.fromValues(0.3, 0.3, 0.3, 1.0);
+const AMBIENT_COLOR = vec4.fromValues(0.5, 0.5, 0.5, 1.0);
 const DIFFUSE_COLOR = vec4.fromValues(1.0, 1.0, 1.0, 1.0);
 const SPECULAR_COLOR = vec4.fromValues(1.0, 1.0, 1.0, 1.0);
 const LIGHT_POSITION = vec3.fromValues(1.0, -1.0, 1.0);
@@ -31,7 +31,7 @@ const TubeDir = {
     DIR_Z: 2,
 };
 // cobra anim frame cnt
-const COBRA_STEP1_FRAME_CNT = 30;
+const COBRA_STEP1_FRAME_CNT = 60;
 const FALLING_LEAF1_FRAME_CNT = 15;
 const FALLING_LEAF2_FRAME_CNT = 20;
 const FALLING_LEAF3_FRAME_CNT = 25;
@@ -48,7 +48,7 @@ var mObjectDiffuseTexture = null;
 var mObjectNormalTexture = null;
 // lighting
 var mLightProgram = null;
-var mAmbientColor = vec4.fromValues(0.3, 0.3, 0.3, 1.0);
+var mAmbientColor = vec4.fromValues(0.5, 0.5, 0.5, 1.0);
 var mDiffuseColor = vec4.fromValues(1.0, 1.0, 1.0, 1.0);
 var mSpecularColor = vec4.fromValues(1.0, 1.0, 1.0, 1.0);
 var mUseAmbientColor = true;
@@ -419,6 +419,28 @@ function updateSpecularColor() {
     document.getElementById("label_specular_red").innerHTML = mSpecularColor[0].toFixed(2);
     document.getElementById("label_specular_green").innerHTML = mSpecularColor[1].toFixed(2);
     document.getElementById("label_specular_blue").innerHTML = mSpecularColor[2].toFixed(2);
+}
+
+function updateInitQuatHtmlValue() {
+    document.getElementById("id_cobra_init_quat").innerHTML = "[" + mCobraInitQuat[0].toFixed(2) + ", " + mCobraInitQuat[1].toFixed(2) + ", " 
+        + mCobraInitQuat[2].toFixed(2) + ", " + mCobraInitQuat[3].toFixed(2) + "]";
+    document.getElementById("id_cobra_step1_quat").innerHTML = "[" + mCobraStep1Quat[0].toFixed(2) + ", " + mCobraStep1Quat[1].toFixed(2) + ", " 
+        + mCobraStep1Quat[2].toFixed(2) + ", " + mCobraStep1Quat[3].toFixed(2) + "]";
+    document.getElementById("id_falling_leaf_step1_quat").innerHTML = "[" + mFallingLeaf1Quat[0].toFixed(2) + ", " + mFallingLeaf1Quat[1].toFixed(2) + ", " 
+        + mFallingLeaf1Quat[2].toFixed(2) + ", " + mFallingLeaf1Quat[3].toFixed(2) + "]";
+    document.getElementById("id_falling_leaf_step2_quat").innerHTML = "[" + mFallingLeaf2Quat[0].toFixed(2) + ", " + mFallingLeaf2Quat[1].toFixed(2) + ", " 
+        + mFallingLeaf2Quat[2].toFixed(2) + ", " + mFallingLeaf2Quat[3].toFixed(2) + "]";
+    document.getElementById("id_falling_leaf_step3_quat").innerHTML = "[" + mFallingLeaf3Quat[0].toFixed(2) + ", " + mFallingLeaf3Quat[1].toFixed(2) + ", " 
+        + mFallingLeaf3Quat[2].toFixed(2) + ", " + mFallingLeaf3Quat[3].toFixed(2) + "]";
+    document.getElementById("id_falling_leaf_step4_quat").innerHTML = "[" + mFallingLeaf4Quat[0].toFixed(2) + ", " + mFallingLeaf4Quat[1].toFixed(2) + ", " 
+        + mFallingLeaf4Quat[2].toFixed(2) + ", " + mFallingLeaf4Quat[3].toFixed(2) + "]";
+    document.getElementById("id_cobra_step2_quat").innerHTML = "[" + mCobraStep2Quat[0].toFixed(2) + ", " + mCobraStep2Quat[1].toFixed(2) + ", " 
+        + mCobraStep2Quat[2].toFixed(2) + ", " + mCobraStep2Quat[3].toFixed(2) + "]";
+}
+
+function updateAnimQuatHtmlValue() {
+    document.getElementById("id_cobra_interpolate_quat").innerHTML = "[" + mCobraAnimInterpolateQuat[0].toFixed(2) + ", " + mCobraAnimInterpolateQuat[1].toFixed(2) + ", " 
+        + mCobraAnimInterpolateQuat[2].toFixed(2) + ", " + mCobraAnimInterpolateQuat[3].toFixed(2) + "]";
 }
 
 function updateLightShader() {
@@ -1581,6 +1603,7 @@ function main() {
     mFallingLeaf3Quat = quat.fromEuler(mFallingLeaf3Quat, 60, -20, 270);
     mFallingLeaf4Quat = quat.fromEuler(mFallingLeaf4Quat, 40, 0, 360);
     mCobraStep2Quat = quat.fromEuler(mCobraStep2Quat, 0, 0, 0);
+    updateInitQuatHtmlValue();
 
     // mouse
     canvas.onmousedown = handleMouseDown;
@@ -2031,6 +2054,10 @@ function drawGimbalElements(gl, diffuseLightingProgram, buffers, vertexCount, mv
     gl.drawElements(drawType, vertexCount, dataType, drawOffset);
 }
 
+function calcSquareProgress(progress) {
+    return progress * progress;
+}
+
 function drawObject(gl, lightingProgram, buffers, diffuseTexture, normalTexture, drawCount, deltaTime, isGodView) {
     // Set the drawing position to the "identity" point, which is the center of the scene.
     mModelMatrix = mat4.create();
@@ -2042,6 +2069,7 @@ function drawObject(gl, lightingProgram, buffers, diffuseTexture, normalTexture,
         var progress = 0.0;
         if (mCobraAnimFrameEllapse <= COBRA_STEP1_FRAME_CNT) {
             progress = mCobraAnimFrameEllapse / COBRA_STEP1_FRAME_CNT;
+            progress = calcSquareProgress(progress);
             mCobraAnimInterpolateQuat = quat.slerp(mCobraAnimInterpolateQuat, mCobraInitQuat, mCobraStep1Quat, progress);
         } else if ((mCobraAnimFrameEllapse > COBRA_STEP1_FRAME_CNT) && (mCobraAnimFrameEllapse <= (COBRA_STEP1_FRAME_CNT + FALLING_LEAF1_FRAME_CNT))) {
             progress = (mCobraAnimFrameEllapse - COBRA_STEP1_FRAME_CNT) / FALLING_LEAF1_FRAME_CNT;
@@ -2285,6 +2313,7 @@ function drawScene(gl, basicProgram, diffuseLightingProgram, deltaTime) {
             drawObject(gl, mLightProgram, mObjectBuffer[i], mObjectDiffuseTexture, mObjectNormalTexture, mObjectBuffer[i].drawCnt, deltaTime, false);
         }
     }
+    updateAnimQuatHtmlValue();
     mCobraAnimFrameEllapse++;
 
     // draw assist object use 
