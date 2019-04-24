@@ -5,10 +5,87 @@
     <link rel="stylesheet" href="public/webgl.css" type="text/css">
   </head>
   <script src="public/gl-matrix.js"></script>
-  <script src="geoSphere.js"></script>
+  <script src="color.js"></script>
+  <style type="text/css">
+      div#canvas-frame {
+          border: none;
+          cursor: pointer;
+          width: 400px;
+          height: 400px;
+          background-color: rgb(238, 238, 238);
+      }
+      div#horizontal {
+          display: flex;
+      }
+  </style>
 
-  <body onload="main();" onclick="start();" ondblclick="end();" onkeypress="onKeyPress(event)" >
-    <canvas id="glcanvas" width="600" height="600"></canvas>
+  <body onload="main();" ondblclick="end();" onkeypress="onKeyPress(event)" >
+    <canvas id="glcanvas" width="400" height="400"></canvas>
+    <button style="display:block; margin:0; width: 200px; height: 30px" onclick="updateAnimShader()">编译并运行下面着色程序</button>
+    <div id="vertical">
+        <div id="horizontal" style="width: 90em;">
+            <div id="vertical">
+                <b>VertexShader</b>
+                <textarea spellcheck="false" rows="33" cols="95" id="id_vertex_shader">
+attribute vec4 aPosition;
+
+uniform mat4 uModelViewMatrix;
+uniform mat4 uProjectionMatrix;
+uniform float uCenterRatioRadius;
+uniform float uEndAnimSizeParam;
+
+varying float vMixFactor;
+
+void main() {
+    vec4 pntPos = uProjectionMatrix * uModelViewMatrix * aPosition;
+    float rLength = 1.0 / pntPos.w;
+    pntPos *= rLength;
+    float distance = sqrt(pntPos.x * pntPos.x + pntPos.y * pntPos.y);
+    if (distance < uCenterRatioRadius) {
+        return ;
+    } else {
+        float minScale = 3.0;
+        float pointSize = distance * distance * distance * distance * 40.0 + uEndAnimSizeParam * 5.0;
+        gl_PointSize = (pointSize < minScale) ? minScale : pointSize;
+    }
+
+    gl_Position = pntPos;
+    if (distance < 0.59) {
+        vMixFactor = 0.0;
+    } else if (distance > 0.64) {
+        vMixFactor = 1.0;
+    } else {
+        vMixFactor = abs((0.64 - distance) * 20.0);
+    }
+}
+                </textarea>
+            </div>
+            <div id="vertical">
+                <b>FragmentShader</b>
+                <textarea spellcheck="false" rows="33" cols="95" id="id_fragment_shader">
+precision mediump float;
+uniform vec2 uViewport;
+uniform float uEndAnimParam;
+
+varying float vMixFactor;
+
+void main() {
+    if (length(gl_PointCoord - vec2(0.5)) > 0.5) {
+        discard;
+    }
+    
+    // gl_FragCoord.y / uViewport.y (0~1)
+    vec4 finalColor = vec4(abs(1.0 - gl_FragCoord.y / uViewport.y), 1.0, 0.0, 1.0);
+    vec4 mixColor = vec4(0.0, 1.0, 0.9, 1.0);
+    finalColor = mix(mixColor, finalColor, vMixFactor);
+    gl_FragColor = finalColor + vec4(uEndAnimParam, uEndAnimParam, uEndAnimParam, 0.0);
+}
+                </textarea>
+            </div>
+        </div><br>
+        <h5 style="width: 230px; background: #ffffff">渲染管线示意图：</h5>
+        <img src="./texture/render_tube.jpg">
+    </div>
   </body>
 
 </html>
