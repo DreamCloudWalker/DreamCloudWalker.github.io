@@ -102,7 +102,7 @@ function initShader(gl) {
                 return ;
             } else {
                 float minScale = 3.0;
-                float pointSize = distance * distance * distance * distance * 70.0 + uEndAnimSizeParam * 10.0;
+                float pointSize = distance * distance * distance * distance * 45.0 + uEndAnimSizeParam * 10.0;
                 gl_PointSize = (pointSize < minScale) ? minScale : pointSize;
             }
 
@@ -509,8 +509,8 @@ function executeEnterAnim() {
         if (mEnterScale < 1.0) {
             mEnterScale = progress;
         }
-        if (mCenterRatioRadius < 0.5) {
-            mCenterRatioRadius = 0.5 * progress;
+        if (mCenterRatioRadius < 0.4) {
+            mCenterRatioRadius = 0.4 * progress;
         }
         if (mEnterAnimFrameCnt >= ENTER_ANIM_FRAME_CNT) {
             mStarted = false;
