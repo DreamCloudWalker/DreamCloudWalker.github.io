@@ -42,6 +42,7 @@ const COBRA_Y_OFFSET = 1.3;
 // chapter
 var mChapterTitle = ChapterTitle.CHAPTER_MATRIX;
 // draw object
+var mNeedDrawFighter = true;
 var mRadius = 1.0;
 var mObjectBuffer = [];
 var mObjectDiffuseTexture = null;
@@ -85,6 +86,10 @@ var mNearBuffer = null;
 var mFarPlaneVertices = [];
 var mFarBuffer = null;
 var mNearFarPlaneColors = [];
+// draw per-vertex and per-frag lighting
+var mNeedDrawSphere = false;
+var mSphereVertices = [];
+var mSphereBuffer = null;
 // draw axis
 var mAxisVertices = [];
 var mAxisBuffer = null;
@@ -909,6 +914,50 @@ function updateViewFrustumBuffer(gl) {
     };
 }
 
+function createSphereByLL() {
+    const positions = [];
+    for (var vAngle = -90; vAngle < 90; vAngle += sphereSpanDegree) {
+        for (var hAngle = 0; hAngle <= 360; hAngle += sphereSpanDegree) {
+            var x0 = sphereRadius * Math.cos(vAngle * DEGREE_TO_RADIUS) * Math.cos(hAngle * DEGREE_TO_RADIUS);
+            var y0 = sphereRadius * Math.cos(vAngle * DEGREE_TO_RADIUS) * Math.sin(hAngle * DEGREE_TO_RADIUS);
+            var z0 = sphereRadius * Math.sin(vAngle * DEGREE_TO_RADIUS);
+
+            var x1 = sphereRadius * Math.cos(vAngle * DEGREE_TO_RADIUS) * Math.cos((hAngle + sphereSpanDegree) * DEGREE_TO_RADIUS);
+            var y1 = sphereRadius * Math.cos(vAngle * DEGREE_TO_RADIUS) * Math.sin((hAngle + sphereSpanDegree) * DEGREE_TO_RADIUS);
+            var z1 = sphereRadius * Math.sin(vAngle * DEGREE_TO_RADIUS);
+
+            var x2 = sphereRadius * Math.cos((vAngle + sphereSpanDegree) * DEGREE_TO_RADIUS) * Math.cos((hAngle + sphereSpanDegree) * DEGREE_TO_RADIUS);
+            var y2 = sphereRadius * Math.cos((vAngle + sphereSpanDegree) * DEGREE_TO_RADIUS) * Math.sin((hAngle + sphereSpanDegree) * DEGREE_TO_RADIUS);
+            var z2 = sphereRadius * Math.sin((vAngle + sphereSpanDegree) * DEGREE_TO_RADIUS);
+
+            var x3 = sphereRadius * Math.cos((vAngle + sphereSpanDegree) * DEGREE_TO_RADIUS) * Math.cos(hAngle * DEGREE_TO_RADIUS);
+            var y3 = sphereRadius * Math.cos((vAngle + sphereSpanDegree) * DEGREE_TO_RADIUS) * Math.sin(hAngle * DEGREE_TO_RADIUS);
+            var z3 = sphereRadius * Math.sin((vAngle + sphereSpanDegree) * DEGREE_TO_RADIUS);
+
+            positions.push(x1);
+            positions.push(y1);
+            positions.push(z1);
+            positions.push(x3);
+            positions.push(y3);
+            positions.push(z3);
+            positions.push(x0);
+            positions.push(y0);
+            positions.push(z0);
+
+            positions.push(x1);
+            positions.push(y1);
+            positions.push(z1);
+            positions.push(x2);
+            positions.push(y2);
+            positions.push(z2);
+            positions.push(x3);
+            positions.push(y3);
+            positions.push(z3);
+        }
+    }
+    return positions;
+}
+
 function initCylinderBuffers(gl, radius, height, steps, color, offset, dir) {
     var subdivideDegree = TWO_PI / steps;
     var vertices = [];
@@ -1377,6 +1426,24 @@ function handleMouseMove(event) {
     }
 }
 
+function demoPerVertexOrFragLighting() {
+    mNeedDrawGimbal = false;
+    mNeedDrawAngleAxis = false;
+    mNeedDrawAssistObject = false;
+    mNeedDrawCobraAnim = false;
+    document.getElementById("id_shader").style.display = 'none';
+    document.getElementById("id_mvpmatrix").style.display = 'none';
+    document.getElementById("id_modelmatrix").style.display = 'none';
+    document.getElementById("id_viewmatrix").style.display = 'none';
+    document.getElementById("id_projmatrix").style.display = 'none';
+    document.getElementById("id_rotatematrix").style.display = 'none';
+    document.getElementById("id_axisangle").style.display = 'none';
+    document.getElementById("id_quaternion").style.display = 'none';
+    document.getElementById("id_cobramaneuvre").style.display = 'none';
+    document.getElementById("id_lightdemo").style.display = 'none';
+    document.getElementById("id_per_vertex_or_frag_lighting").style.display = 'flex';
+}
+
 function demoLight() {
     mNeedDrawGimbal = false;
     mNeedDrawAngleAxis = false;
@@ -1392,6 +1459,7 @@ function demoLight() {
     document.getElementById("id_quaternion").style.display = 'none';
     document.getElementById("id_cobramaneuvre").style.display = 'none';
     document.getElementById("id_lightdemo").style.display = 'flex';
+    document.getElementById("id_per_vertex_or_frag_lighting").style.display = 'none';
 }
 
 function demoCobraManeuvre() {
@@ -1409,6 +1477,7 @@ function demoCobraManeuvre() {
     document.getElementById("id_quaternion").style.display = 'none';
     document.getElementById("id_cobramaneuvre").style.display = 'flex';
     document.getElementById("id_lightdemo").style.display = 'none';
+    document.getElementById("id_per_vertex_or_frag_lighting").style.display = 'none';
 
     // update mEye
     mEye[0] = EYE_INIT_POS_Z;
@@ -1447,6 +1516,7 @@ function demoShader() {
     document.getElementById("id_quaternion").style.display = 'none';
     document.getElementById("id_cobramaneuvre").style.display = 'none';
     document.getElementById("id_lightdemo").style.display = 'none';
+    document.getElementById("id_per_vertex_or_frag_lighting").style.display = 'none';
 }
 
 function demoMvpMatrix() {
@@ -1464,6 +1534,7 @@ function demoMvpMatrix() {
     document.getElementById("id_quaternion").style.display = 'none';
     document.getElementById("id_cobramaneuvre").style.display = 'none';
     document.getElementById("id_lightdemo").style.display = 'none';
+    document.getElementById("id_per_vertex_or_frag_lighting").style.display = 'none';
 }
 
 function demoModelMatrix() {
@@ -1481,6 +1552,7 @@ function demoModelMatrix() {
     document.getElementById("id_quaternion").style.display = 'none';
     document.getElementById("id_cobramaneuvre").style.display = 'none';
     document.getElementById("id_lightdemo").style.display = 'none';
+    document.getElementById("id_per_vertex_or_frag_lighting").style.display = 'none';
 }
 
 function demoViewMatrix() {
@@ -1498,6 +1570,7 @@ function demoViewMatrix() {
     document.getElementById("id_quaternion").style.display = 'none';
     document.getElementById("id_cobramaneuvre").style.display = 'none';
     document.getElementById("id_lightdemo").style.display = 'none';
+    document.getElementById("id_per_vertex_or_frag_lighting").style.display = 'none';
 }
 
 function demoProjMatrix() {
@@ -1532,6 +1605,7 @@ function demoRotateMatrix() {
     document.getElementById("id_quaternion").style.display = 'none';
     document.getElementById("id_cobramaneuvre").style.display = 'none';
     document.getElementById("id_lightdemo").style.display = 'none';
+    document.getElementById("id_per_vertex_or_frag_lighting").style.display = 'none';
 }
 
 function demoAxisAngle() {
@@ -1549,6 +1623,7 @@ function demoAxisAngle() {
     document.getElementById("id_quaternion").style.display = 'none';
     document.getElementById("id_cobramaneuvre").style.display = 'none';
     document.getElementById("id_lightdemo").style.display = 'none';
+    document.getElementById("id_per_vertex_or_frag_lighting").style.display = 'none';
 }
 
 function demoQuaternion() {
@@ -1566,6 +1641,7 @@ function demoQuaternion() {
     document.getElementById("id_quaternion").style.display = 'flex';
     document.getElementById("id_cobramaneuvre").style.display = 'none';
     document.getElementById("id_lightdemo").style.display = 'none';
+    document.getElementById("id_per_vertex_or_frag_lighting").style.display = 'none';
 }
 
 // Chrome addEventListener onmousewheel

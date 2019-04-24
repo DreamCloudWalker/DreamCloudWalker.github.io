@@ -47,6 +47,9 @@
             div#id_lightdemo {
                 display: none;
             }
+            div#id_per_vertex_or_frag_lighting {
+                display: none;
+            }
             div#matrix {
                 margin: 10px;
             }
@@ -88,7 +91,7 @@
                                 <li><a href="#TOC3.1" onclick="demoLight()">基本光照</a></li>
                                 <li><a href="#TOC3.4">光照模型</a></li>
                                 <li><a href="#TOC3.5">Phong光照</a></li>
-                                <li><a href="#TOC3.6">逐顶点&逐像素光照</a></li>
+                                <li><a href="#TOC3.6" onclick="demoPerVertexOrFragLighting()">逐顶点&逐像素光照</a></li>
                                 <li><a href="#TOC3.7">菲涅尔效果</a></li>
                                 <li><a href="#TOC3.8">法线贴图</a></li>
                                 <li><a href="#TOC3.9">镜头光晕</a></li>
@@ -708,6 +711,87 @@ void main() {
                     <br/>Blue : <input id="specular_color_blue"  style="width: 160px;" type="range" value="1.0" min="0.0" max="1.0" step="0.01" oninput="updateSpecularColor()"/><label id="label_specular_blue"></label>
                 </div>
             </h5>
+            </div>
+            <div id="vertical">
+                <div id="horizontal" style="width: 90em;">
+                    <div id="vertical">
+                        <b>顶点着色器</b>
+                        <textarea spellcheck="false" rows="31" cols="95" id="id_light_vertex_shader">
+attribute vec4 aPosition;
+attribute vec3 aNormal;
+attribute vec2 aTexCoord;
+
+uniform mat4 uModelMatrix;
+uniform mat4 uViewMatrix;
+uniform mat4 uProjectionMatrix;
+uniform vec3 uLightDir;
+uniform mat4 uVIMatrix;
+uniform mat4 uMITMatrix;    // Inverse & Transpose of Model Matrix
+
+varying vec4 vPosition;
+varying vec2 vTexCoord;
+varying vec3 vNormal;
+varying vec3 vLightDir;
+varying vec4 vViewDir;
+
+void main() {
+    vec4 pntPos = uProjectionMatrix * uViewMatrix * uModelMatrix * aPosition;
+    gl_Position = pntPos;
+    vPosition = uModelMatrix * aPosition;
+    vNormal = normalize(vec3(uMITMatrix * vec4(aNormal, 0.0)));
+    vLightDir = normalize(uLightDir);
+    vViewDir = normalize(uVIMatrix * vec4(0.0, 0.0, 0.0, 1.0) - vPosition);
+    vTexCoord = aTexCoord;
+}
+                        </textarea>
+                    </div>
+                    <div id="vertical">
+                        <b>片元着色器</b>
+                        <textarea spellcheck="false" rows="31" cols="95" id="id_light_fragment_shader">
+precision mediump float;
+
+uniform sampler2D uTexDiffuseSampler;
+uniform sampler2D uTexNormalSampler;
+uniform int uUseNormalMapping;
+
+uniform int uUseAmbient;
+uniform int uUseDiffuse;
+uniform int uUseSpecular;
+uniform float uSpecular;
+uniform vec4 uKa;
+uniform vec4 uKd;
+uniform vec4 uKs;
+
+varying vec4 vPosition;
+varying vec2 vTexCoord;
+varying vec3 vNormal;
+varying vec3 vLightDir;
+varying vec4 vViewDir;
+
+void main() {
+    vec4 color = texture2D(uTexDiffuseSampler, vTexCoord);
+    vec4 defaultColor = vec4(0.0, 0.0, 0.0, 0.0);
+
+    vec3 reflectDir = normalize(2.0 * dot(vNormal, vLightDir) * vNormal - vLightDir);
+    vec4 ambientColor = (1 == uUseAmbient) ? uKa : defaultColor;
+    vec4 diffuseColor = (1 == uUseDiffuse) ? vec4(uKd.rgb * clamp(dot(vNormal, vLightDir), 0.0, 1.0), uKd.a) : defaultColor;
+    vec4 specularColor = (1 == uUseSpecular) ? vec4(uKs.rgb * pow(clamp(dot(reflectDir, vec3(vViewDir.xyz)), 0.0, 1.0), uSpecular), uKs.a) : defaultColor;
+    if (1 == uUseNormalMapping && 1 == uUseDiffuse) {
+        vec3 normal = texture2D(uTexNormalSampler, vTexCoord).rgb;
+        normal = normalize(normal * 2.0 - 1.0); // (0.0~1.0) -> (-1.0~1.0)
+        diffuseColor = diffuseColor * (max(0.0, dot(normal, vLightDir)));
+    }
+    gl_FragColor = (ambientColor + diffuseColor + specularColor) * color;
+    gl_FragColor.a = 1.0;
+}
+                        </textarea>
+                    </div>
+                </div>
+        </div>
+        <div id="id_per_vertex_or_frag_lighting">
+            <div>
+                <button style="display:block; width: 200px; height: 30px" onclick="updateLightShader()">编译并运行</button>
+                <h5 style="width: 230px; background: #ffffff">逐顶点/逐像素光照<br><br></h5>
             </div>
             <div id="vertical">
                 <div id="horizontal" style="width: 90em;">
