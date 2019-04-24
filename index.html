@@ -109,11 +109,11 @@
                 <canvas id="glcanvas" width="1440" height="720"></canvas>
             </div>
             <div id="id_shader">
-                <h4 style="width: 230px; background: #ffffff">着色器(左窗口背景绘制为例)</h4>
+                <button style="display:block; width: 230px; height: 50px" onclick="updateBackgroundShader()">编译并运行着色器&#13;&#10;(左窗口背景绘制为例)</button>
                 <div id="vertical">
                     <div id="horizontal" style="width: 90em;">
                         <div id="vertical">
-                            <b>VertexShader</b>
+                            <b>顶点着色器（VertexShader)</b>
                             <textarea spellcheck="false" rows="10" cols="95" id="id_vertex_shader">
 attribute vec4 aPosition;
 attribute vec2 aTexCoord;
@@ -126,7 +126,7 @@ void main() {
                             </textarea>
                         </div>
                         <div id="vertical">
-                            <b>FragmentShader</b>
+                            <b>片元着色器（FragmentShader)</b>
                             <textarea spellcheck="false" rows="10" cols="95" id="id_fragment_shader">
 precision mediump float;
 
@@ -139,14 +139,15 @@ void main() {
 }
                             </textarea>
                         </div>
-                    </div>
-                    <button style="display:block; margin:0 auto; width: 200px; height: 30px" onclick="updateBackgroundShader()">编译并运行</button><br>
-                    <img src="./texture/render_tube.jpg">
+                    </div><br>
+                    <h5>渲染管线流程图如下：</h5>
+                    <img style="width:45em;" src="./texture/render_tube.jpg">
+                    <img style="width:45em;" src="./texture/render_flow.jpg">
                 </div>
             </div>
             <div id="id_mvpmatrix">
-                <h4 style="width: 230px; background: #ffffff">MVP矩阵</h4>
-                <div style="border: 3px solid #cccccc; width: 60em; padding: 5px">
+                <h4 style="width: 230px; background: #ffffff">MVP矩阵（已计算左边窗口红色圆柱中心点屏幕坐标为例）</h4>
+                <div style="border: 1px solid #cccccc; width: 60em; padding: 5px">
                     MVP = ProjMatrix * ViewMatrix * ModelMatrix
                     <div id="horizontal" style="margin: 5px">
                         <img src="./texture/matrixL.png">
@@ -343,7 +344,7 @@ void main() {
             </div>
             <div id="id_modelmatrix">
                 <h4 style="width: 230px; background: #ffffff">模型矩阵</h4>
-                <div style="border: 3px solid #cccccc; width: 30em;">
+                <div style="border: 1px solid #cccccc; width: 30em;">
                     ModelMatrix
                     <div id="horizontal">
                         <br/>m 0<input   id="id_m00"   style="width: 3.5em;" type="number" value="1" step="0.1" oninput="updateModelMatrixByInput()"/>
@@ -372,7 +373,7 @@ void main() {
                 </div>
                 <div>
                     <h4>欧拉角旋转</h4>
-                    <div style="border: 3px solid #cccccc; width: 30em;">
+                    <div style="border: 1px solid #cccccc; width: 30em;">
                         EulerAngle
                         <div id="horizontal">
                             <br/>pitch<input  id="id_pitch" style="width: 3.5em;" type="number" value="0" step="5" oninput="updateEulerAngleByInput()"/>
@@ -381,7 +382,7 @@ void main() {
                         </div>
                     </div>
                     <h4>平移</h4>
-                    <div style="border: 3px solid #cccccc; width: 30em;">
+                    <div style="border: 1px solid #cccccc; width: 30em;">
                         glTranslate
                         <div id="horizontal">
                             <br/>translateX<input   id="id_translate_x" style="width: 3.5em;" type="number" value="0" step="0.1" oninput="updateTranslateByInput()"/>
@@ -390,7 +391,7 @@ void main() {
                         </div>
                     </div>
                     <h4>缩放</h4>
-                    <div style="border: 3px solid #cccccc; width: 30em;">
+                    <div style="border: 1px solid #cccccc; width: 30em;">
                         glScale
                         <div id="horizontal">
                             <br/>scaleX<input   id="id_scale_x" style="width: 3.5em;" type="number" value="1.0" step="0.1" oninput="updateScaleByInput()"/>
@@ -402,7 +403,7 @@ void main() {
             </div>
             <div id="id_viewmatrix">
                 <h4 style="width: 230px; background: #ffffff">视图变换</h4>
-                <div style="border: 3px solid #cccccc; width: 30em;">
+                <div style="border: 1px solid #cccccc; width: 30em;">
                     gluLookAt
                     <div id="horizontal">
                         <br/>eyeX<input  id="id_eye_x"  style="width: 3.5em;" type="number" value="0" step="0.1" oninput="updateViewMatrixByInput()"/>
@@ -421,7 +422,7 @@ void main() {
                     </div>
                 </div>
                 <h4>视图矩阵</h4>
-                <div style="border: 3px solid #cccccc; width: 30em;">
+                <div style="border: 1px solid #cccccc; width: 30em;">
                     ViewMatrix = 
                     <div id="horizontal" style="margin: 5px">
                         <img src="./texture/matrixL.png">
@@ -456,7 +457,7 @@ void main() {
             </div>
             <div id="id_projmatrix">
                 <h4 style="width: 230px; background: #ffffff">透视投影变换</h4>
-                <div style="border: 3px solid #cccccc; width: 30em;">
+                <div style="border: 1px solid #cccccc; width: 30em;">
                     gluPerspective
                     <div id="horizontal">
                         <br/>fov<input id="id_fov" style="width: 3.5em;" type="number" value="50" step="1.0" oninput="updateProjMatrixByInput()"/>
@@ -466,7 +467,7 @@ void main() {
                     </div>
                 </div>
                 <h4>投影矩阵</h4>
-                <div style="border: 3px solid #cccccc; width: 30em;">
+                <div style="border: 1px solid #cccccc; width: 30em;">
                     ProjMatrix = 
                     <div id="horizontal" style="margin: 5px">
                         <img src="./texture/matrixL.png">
@@ -501,7 +502,7 @@ void main() {
             </div>
             <div id="id_rotatematrix">
                 <h4 style="width: 230px; background: #ffffff">欧拉角旋转</h4>
-                <div style="border: 3px solid #cccccc; width: 30em;">
+                <div style="border: 1px solid #cccccc; width: 30em;">
                     EulerAngle
                     <div id="horizontal">
                         <br/>pitch<input  id="id_pitch_eular" style="width: 3.5em;" type="number" value="0" step="5" oninput="updateEulerAngleByInputEular()"/>
@@ -510,7 +511,7 @@ void main() {
                     </div>
                 </div>
                 <h4>旋转矩阵</h4>
-                <div style="border: 3px solid #cccccc; width: 48em; padding: 5px">
+                <div style="border: 1px solid #cccccc; width: 48em; padding: 5px">
                     RotateMatrix = (ZYX顺规——因为物体坐标系相对世界坐标系z-y-x旋转顺序时，将最后的物体坐标系向世界坐标系转换时需要逆序进行，因此矩阵反序相乘)
                     <div id="horizontal" style="margin: 5px">
                         <img src="./texture/matrixL.png">
@@ -596,7 +597,7 @@ void main() {
         </div>
         <div id="id_axisangle">
             <h4 style="width: 230px; background: #ffffff">轴角旋转</h4>
-            <div style="border: 3px solid #cccccc; width: 30em;">
+            <div style="border: 1px solid #cccccc; width: 30em;">
                 <div id="horizontal" style="margin: 5px">
                     <br/>axis, x = <input  id="id_axis_x" style="width: 3.5em;" type="number" value="1" step="1" oninput="updateAxisAngleValue()"/>
                     <br/>, y = <input  id="id_axis_y" style="width: 3.5em;" type="number" value="0" step="1" oninput="updateAxisAngleValue()"/>
@@ -607,7 +608,7 @@ void main() {
                 </div>
             </div>
             <h4>旋转矩阵</h4>
-            <div style="border: 3px solid #cccccc; width: 48em; padding: 5px">
+            <div style="border: 1px solid #cccccc; width: 48em; padding: 5px">
                 RotateMatrix = 
                 <div id="horizontal" style="margin: 5px">
                     <img src="./texture/matrixL.png">
@@ -633,7 +634,7 @@ void main() {
         </div>
         <div id="id_quaternion">
             <h4 style="width: 230px; background: #ffffff">四元数旋转</h4>
-            <div style="border: 3px solid #cccccc; width: 30em;">
+            <div style="border: 1px solid #cccccc; width: 30em;">
                 <div id="horizontal" style="margin: 5px">
                     <br/>quaternion, x = <input  id="id_quat_x" style="width: 3.5em;" type="number" value="0" step="0.1" oninput="updateQuaternionValue()"/>
                     <br/>, y = <input  id="id_quat_y" style="width: 3.5em;" type="number" value="0" step="0.1" oninput="updateQuaternionValue()"/>
@@ -642,7 +643,7 @@ void main() {
                 </div>
             </div>
             <h4>旋转矩阵</h4>
-            <div style="border: 3px solid #cccccc; width: 48em; padding: 5px">
+            <div style="border: 1px solid #cccccc; width: 48em; padding: 5px">
                 RotateMatrix = 
                 <div id="horizontal" style="margin: 5px">
                     <img src="./texture/matrixL.png">
@@ -682,6 +683,8 @@ void main() {
             </div>
         </div>
         <div id="id_lightdemo">
+            <div>
+            <button style="display:block; width: 200px; height: 30px" onclick="updateLightShader()">编译并运行</button>
             <h5 style="width: 230px; background: #ffffff">基本光照：<br><br>
                 <input type="checkbox" id="ambientLightCheckBox" checked onchange="updateLightSwitch()" />环境光<br>
                 <input type="checkbox" id="diffuseLightCheckBox" checked onchange="updateLightSwitch()" />漫射光<br>
@@ -705,11 +708,12 @@ void main() {
                     <br/>Blue : <input id="specular_color_blue"  style="width: 160px;" type="range" value="1.0" min="0.0" max="1.0" step="0.01" oninput="updateSpecularColor()"/><label id="label_specular_blue"></label>
                 </div>
             </h5>
+            </div>
             <div id="vertical">
                 <div id="horizontal" style="width: 90em;">
                     <div id="vertical">
-                        <b>VertexShader</b>
-                        <textarea spellcheck="false" rows="30" cols="95" id="id_light_vertex_shader">
+                        <b>顶点着色器</b>
+                        <textarea spellcheck="false" rows="31" cols="95" id="id_light_vertex_shader">
 attribute vec4 aPosition;
 attribute vec3 aNormal;
 attribute vec2 aTexCoord;
@@ -739,8 +743,8 @@ void main() {
                         </textarea>
                     </div>
                     <div id="vertical">
-                        <b>FragmentShader</b>
-                        <textarea spellcheck="false" rows="30" cols="95" id="id_light_fragment_shader">
+                        <b>片元着色器</b>
+                        <textarea spellcheck="false" rows="31" cols="95" id="id_light_fragment_shader">
 precision mediump float;
 
 uniform sampler2D uTexDiffuseSampler;
@@ -780,7 +784,6 @@ void main() {
                         </textarea>
                     </div>
                 </div>
-                <button style="display:block; margin:0 auto; width: 200px; height: 30px" onclick="updateLightShader()">编译并运行</button>
         </div>
     </div>
     </body>
