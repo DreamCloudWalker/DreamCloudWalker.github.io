@@ -5,7 +5,6 @@ const AMBIENT_COLOR = vec4.fromValues(0.5, 0.5, 0.5, 1.0);
 const DIFFUSE_COLOR = vec4.fromValues(1.0, 1.0, 1.0, 1.0);
 const SPECULAR_COLOR = vec4.fromValues(1.0, 1.0, 1.0, 1.0);
 const LIGHT_POSITION = vec3.fromValues(1.0, -1.0, 1.0);
-const SPECULAR_VALUE = 32.0;
 // proj
 const HALF_FOV = 25 * DEGREE_TO_RADIUS;
 const FRUSTOM_NEAR = 1.0;
@@ -52,6 +51,7 @@ var mLightProgram = null;
 var mAmbientColor = vec4.fromValues(0.5, 0.5, 0.5, 1.0);
 var mDiffuseColor = vec4.fromValues(1.0, 1.0, 1.0, 1.0);
 var mSpecularColor = vec4.fromValues(1.0, 1.0, 1.0, 1.0);
+var mSpecularShininess = 33.0;  // shinniness, the more smaller, the more smooth
 var mUseAmbientColor = true;
 var mUseDiffuseColor = true;
 var mUseSpecularColor = true;
@@ -416,6 +416,11 @@ function updateDiffuseColor() {
     document.getElementById("label_diffuse_red").innerHTML = mDiffuseColor[0].toFixed(2);
     document.getElementById("label_diffuse_green").innerHTML = mDiffuseColor[1].toFixed(2);
     document.getElementById("label_diffuse_blue").innerHTML = mDiffuseColor[2].toFixed(2);
+}
+
+function updateSpecularShininess() {
+    mSpecularShininess = document.getElementById("specular_shininess").value * 100;
+    document.getElementById("label_specular_shininess").innerHTML = mSpecularShininess.toFixed(0);
 }
 
 function updateSpecularColor() {
@@ -1790,6 +1795,7 @@ function main() {
     updateAmbientColor();
     updateDiffuseColor();
     updateSpecularColor();
+    updateSpecularShininess();
 
     // initialize anim params
     mCobraStep1Quat = quat.fromEuler(mCobraStep1Quat, 120, 0, 30);
@@ -2341,7 +2347,7 @@ function drawSphere(gl, lightingProgram, buffers, drawCount, deltaTime, isGodVie
         gl.uniformMatrix4fv(lightingProgram.uniformLocations.uVIHandle, false, mVIMatrix); 
     }
 
-    gl.uniform1f(lightingProgram.uniformLocations.uSpecularHandle, SPECULAR_VALUE);
+    gl.uniform1f(lightingProgram.uniformLocations.uSpecularHandle, mSpecularShininess);
     gl.uniform4fv(lightingProgram.uniformLocations.uKaHandle, mAmbientColor);
     gl.uniform4fv(lightingProgram.uniformLocations.uKdHandle, mDiffuseColor);
     gl.uniform4fv(lightingProgram.uniformLocations.uKsHandle, mSpecularColor);
@@ -2531,7 +2537,7 @@ function drawObject(gl, lightingProgram, buffers, diffuseTexture, normalTexture,
         gl.uniformMatrix4fv(lightingProgram.uniformLocations.uVIHandle, false, mVIMatrix); 
     }
 
-    gl.uniform1f(lightingProgram.uniformLocations.uSpecularHandle, SPECULAR_VALUE);
+    gl.uniform1f(lightingProgram.uniformLocations.uSpecularHandle, mSpecularShininess);
     if (mUseAmbientColor) {
         gl.uniform1i(lightingProgram.uniformLocations.uUseAmbient, 1);
         gl.uniform4fv(lightingProgram.uniformLocations.uKaHandle, mAmbientColor);
