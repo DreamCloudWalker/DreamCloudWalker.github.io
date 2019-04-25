@@ -88,8 +88,9 @@ var mFarBuffer = null;
 var mNearFarPlaneColors = [];
 // draw per-vertex and per-frag lighting
 var mNeedDrawSphere = false;
-var mSphereVertices = [];
 var mSphereBuffer = null;
+var mSphereProgram = null;
+var mIsPerFrag = false;
 // draw axis
 var mAxisVertices = [];
 var mAxisBuffer = null;
@@ -914,7 +915,114 @@ function updateViewFrustumBuffer(gl) {
     };
 }
 
-function createSphereByLL() {
+function updatePerVflSwitch() {
+    var perVertexChecked = document.getElementById("id_per_vertex_rb").checked;
+    var perFragChecked = document.getElementById("id_per_frag_rb").checked;
+    mIsPerFrag = (perFragChecked && !perVertexChecked);
+    if (mIsPerFrag) {
+        document.getElementById("id_per_vertex_shader").style.display = 'none';
+        document.getElementById("id_per_frag_shader").style.display = 'flex';
+    } else {
+        document.getElementById("id_per_vertex_shader").style.display = 'flex';
+        document.getElementById("id_per_frag_shader").style.display = 'none';
+    }
+    updateSphereShader();
+}
+
+function updateSphereShader() {
+    const canvas = document.querySelector("#glcanvas");
+    // Initialize the GL context
+    const gl = canvas.getContext("webgl") || canvas.getContext('experimental-webgl');
+    var vsSource;
+    var fsSource;
+    if (mIsPerFrag) {
+        // Vertex shader program
+        vsSource = document.getElementById('id_per_frag_vertex_shader').value;
+        // Fragment shader program
+        fsSource = document.getElementById('id_per_frag_fragment_shader').value;
+    } else {
+        // Vertex shader program
+        vsSource = document.getElementById('id_per_vertex_vertex_shader').value;
+        // Fragment shader program
+        fsSource = document.getElementById('id_per_vertex_fragment_shader').value;
+    }
+
+    // Initialize a shader program
+    var vertexShader = loadShader(gl, gl.VERTEX_SHADER, vsSource);
+    var fragmentShader = loadShader(gl, gl.FRAGMENT_SHADER, fsSource);
+  
+    // Create the shader program
+    var shaderProgram = gl.createProgram();
+    gl.attachShader(shaderProgram, vertexShader);
+    gl.attachShader(shaderProgram, fragmentShader);
+    gl.linkProgram(shaderProgram);
+  
+    // If creating the shader program failed, alert
+    if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
+        alert('Unable to initialize the shader program: ' + gl.getProgramInfoLog(shaderProgram));
+        return null;
+    }
+
+    mSphereProgram = {
+        program: shaderProgram,
+        attribLocations: {
+            vertexPosition: gl.getAttribLocation(shaderProgram, 'aPosition'),
+            vertexColor: gl.getAttribLocation(shaderProgram, 'aColor'),
+            normalPosition: gl.getAttribLocation(shaderProgram, 'aNormal'),
+        },
+        uniformLocations: {
+            uProjectionMatrixHandle: gl.getUniformLocation(shaderProgram, 'uProjectionMatrix'),
+            uModelMatrixHandle: gl.getUniformLocation(shaderProgram, 'uModelMatrix'),
+            uViewMatrixHandle: gl.getUniformLocation(shaderProgram, 'uViewMatrix'),
+            uVIHandle: gl.getUniformLocation(shaderProgram, 'uVIMatrix'),
+            uMITHandle: gl.getUniformLocation(shaderProgram, 'uMITMatrix'),
+            uSpecularHandle: gl.getUniformLocation(shaderProgram, 'uSpecular'),
+            uKaHandle: gl.getUniformLocation(shaderProgram, 'uKa'),
+            uKdHandle: gl.getUniformLocation(shaderProgram, 'uKd'),
+            uKsHandle: gl.getUniformLocation(shaderProgram, 'uKs'),
+            uLightDirHandle: gl.getUniformLocation(shaderProgram, 'uLightDir'),
+        },
+    }
+}
+
+function initSphereBuffers(gl, radius, spanDegree, color) {
+    var vertices = createSphereByLL(radius, spanDegree);
+    var normals = vertices;
+    var colors = [];
+
+    for (var i = 0; i < vertices.length; i += 3) {
+        colors.push(color[0]);
+        colors.push(color[1]);
+        colors.push(color[2]);
+        colors.push(color[3]);
+    }
+
+    /* create buffer */
+    // Create a buffer for the sphere's positions.
+    const positionBuffer = gl.createBuffer();
+    // Select the positionBuffer as the one to apply buffer operations to from here out.
+    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW); 
+
+    // normal
+    const normalBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(normals), gl.STATIC_DRAW);
+
+    // color
+    const colorBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(colors), gl.STATIC_DRAW);
+
+    return {
+        position: positionBuffer,
+        color: colorBuffer,
+        normal: normalBuffer,
+        drawCnt: vertices.length / 3,
+    };
+}
+
+function createSphereByLL(sphereRadius, sphereSpanDegree) {
     const positions = [];
     for (var vAngle = -90; vAngle < 90; vAngle += sphereSpanDegree) {
         for (var hAngle = 0; hAngle <= 360; hAngle += sphereSpanDegree) {
@@ -1431,6 +1539,7 @@ function demoPerVertexOrFragLighting() {
     mNeedDrawAngleAxis = false;
     mNeedDrawAssistObject = false;
     mNeedDrawCobraAnim = false;
+    mNeedDrawSphere = true;
     document.getElementById("id_shader").style.display = 'none';
     document.getElementById("id_mvpmatrix").style.display = 'none';
     document.getElementById("id_modelmatrix").style.display = 'none';
@@ -1449,6 +1558,7 @@ function demoLight() {
     mNeedDrawAngleAxis = false;
     mNeedDrawAssistObject = false;
     mNeedDrawCobraAnim = false;
+    mNeedDrawSphere = false;
     document.getElementById("id_shader").style.display = 'none';
     document.getElementById("id_mvpmatrix").style.display = 'none';
     document.getElementById("id_modelmatrix").style.display = 'none';
@@ -1467,6 +1577,7 @@ function demoCobraManeuvre() {
     mNeedDrawAngleAxis = false;
     mNeedDrawAssistObject = false;
     mNeedDrawCobraAnim = true;
+    mNeedDrawSphere = false;
     document.getElementById("id_shader").style.display = 'none';
     document.getElementById("id_mvpmatrix").style.display = 'none';
     document.getElementById("id_modelmatrix").style.display = 'none';
@@ -1506,6 +1617,7 @@ function demoShader() {
     mNeedDrawAngleAxis = false;
     mNeedDrawAssistObject = false;
     mNeedDrawCobraAnim = false;
+    mNeedDrawSphere = false;
     document.getElementById("id_shader").style.display = 'flex';
     document.getElementById("id_mvpmatrix").style.display = 'none';
     document.getElementById("id_modelmatrix").style.display = 'none';
@@ -1524,6 +1636,7 @@ function demoMvpMatrix() {
     mNeedDrawAngleAxis = false;
     mNeedDrawAssistObject = true;
     mNeedDrawCobraAnim = false;
+    mNeedDrawSphere = false;
     document.getElementById("id_shader").style.display = 'none';
     document.getElementById("id_mvpmatrix").style.display = 'flex';
     document.getElementById("id_modelmatrix").style.display = 'none';
@@ -1542,6 +1655,7 @@ function demoModelMatrix() {
     mNeedDrawAngleAxis = false;
     mNeedDrawAssistObject = false;
     mNeedDrawCobraAnim = false;
+    mNeedDrawSphere = false;
     document.getElementById("id_shader").style.display = 'none';
     document.getElementById("id_mvpmatrix").style.display = 'none';
     document.getElementById("id_modelmatrix").style.display = 'flex';
@@ -1560,6 +1674,7 @@ function demoViewMatrix() {
     mNeedDrawAngleAxis = false;
     mNeedDrawAssistObject = false;
     mNeedDrawCobraAnim = false;
+    mNeedDrawSphere = false;
     document.getElementById("id_shader").style.display = 'none';
     document.getElementById("id_mvpmatrix").style.display = 'none';
     document.getElementById("id_modelmatrix").style.display = 'none';
@@ -1578,6 +1693,7 @@ function demoProjMatrix() {
     mNeedDrawAngleAxis = false;
     mNeedDrawAssistObject = false;
     mNeedDrawCobraAnim = false;
+    mNeedDrawSphere = false;
     document.getElementById("id_shader").style.display = 'none';
     document.getElementById("id_mvpmatrix").style.display = 'none';
     document.getElementById("id_modelmatrix").style.display = 'none';
@@ -1595,6 +1711,7 @@ function demoRotateMatrix() {
     mNeedDrawAngleAxis = false;
     mNeedDrawAssistObject = false;
     mNeedDrawCobraAnim = false;
+    mNeedDrawSphere = false;
     document.getElementById("id_shader").style.display = 'none';
     document.getElementById("id_mvpmatrix").style.display = 'none';
     document.getElementById("id_modelmatrix").style.display = 'none';
@@ -1613,6 +1730,7 @@ function demoAxisAngle() {
     mNeedDrawAngleAxis = true;
     mNeedDrawAssistObject = false;
     mNeedDrawCobraAnim = false;
+    mNeedDrawSphere = false;
     document.getElementById("id_shader").style.display = 'none';
     document.getElementById("id_mvpmatrix").style.display = 'none';
     document.getElementById("id_modelmatrix").style.display = 'none';
@@ -1631,6 +1749,7 @@ function demoQuaternion() {
     mNeedDrawAngleAxis = false;
     mNeedDrawAssistObject = false;
     mNeedDrawCobraAnim = false;
+    mNeedDrawSphere = false;
     document.getElementById("id_shader").style.display = 'none';
     document.getElementById("id_mvpmatrix").style.display = 'none';
     document.getElementById("id_modelmatrix").style.display = 'none';
@@ -1726,6 +1845,7 @@ function main() {
     // init shader
     updateBackgroundShader();
     updateLightShader();
+    updateSphereShader();
     const basicProgram = initBasicShader(gl);
     const diffuseLightingProgram = initDiffuseLightingShader(gl);
 
@@ -1753,6 +1873,8 @@ function main() {
     mGimbalYBuffer = initTubeBuffers(gl, 1.4 ,1.5, 0.1, 30, vec4.fromValues(0.0, 1.0, 0.0, 1.0), TubeDir.DIR_Y);
     mGimbalZBuffer = initTubeBuffers(gl, 1.6 ,1.7, 0.1, 30, vec4.fromValues(0.0, 0.0, 1.0, 1.0), TubeDir.DIR_Z);
 
+    // init sphere
+    mSphereBuffer = initSphereBuffers(gl, 1.0, 30, vec4.fromValues(1.0, 1.0, 1.0, 1.0));
     // background
     initBackground();
     mBackgroundBuffer = updateBackgroundBuffer(gl);
@@ -2134,6 +2256,102 @@ function calcSquareProgress(progress) {
     return progress * progress;
 }
 
+// share object's mvp
+function drawSphere(gl, lightingProgram, buffers, drawCount, deltaTime, isGodView) {
+    // Tell WebGL how to pull out the positions from the position
+    // buffer into the vertexPosition attribute.
+    {
+        const numComponents = 3;
+        const type = gl.FLOAT;
+        const normalize = false;
+        const stride = 0;
+        const offset = 0;
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffers.position);
+        gl.vertexAttribPointer(
+            lightingProgram.attribLocations.vertexPosition,
+            numComponents,
+            type,
+            normalize,
+            stride,
+            offset);
+        gl.enableVertexAttribArray(
+            lightingProgram.attribLocations.vertexPosition);
+    }
+
+    // Tell WebGL how to pull out the normals from the normal
+    // buffer into the normal attribute.
+    {
+        const numComponents = 3;
+        const type = gl.FLOAT;
+        const normalize = false;
+        const stride = 0;
+        const offset = 0;
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffers.normal);
+        gl.vertexAttribPointer(
+            lightingProgram.attribLocations.normalPosition,
+            numComponents,
+            type,
+            normalize,
+            stride,
+            offset);
+        gl.enableVertexAttribArray(
+            lightingProgram.attribLocations.normalPosition);
+    }
+
+    // Tell WebGL how to pull out the texture coordinates from
+    // the texture coordinate buffer into the textureCoord attribute.
+    {
+        const numComponents = 4;
+        const type = gl.FLOAT;
+        const normalize = false;
+        const stride = 0;
+        const offset = 0;
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffers.color);
+        gl.vertexAttribPointer(
+            lightingProgram.attribLocations.vertexColor,
+            numComponents,
+            type,
+            normalize,
+            stride,
+            offset);
+        gl.enableVertexAttribArray(
+            lightingProgram.attribLocations.vertexColor);
+    }
+
+    // Tell WebGL to use our lightingProgram when drawing
+    gl.useProgram(lightingProgram.program);
+
+    // Set the shader uniforms
+    gl.uniformMatrix4fv(
+        lightingProgram.uniformLocations.uModelMatrixHandle,
+        false, mModelMatrix);
+    gl.uniformMatrix4fv(lightingProgram.uniformLocations.uMITHandle, false, mMITMatrix);
+
+    if (isGodView) {
+        gl.uniformMatrix4fv(lightingProgram.uniformLocations.uProjectionMatrixHandle, false, mGodProjectionMatrix);
+        gl.uniformMatrix4fv(lightingProgram.uniformLocations.uViewMatrixHandle, false, mGodViewMatrix);
+        gl.uniformMatrix4fv(lightingProgram.uniformLocations.uVIHandle, false, mGodVIMatrix); 
+    } else {
+        gl.uniformMatrix4fv(
+            lightingProgram.uniformLocations.uProjectionMatrixHandle,
+            false, mProjectionMatrix);
+        gl.uniformMatrix4fv(
+            lightingProgram.uniformLocations.uViewMatrixHandle,
+            false, mViewMatrix);
+        gl.uniformMatrix4fv(lightingProgram.uniformLocations.uVIHandle, false, mVIMatrix); 
+    }
+
+    gl.uniform1f(lightingProgram.uniformLocations.uSpecularHandle, SPECULAR_VALUE);
+    gl.uniform4fv(lightingProgram.uniformLocations.uKaHandle, mAmbientColor);
+    gl.uniform4fv(lightingProgram.uniformLocations.uKdHandle, mDiffuseColor);
+    gl.uniform4fv(lightingProgram.uniformLocations.uKsHandle, mSpecularColor);
+    gl.uniform3fv(lightingProgram.uniformLocations.uLightDirHandle, LIGHT_POSITION);
+
+    const drawOffset = 0;
+    // gl.drawElements(gl.TRIANGLES, vertexCount, drawType, drawOffset);
+    gl.drawArrays(gl.TRIANGLES, drawOffset, drawCount);
+}
+
 function drawObject(gl, lightingProgram, buffers, diffuseTexture, normalTexture, drawCount, deltaTime, isGodView) {
     // Set the drawing position to the "identity" point, which is the center of the scene.
     mModelMatrix = mat4.create();
@@ -2389,6 +2607,9 @@ function drawScene(gl, basicProgram, diffuseLightingProgram, deltaTime) {
             drawObject(gl, mLightProgram, mObjectBuffer[i], mObjectDiffuseTexture, mObjectNormalTexture, mObjectBuffer[i].drawCnt, deltaTime, false);
         }
     }
+    if (mNeedDrawSphere) {
+        drawSphere(gl, mSphereProgram, mSphereBuffer, mSphereBuffer.drawCnt, deltaTime, false);
+    }
     updateAnimQuatHtmlValue();
     mCobraAnimFrameEllapse++;
 
@@ -2453,6 +2674,9 @@ function drawScene(gl, basicProgram, diffuseLightingProgram, deltaTime) {
     if (mObjectBuffer.length > 0 && null != mViewFrustumBuffer) {
         for (var i = 0; i < mObjectBuffer.length; i++) {
             drawObject(gl, mLightProgram, mObjectBuffer[i], mObjectDiffuseTexture, mObjectNormalTexture, mObjectBuffer[i].drawCnt, deltaTime, true);
+        }
+        if (mNeedDrawSphere) {
+            drawSphere(gl, mSphereProgram, mSphereBuffer, mSphereBuffer.drawCnt, deltaTime, false);
         }
         drawArrays(gl, basicProgram, mAxisBuffer, mAxisVertices.length / 3, mGodMvpMatrix, gl.LINES, deltaTime);
         drawArrays(gl, basicProgram, mViewFrustumBuffer, mViewFrustumVertices.length / 3, mViewFrustumMvpMatrix, gl.LINES, deltaTime);
