@@ -1545,6 +1545,7 @@ function demoPerVertexOrFragLighting() {
     mNeedDrawAssistObject = false;
     mNeedDrawCobraAnim = false;
     mNeedDrawSphere = true;
+    mNeedDrawFighter = false;
     document.getElementById("id_shader").style.display = 'none';
     document.getElementById("id_mvpmatrix").style.display = 'none';
     document.getElementById("id_modelmatrix").style.display = 'none';
@@ -1564,6 +1565,7 @@ function demoLight() {
     mNeedDrawAssistObject = false;
     mNeedDrawCobraAnim = false;
     mNeedDrawSphere = false;
+    mNeedDrawFighter = true;
     document.getElementById("id_shader").style.display = 'none';
     document.getElementById("id_mvpmatrix").style.display = 'none';
     document.getElementById("id_modelmatrix").style.display = 'none';
@@ -1583,6 +1585,7 @@ function demoCobraManeuvre() {
     mNeedDrawAssistObject = false;
     mNeedDrawCobraAnim = true;
     mNeedDrawSphere = false;
+    mNeedDrawFighter = true;
     document.getElementById("id_shader").style.display = 'none';
     document.getElementById("id_mvpmatrix").style.display = 'none';
     document.getElementById("id_modelmatrix").style.display = 'none';
@@ -1623,6 +1626,7 @@ function demoShader() {
     mNeedDrawAssistObject = false;
     mNeedDrawCobraAnim = false;
     mNeedDrawSphere = false;
+    mNeedDrawFighter = true;
     document.getElementById("id_shader").style.display = 'flex';
     document.getElementById("id_mvpmatrix").style.display = 'none';
     document.getElementById("id_modelmatrix").style.display = 'none';
@@ -1642,8 +1646,29 @@ function demoMvpMatrix() {
     mNeedDrawAssistObject = true;
     mNeedDrawCobraAnim = false;
     mNeedDrawSphere = false;
+    mNeedDrawFighter = true;
     document.getElementById("id_shader").style.display = 'none';
     document.getElementById("id_mvpmatrix").style.display = 'flex';
+    document.getElementById("id_modelmatrix").style.display = 'none';
+    document.getElementById("id_viewmatrix").style.display = 'none';
+    document.getElementById("id_projmatrix").style.display = 'none';
+    document.getElementById("id_rotatematrix").style.display = 'none';
+    document.getElementById("id_axisangle").style.display = 'none';
+    document.getElementById("id_quaternion").style.display = 'none';
+    document.getElementById("id_cobramaneuvre").style.display = 'none';
+    document.getElementById("id_lightdemo").style.display = 'none';
+    document.getElementById("id_per_vertex_or_frag_lighting").style.display = 'none';
+}
+
+function demoUV() {
+    mNeedDrawGimbal = false;
+    mNeedDrawAngleAxis = false;
+    mNeedDrawAssistObject = false;
+    mNeedDrawCobraAnim = false;
+    mNeedDrawSphere = false;
+    mNeedDrawFighter = false;
+    document.getElementById("id_shader").style.display = 'none';
+    document.getElementById("id_mvpmatrix").style.display = 'none';
     document.getElementById("id_modelmatrix").style.display = 'none';
     document.getElementById("id_viewmatrix").style.display = 'none';
     document.getElementById("id_projmatrix").style.display = 'none';
@@ -1661,6 +1686,7 @@ function demoModelMatrix() {
     mNeedDrawAssistObject = false;
     mNeedDrawCobraAnim = false;
     mNeedDrawSphere = false;
+    mNeedDrawFighter = true;
     document.getElementById("id_shader").style.display = 'none';
     document.getElementById("id_mvpmatrix").style.display = 'none';
     document.getElementById("id_modelmatrix").style.display = 'flex';
@@ -1680,6 +1706,7 @@ function demoViewMatrix() {
     mNeedDrawAssistObject = false;
     mNeedDrawCobraAnim = false;
     mNeedDrawSphere = false;
+    mNeedDrawFighter = true;
     document.getElementById("id_shader").style.display = 'none';
     document.getElementById("id_mvpmatrix").style.display = 'none';
     document.getElementById("id_modelmatrix").style.display = 'none';
@@ -1699,6 +1726,7 @@ function demoProjMatrix() {
     mNeedDrawAssistObject = false;
     mNeedDrawCobraAnim = false;
     mNeedDrawSphere = false;
+    mNeedDrawFighter = true;
     document.getElementById("id_shader").style.display = 'none';
     document.getElementById("id_mvpmatrix").style.display = 'none';
     document.getElementById("id_modelmatrix").style.display = 'none';
@@ -1717,6 +1745,7 @@ function demoRotateMatrix() {
     mNeedDrawAssistObject = false;
     mNeedDrawCobraAnim = false;
     mNeedDrawSphere = false;
+    mNeedDrawFighter = true;
     document.getElementById("id_shader").style.display = 'none';
     document.getElementById("id_mvpmatrix").style.display = 'none';
     document.getElementById("id_modelmatrix").style.display = 'none';
@@ -1736,6 +1765,7 @@ function demoAxisAngle() {
     mNeedDrawAssistObject = false;
     mNeedDrawCobraAnim = false;
     mNeedDrawSphere = false;
+    mNeedDrawFighter = true;
     document.getElementById("id_shader").style.display = 'none';
     document.getElementById("id_mvpmatrix").style.display = 'none';
     document.getElementById("id_modelmatrix").style.display = 'none';
@@ -1755,6 +1785,7 @@ function demoQuaternion() {
     mNeedDrawAssistObject = false;
     mNeedDrawCobraAnim = false;
     mNeedDrawSphere = false;
+    mNeedDrawFighter = true;
     document.getElementById("id_shader").style.display = 'none';
     document.getElementById("id_mvpmatrix").style.display = 'none';
     document.getElementById("id_modelmatrix").style.display = 'none';
@@ -1944,7 +1975,7 @@ function loadTexture(gl, url) {
          // Yes, it's a power of 2. Generate mips.
          gl.generateMipmap(gl.TEXTURE_2D);
       } else {
-         // No, it's not a power of 2. Turn of mips and set
+         // No, it's not a power of 2. Turn off mips and set
          // wrapping to clamp to edge
          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
@@ -2608,7 +2639,7 @@ function drawScene(gl, basicProgram, diffuseLightingProgram, deltaTime) {
     }
     drawBackground(gl, mBackgroundProgram, mBackgroundBuffer, mBackgroundTexture, mBackgroundBuffer.drawCnt, deltaTime);
 
-    if (mObjectBuffer.length > 0) {
+    if (mNeedDrawFighter && mObjectBuffer.length > 0) {
         for (var i = 0; i < mObjectBuffer.length; i++) {
             drawObject(gl, mLightProgram, mObjectBuffer[i], mObjectDiffuseTexture, mObjectNormalTexture, mObjectBuffer[i].drawCnt, deltaTime, false);
         }
@@ -2677,43 +2708,45 @@ function drawScene(gl, basicProgram, diffuseLightingProgram, deltaTime) {
 
     /* draw another screen */
     gl.viewport(mViewportWidth, 0, mViewportWidth, mViewportHeight);
-    if (mObjectBuffer.length > 0 && null != mViewFrustumBuffer) {
+    if (mNeedDrawFighter && mObjectBuffer.length > 0) {
         for (var i = 0; i < mObjectBuffer.length; i++) {
             drawObject(gl, mLightProgram, mObjectBuffer[i], mObjectDiffuseTexture, mObjectNormalTexture, mObjectBuffer[i].drawCnt, deltaTime, true);
         }
-        if (mNeedDrawSphere) {
-            drawSphere(gl, mSphereProgram, mSphereBuffer, mSphereBuffer.drawCnt, deltaTime, false);
-        }
-        drawArrays(gl, basicProgram, mAxisBuffer, mAxisVertices.length / 3, mGodMvpMatrix, gl.LINES, deltaTime);
-        drawArrays(gl, basicProgram, mViewFrustumBuffer, mViewFrustumVertices.length / 3, mViewFrustumMvpMatrix, gl.LINES, deltaTime);
-        if (null != mNearBuffer) {
-            drawArrays(gl, basicProgram, mNearBuffer, mNearPlaneVertices.length / 3, mViewFrustumMvpMatrix, gl.TRIANGLES, deltaTime);
-        }
-        if (null != mFarBuffer) {
-            drawArrays(gl, basicProgram, mFarBuffer, mFarPlaneVertices.length / 3, mViewFrustumMvpMatrix, gl.TRIANGLES, deltaTime);
-        }
-
-        // if (mNeedDrawAssistObject && null != mAssistObjectBuffer) {  // TODO change mvp
-        //     drawElements(gl, basicProgram, mAssistObjectBuffer, mAssistObjectBuffer.drawCnt, mMvpMatrix, gl.TRIANGLE_STRIP, deltaTime);
-        // }
-
-        // if (mNeedDrawGimbal && null != mPivotBuffer) {
-        //     drawGimbalElements(gl, diffuseLightingProgram, mPivotBuffer, mPivotBuffer.drawCnt, mGimbalMvpMatrix, gl.TRIANGLE_STRIP, deltaTime, true, true, true, true);
-        // }
-        if (mNeedDrawGimbal && null != mGimbalXBuffer && null != mGimbalYBuffer && null != mGimbalZBuffer) {
-            drawGimbalElements(gl, diffuseLightingProgram, mGimbalXBuffer, mGimbalXBuffer.drawCnt, mGimbalModelMatrix, gl.TRIANGLE_STRIP, deltaTime, true, true, true, true);
-            drawGimbalElements(gl, diffuseLightingProgram, mGimbalYBuffer, mGimbalYBuffer.drawCnt, mGimbalModelMatrix, gl.TRIANGLE_STRIP, deltaTime, true, false, true, true);
-            drawGimbalElements(gl, diffuseLightingProgram, mGimbalZBuffer, mGimbalZBuffer.drawCnt, mGimbalModelMatrix, gl.TRIANGLE_STRIP, deltaTime, true, false, false, true);
-        }
-        // if (mNeedDrawGimbal && null != mGimbalZPivot1Buffer && null != mGimbalZPivot2Buffer) {
-        //     drawGimbalElements(gl, diffuseLightingProgram, mGimbalZPivot1Buffer, mGimbalZPivot1Buffer.drawCnt, mGimbalModelMatrix, gl.TRIANGLE_STRIP, deltaTime, true, false, true, true);
-        //     drawGimbalElements(gl, diffuseLightingProgram, mGimbalZPivot2Buffer, mGimbalZPivot2Buffer.drawCnt, mGimbalModelMatrix, gl.TRIANGLE_STRIP, deltaTime, true, false, true, true);
-        // }
-        // if (mNeedDrawGimbal && null != mGimbalXPivot1Buffer && null != mGimbalXPivot2Buffer) {
-        //     drawGimbalElements(gl, diffuseLightingProgram, mGimbalXPivot1Buffer, mGimbalXPivot1Buffer.drawCnt, mGimbalModelMatrix, gl.TRIANGLE_STRIP, deltaTime, true, true, true, true);
-        //     drawGimbalElements(gl, diffuseLightingProgram, mGimbalXPivot2Buffer, mGimbalXPivot2Buffer.drawCnt, mGimbalModelMatrix, gl.TRIANGLE_STRIP, deltaTime, true, true, true, true);
-        // }
     }
+    if (mNeedDrawSphere) {
+        drawSphere(gl, mSphereProgram, mSphereBuffer, mSphereBuffer.drawCnt, deltaTime, false);
+    }
+    drawArrays(gl, basicProgram, mAxisBuffer, mAxisVertices.length / 3, mGodMvpMatrix, gl.LINES, deltaTime);
+    if (null != mViewFrustumBuffer) {
+        drawArrays(gl, basicProgram, mViewFrustumBuffer, mViewFrustumVertices.length / 3, mViewFrustumMvpMatrix, gl.LINES, deltaTime);
+    }
+    if (null != mNearBuffer) {
+        drawArrays(gl, basicProgram, mNearBuffer, mNearPlaneVertices.length / 3, mViewFrustumMvpMatrix, gl.TRIANGLES, deltaTime);
+    }
+    if (null != mFarBuffer) {
+        drawArrays(gl, basicProgram, mFarBuffer, mFarPlaneVertices.length / 3, mViewFrustumMvpMatrix, gl.TRIANGLES, deltaTime);
+    }
+
+    // if (mNeedDrawAssistObject && null != mAssistObjectBuffer) {  // TODO change mvp
+    //     drawElements(gl, basicProgram, mAssistObjectBuffer, mAssistObjectBuffer.drawCnt, mMvpMatrix, gl.TRIANGLE_STRIP, deltaTime);
+    // }
+
+    // if (mNeedDrawGimbal && null != mPivotBuffer) {
+    //     drawGimbalElements(gl, diffuseLightingProgram, mPivotBuffer, mPivotBuffer.drawCnt, mGimbalMvpMatrix, gl.TRIANGLE_STRIP, deltaTime, true, true, true, true);
+    // }
+    if (mNeedDrawGimbal && null != mGimbalXBuffer && null != mGimbalYBuffer && null != mGimbalZBuffer) {
+        drawGimbalElements(gl, diffuseLightingProgram, mGimbalXBuffer, mGimbalXBuffer.drawCnt, mGimbalModelMatrix, gl.TRIANGLE_STRIP, deltaTime, true, true, true, true);
+        drawGimbalElements(gl, diffuseLightingProgram, mGimbalYBuffer, mGimbalYBuffer.drawCnt, mGimbalModelMatrix, gl.TRIANGLE_STRIP, deltaTime, true, false, true, true);
+        drawGimbalElements(gl, diffuseLightingProgram, mGimbalZBuffer, mGimbalZBuffer.drawCnt, mGimbalModelMatrix, gl.TRIANGLE_STRIP, deltaTime, true, false, false, true);
+    }
+    // if (mNeedDrawGimbal && null != mGimbalZPivot1Buffer && null != mGimbalZPivot2Buffer) {
+    //     drawGimbalElements(gl, diffuseLightingProgram, mGimbalZPivot1Buffer, mGimbalZPivot1Buffer.drawCnt, mGimbalModelMatrix, gl.TRIANGLE_STRIP, deltaTime, true, false, true, true);
+    //     drawGimbalElements(gl, diffuseLightingProgram, mGimbalZPivot2Buffer, mGimbalZPivot2Buffer.drawCnt, mGimbalModelMatrix, gl.TRIANGLE_STRIP, deltaTime, true, false, true, true);
+    // }
+    // if (mNeedDrawGimbal && null != mGimbalXPivot1Buffer && null != mGimbalXPivot2Buffer) {
+    //     drawGimbalElements(gl, diffuseLightingProgram, mGimbalXPivot1Buffer, mGimbalXPivot1Buffer.drawCnt, mGimbalModelMatrix, gl.TRIANGLE_STRIP, deltaTime, true, true, true, true);
+    //     drawGimbalElements(gl, diffuseLightingProgram, mGimbalXPivot2Buffer, mGimbalXPivot2Buffer.drawCnt, mGimbalModelMatrix, gl.TRIANGLE_STRIP, deltaTime, true, true, true, true);
+    // }
 
     updateHtmlParamByRender();
 }

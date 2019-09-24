@@ -86,7 +86,7 @@
                             </ul>
                         <li>纹理</li>
                             <ul>
-                                <li><a href="#TOC2.1">UV坐标</a></li>
+                                <li><a href="#TOC2.1" onclick="demoUV()">UV坐标</a></li>
                                 <li><a href="#TOC2.2">混合与透明排序</a></li>
                                 <li><a href="#TOC2.3">采样器</a></li>
                                 <li><a href="#TOC2.4">Mipmap</a></li>
@@ -155,7 +155,7 @@ void main() {
                 </div>
             </div>
             <div id="id_mvpmatrix">
-                <h4 style="width: 230px; background: #ffffff">MVP矩阵（已计算左边窗口红色圆柱中心点屏幕坐标为例）</h4>
+                <h4 style="width: 230px; background: #ffffff">MVP矩阵（以计算左边窗口红色圆柱中心点屏幕坐标为例）</h4>
                 <div style="border: 1px solid #cccccc; width: 60em; padding: 5px">
                     MVP = ProjMatrix * ViewMatrix * ModelMatrix
                     <div id="horizontal" style="margin: 5px">
@@ -652,7 +652,7 @@ void main() {
                 </div>
             </div>
             <h4>旋转矩阵</h4>
-            <div style="border: 1px solid #cccccc; width: 48em; padding: 5px">
+            <div style="border: 1px solid #cccccc; width: 200px; padding: 5px">
                 RotateMatrix = 
                 <div id="horizontal" style="margin: 5px">
                     <img src="./texture/matrixL.png">
@@ -675,6 +675,7 @@ void main() {
                     <img src="./texture/matrixR.png">
                 </div>
             </div>
+            <img src="./texture/quaternion.png" width="400px">
         </div>
         <div id="id_cobramaneuvre">
             <h4 style="width: 230px; background: #ffffff">原型图：</h4>
