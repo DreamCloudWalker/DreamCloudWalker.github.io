@@ -56,11 +56,18 @@ var mUseAmbientColor = true;
 var mUseDiffuseColor = true;
 var mUseSpecularColor = true;
 // draw background
+var mNeedDrawBackground = true;
 var mBackgroundProgram = null;
 var mBackgroundBuffer = null;
 var mBackgroundTexture = null;
 var mBackgroundVertices = [];
 var mBackgroundUvs = [];
+// draw UV demo plane
+var mNeedDrawUVDemoPlane = false;
+var mUVDemoPlaneBuffer = null;
+var mUVDemoTexture = null;
+var mUVDemoPlaneVertices = [];
+var mUVDemoPlaneUvs = [];
 // draw Gimbal
 var mNeedDrawGimbal = false;
 var mPivotBuffer = null;
@@ -217,6 +224,67 @@ function onKeyPress(event) {
         default:
             break;
     }
+}
+
+function initBasicTexShader(gl) {
+    // Vertex shader program
+    const vsSource = `
+        attribute vec4 aPosition;
+        attribute vec2 aTexCoord;
+
+        uniform mat4 uMVPMatrix;
+
+        varying lowp vec2 vTexCoord;
+
+        void main() {
+            gl_Position = uMVPMatrix * aPosition;
+            vTexCoord = aTexCoord;
+        }
+    `;
+
+    // Fragment shader program
+    const fsSource = `
+        precision mediump float;
+
+        uniform sampler2D uTexSampler;
+
+        varying lowp vec2 vTexCoord;
+
+        void main() {
+            gl_FragColor = texture2D(uTexSampler, vTexCoord);
+        }
+    `;
+
+    // Initialize a shader program
+    const vertexShader = loadShader(gl, gl.VERTEX_SHADER, vsSource);
+    const fragmentShader = loadShader(gl, gl.FRAGMENT_SHADER, fsSource);
+  
+    // Create the shader program
+    const shaderProgram = gl.createProgram();
+    gl.attachShader(shaderProgram, vertexShader);
+    gl.attachShader(shaderProgram, fragmentShader);
+    gl.linkProgram(shaderProgram);
+  
+    // If creating the shader program failed, alert
+    if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
+        alert('Unable to initialize the shader program: ' + gl.getProgramInfoLog(shaderProgram));
+        return null;
+    }
+
+    // Collect all the info needed to use the shader program
+    const programInfo = {
+        program: shaderProgram,
+        attribLocations: {
+            vertexPosition: gl.getAttribLocation(shaderProgram, 'aPosition'),
+            textureCoord: gl.getAttribLocation(shaderProgram, 'aTexCoord'),
+        },
+        uniformLocations: {
+            uMVPMatrixHandle: gl.getUniformLocation(shaderProgram, 'uMVPMatrix'),
+            uTexSamplerHandle: gl.getUniformLocation(shaderProgram, 'uTexSampler'),
+        },
+    };
+
+    return programInfo;
 }
 
 function initBasicShader(gl) {
@@ -1377,6 +1445,50 @@ function initTubeBuffers(gl, innerRadius, outerRadius, height, steps, color, dir
     };
 }
 
+function initUVDemo() {
+    const vertexCoords = [
+        [-1.0,  -1.0, 1.0],
+        [ 1.0,  -1.0, 1.0],
+        [-1.0,   1.0, 1.0],
+        [ 1.0,   1.0, 1.0],
+    ];
+    for (var j = 0; j < vertexCoords.length; ++j) {
+        const v = vertexCoords[j];
+    
+        // Repeat each color four times for the four vertices of the face
+        mUVDemoPlaneVertices = mUVDemoPlaneVertices.concat(v);  // merge arrays to one
+    }
+
+    const uvCoords = [
+        0.0,    1.0, 
+        1.0,    1.0, 
+        0.0,    0.0, 
+        1.0,    0.0
+    ];
+    mUVDemoPlaneUvs.splice(0, mUVDemoPlaneUvs);
+    for (var i = 0; i < uvCoords.length; i++) {
+        mUVDemoPlaneUvs.push(uvCoords[i]);
+    }
+}
+
+function updateUVDemoBuffer(gl) {
+    const positionBuffer = gl.createBuffer();
+    // Select the positionBuffer as the one to apply buffer operations to from here out.
+    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(mUVDemoPlaneVertices), gl.STATIC_DRAW);
+
+    // Create a buffer for the viewFrustum's color.
+    const uvBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, uvBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(mUVDemoPlaneUvs), gl.DYNAMIC_DRAW);
+
+    return {
+        position: positionBuffer,
+        uv: uvBuffer,
+        drawCnt: mUVDemoPlaneVertices.length / 3,
+    };
+}
+
 function initBackground() {
     const vertexCoords = [
         [-1.0,  -1.0, 1.0],
@@ -1546,6 +1658,8 @@ function demoPerVertexOrFragLighting() {
     mNeedDrawCobraAnim = false;
     mNeedDrawSphere = true;
     mNeedDrawFighter = false;
+    mNeedDrawBackground = true;
+    mNeedDrawUVDemoPlane = false;
     document.getElementById("id_shader").style.display = 'none';
     document.getElementById("id_mvpmatrix").style.display = 'none';
     document.getElementById("id_modelmatrix").style.display = 'none';
@@ -1566,6 +1680,8 @@ function demoLight() {
     mNeedDrawCobraAnim = false;
     mNeedDrawSphere = false;
     mNeedDrawFighter = true;
+    mNeedDrawBackground = true;
+    mNeedDrawUVDemoPlane = false;
     document.getElementById("id_shader").style.display = 'none';
     document.getElementById("id_mvpmatrix").style.display = 'none';
     document.getElementById("id_modelmatrix").style.display = 'none';
@@ -1586,6 +1702,8 @@ function demoCobraManeuvre() {
     mNeedDrawCobraAnim = true;
     mNeedDrawSphere = false;
     mNeedDrawFighter = true;
+    mNeedDrawBackground = true;
+    mNeedDrawUVDemoPlane = false;
     document.getElementById("id_shader").style.display = 'none';
     document.getElementById("id_mvpmatrix").style.display = 'none';
     document.getElementById("id_modelmatrix").style.display = 'none';
@@ -1627,6 +1745,8 @@ function demoShader() {
     mNeedDrawCobraAnim = false;
     mNeedDrawSphere = false;
     mNeedDrawFighter = true;
+    mNeedDrawBackground = true;
+    mNeedDrawUVDemoPlane = false;
     document.getElementById("id_shader").style.display = 'flex';
     document.getElementById("id_mvpmatrix").style.display = 'none';
     document.getElementById("id_modelmatrix").style.display = 'none';
@@ -1647,6 +1767,8 @@ function demoMvpMatrix() {
     mNeedDrawCobraAnim = false;
     mNeedDrawSphere = false;
     mNeedDrawFighter = true;
+    mNeedDrawBackground = true;
+    mNeedDrawUVDemoPlane = false;
     document.getElementById("id_shader").style.display = 'none';
     document.getElementById("id_mvpmatrix").style.display = 'flex';
     document.getElementById("id_modelmatrix").style.display = 'none';
@@ -1667,6 +1789,8 @@ function demoUV() {
     mNeedDrawCobraAnim = false;
     mNeedDrawSphere = false;
     mNeedDrawFighter = false;
+    mNeedDrawBackground = false;
+    mNeedDrawUVDemoPlane = true;
     document.getElementById("id_shader").style.display = 'none';
     document.getElementById("id_mvpmatrix").style.display = 'none';
     document.getElementById("id_modelmatrix").style.display = 'none';
@@ -1687,6 +1811,8 @@ function demoModelMatrix() {
     mNeedDrawCobraAnim = false;
     mNeedDrawSphere = false;
     mNeedDrawFighter = true;
+    mNeedDrawBackground = true;
+    mNeedDrawUVDemoPlane = false;
     document.getElementById("id_shader").style.display = 'none';
     document.getElementById("id_mvpmatrix").style.display = 'none';
     document.getElementById("id_modelmatrix").style.display = 'flex';
@@ -1707,6 +1833,8 @@ function demoViewMatrix() {
     mNeedDrawCobraAnim = false;
     mNeedDrawSphere = false;
     mNeedDrawFighter = true;
+    mNeedDrawBackground = true;
+    mNeedDrawUVDemoPlane = false;
     document.getElementById("id_shader").style.display = 'none';
     document.getElementById("id_mvpmatrix").style.display = 'none';
     document.getElementById("id_modelmatrix").style.display = 'none';
@@ -1727,6 +1855,8 @@ function demoProjMatrix() {
     mNeedDrawCobraAnim = false;
     mNeedDrawSphere = false;
     mNeedDrawFighter = true;
+    mNeedDrawBackground = true;
+    mNeedDrawUVDemoPlane = false;
     document.getElementById("id_shader").style.display = 'none';
     document.getElementById("id_mvpmatrix").style.display = 'none';
     document.getElementById("id_modelmatrix").style.display = 'none';
@@ -1746,6 +1876,8 @@ function demoRotateMatrix() {
     mNeedDrawCobraAnim = false;
     mNeedDrawSphere = false;
     mNeedDrawFighter = true;
+    mNeedDrawBackground = true;
+    mNeedDrawUVDemoPlane = false;
     document.getElementById("id_shader").style.display = 'none';
     document.getElementById("id_mvpmatrix").style.display = 'none';
     document.getElementById("id_modelmatrix").style.display = 'none';
@@ -1766,6 +1898,8 @@ function demoAxisAngle() {
     mNeedDrawCobraAnim = false;
     mNeedDrawSphere = false;
     mNeedDrawFighter = true;
+    mNeedDrawBackground = true;
+    mNeedDrawUVDemoPlane = false;
     document.getElementById("id_shader").style.display = 'none';
     document.getElementById("id_mvpmatrix").style.display = 'none';
     document.getElementById("id_modelmatrix").style.display = 'none';
@@ -1786,6 +1920,8 @@ function demoQuaternion() {
     mNeedDrawCobraAnim = false;
     mNeedDrawSphere = false;
     mNeedDrawFighter = true;
+    mNeedDrawBackground = true;
+    mNeedDrawUVDemoPlane = false;
     document.getElementById("id_shader").style.display = 'none';
     document.getElementById("id_mvpmatrix").style.display = 'none';
     document.getElementById("id_modelmatrix").style.display = 'none';
@@ -1884,6 +2020,7 @@ function main() {
     updateLightShader();
     updateSphereShader();
     const basicProgram = initBasicShader(gl);
+    const basicTexProgram = initBasicTexShader(gl);
     const diffuseLightingProgram = initDiffuseLightingShader(gl);
 
     // Here's where we call the routine that builds all the objects we'll be drawing.
@@ -1892,6 +2029,7 @@ function main() {
     mObjectDiffuseTexture = loadTexture(gl, './texture/Su-27_diffuse.png');
     mObjectNormalTexture = loadTexture(gl, './texture/Su-27_normal.png');
     mBackgroundTexture = loadTexture(gl, './texture/bg_sky.jpg');
+    mUVDemoTexture = loadTexture(gl, './texture/card.jpg');
     
     udpateViewFrustum();
     setViewFrustumColor();
@@ -1914,7 +2052,9 @@ function main() {
     mSphereBuffer = initSphereBuffers(gl, 1.0, 30, vec4.fromValues(1.0, 1.0, 1.0, 1.0));
     // background
     initBackground();
+    initUVDemo();
     mBackgroundBuffer = updateBackgroundBuffer(gl);
+    mUVDemoPlaneBuffer = updateUVDemoBuffer(gl);
 
     var then = 0;
     var oneSecThen = 0;
@@ -1924,7 +2064,7 @@ function main() {
         const deltaTime = now - then;
         then = now;
         // draw scene
-        drawScene(gl, basicProgram, diffuseLightingProgram, deltaTime);
+        drawScene(gl, basicProgram, basicTexProgram, diffuseLightingProgram, deltaTime);
 
         if (now - oneSecThen > 1) {
             oneSecThen = now;
@@ -1989,6 +2129,66 @@ function loadTexture(gl, url) {
 
 function isPowerOf2(value) {
     return (value & (value - 1)) == 0;
+}
+
+function drawUVDemo(gl, program, buffers, texture, drawCount, deltaTime, isGodView) {
+    // Tell WebGL how to pull out the positions from the position buffer into the vertexPosition attribute.
+    {
+        const numComponents = 3;
+        const type = gl.FLOAT;
+        const normalize = false;
+        const stride = 0;
+        const offset = 0;
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffers.position);
+        gl.vertexAttribPointer(
+            program.attribLocations.vertexPosition,
+            numComponents,
+            type,
+            normalize,
+            stride,
+            offset);
+        gl.enableVertexAttribArray(
+            program.attribLocations.vertexPosition);
+    }
+
+    // Tell WebGL how to pull out the texture coordinates from the texture coordinate buffer into the textureCoord attribute.
+    {
+        const numComponents = 2;
+        const type = gl.FLOAT;
+        const normalize = false;
+        const stride = 0;
+        const offset = 0;
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffers.uv);
+        gl.vertexAttribPointer(
+            program.attribLocations.textureCoord,
+            numComponents,
+            type,
+            normalize,
+            stride,
+            offset);
+        gl.enableVertexAttribArray(
+            program.attribLocations.textureCoord);
+    }
+
+    // Tell WebGL to use our program when drawing
+    gl.useProgram(program.program);
+
+    // Specify the texture to map onto the faces.
+    // Tell WebGL we want to affect texture unit 0
+    gl.activeTexture(gl.TEXTURE0);
+    // Bind the diffuseTexture to diffuseTexture unit 0
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    // Tell the shader we bound the diffuseTexture to diffuseTexture unit 0
+    gl.uniform1i(program.uniformLocations.uTexSamplerHandle, 0);
+
+    if (isGodView) {
+        gl.uniformMatrix4fv(program.uniformLocations.uMVPMatrixHandle, false, mGodMvpMatrix);
+    } else {
+        gl.uniformMatrix4fv(program.uniformLocations.uMVPMatrixHandle, false, mMvpMatrix);
+    }
+
+    const drawOffset = 0;
+    gl.drawArrays(gl.TRIANGLE_STRIP, drawOffset, drawCount);
 }
 
 function drawBackground(gl, backgroundProgram, buffers, texture, drawCount, deltaTime) {
@@ -2596,7 +2796,7 @@ function drawObject(gl, lightingProgram, buffers, diffuseTexture, normalTexture,
     gl.drawArrays(gl.TRIANGLES, drawOffset, drawCount);
 }
 
-function drawScene(gl, basicProgram, diffuseLightingProgram, deltaTime) {
+function drawScene(gl, basicProgram, basicTexProgram, diffuseLightingProgram, deltaTime) {
     mTimeEllapse += deltaTime;
 
     mViewFrustumBuffer = updateViewFrustumBuffer(gl);
@@ -2631,13 +2831,20 @@ function drawScene(gl, basicProgram, diffuseLightingProgram, deltaTime) {
     gl.viewport(0, 0, mViewportWidth, mViewportHeight);
 
     // draw background
-    if (mNeedDrawCobraAnim) {
-        var animProgress = mCobraAnimFrameEllapse / (COBRA_STEP1_FRAME_CNT + FALLING_LEAF1_FRAME_CNT + FALLING_LEAF2_FRAME_CNT 
-            + FALLING_LEAF3_FRAME_CNT + FALLING_LEAF4_FRAME_CNT + COBRA_STEP2_FRAME_CNT);
-        updateBackgroundUv(animProgress);
-        mBackgroundBuffer = updateBackgroundBuffer(gl);
+    if (mNeedDrawBackground) {
+        if (mNeedDrawCobraAnim) {
+            var animProgress = mCobraAnimFrameEllapse / (COBRA_STEP1_FRAME_CNT + FALLING_LEAF1_FRAME_CNT + FALLING_LEAF2_FRAME_CNT 
+                + FALLING_LEAF3_FRAME_CNT + FALLING_LEAF4_FRAME_CNT + COBRA_STEP2_FRAME_CNT);
+            updateBackgroundUv(animProgress);
+            mBackgroundBuffer = updateBackgroundBuffer(gl);
+        }
+        drawBackground(gl, mBackgroundProgram, mBackgroundBuffer, mBackgroundTexture, mBackgroundBuffer.drawCnt, deltaTime);
     }
-    drawBackground(gl, mBackgroundProgram, mBackgroundBuffer, mBackgroundTexture, mBackgroundBuffer.drawCnt, deltaTime);
+
+    // draw uv demo
+    if (mNeedDrawUVDemoPlane) {
+        drawUVDemo(gl, basicTexProgram, mUVDemoPlaneBuffer, mUVDemoTexture, mUVDemoPlaneBuffer.drawCnt, deltaTime);
+    }
 
     if (mNeedDrawFighter && mObjectBuffer.length > 0) {
         for (var i = 0; i < mObjectBuffer.length; i++) {
@@ -2712,6 +2919,10 @@ function drawScene(gl, basicProgram, diffuseLightingProgram, deltaTime) {
         for (var i = 0; i < mObjectBuffer.length; i++) {
             drawObject(gl, mLightProgram, mObjectBuffer[i], mObjectDiffuseTexture, mObjectNormalTexture, mObjectBuffer[i].drawCnt, deltaTime, true);
         }
+    }
+    // draw uv demo
+    if (mNeedDrawUVDemoPlane) {
+        drawUVDemo(gl, basicTexProgram, mUVDemoPlaneBuffer, mUVDemoTexture, mUVDemoPlaneBuffer.drawCnt, deltaTime, true);
     }
     if (mNeedDrawSphere) {
         drawSphere(gl, mSphereProgram, mSphereBuffer, mSphereBuffer.drawCnt, deltaTime, false);
