@@ -2029,7 +2029,7 @@ function main() {
     mObjectDiffuseTexture = loadTexture(gl, './texture/Su-27_diffuse.png');
     mObjectNormalTexture = loadTexture(gl, './texture/Su-27_normal.png');
     mBackgroundTexture = loadTexture(gl, './texture/bg_sky.jpg');
-    mUVDemoTexture = loadTexture(gl, './texture/card.jpg');
+    mUVDemoTexture = loadTexture(gl, './texture/Su-27_diffuse.png');
     
     udpateViewFrustum();
     setViewFrustumColor();
