@@ -1451,10 +1451,10 @@ function initTubeBuffers(gl, innerRadius, outerRadius, height, steps, color, dir
 
 function initUVDemo() {
     const vertexCoords = [
-        [-1.0,  -1.0, 1.0],
-        [ 1.0,  -1.0, 1.0],
-        [-1.0,   1.0, 1.0],
-        [ 1.0,   1.0, 1.0],
+        [-1.0,  -1.0, -3.0],
+        [ 1.0,  -1.0, -3.0],
+        [-1.0,   1.0, -3.0],
+        [ 1.0,   1.0, -3.0],
     ];
     for (var j = 0; j < vertexCoords.length; ++j) {
         const v = vertexCoords[j];
@@ -1542,7 +1542,7 @@ function updateUVTexture() {
     const canvas = document.querySelector("#glcanvas");
     const gl = canvas.getContext("webgl") || canvas.getContext('experimental-webgl');
     gl.deleteTexture(mUVDemoTexture);
-    mUVDemoTexture = loadTextureByParams(gl, './texture/Su-27_diffuse.png', false, 
+    mUVDemoTexture = loadTextureByParams(gl, './texture/spider.png', false, 
         mIsMinGLNearest, mIsMagGLNearest, mIsWrapSRepeat, mIsWrapTRepeat);
 }
 
@@ -2098,7 +2098,7 @@ function main() {
     mObjectDiffuseTexture = loadTexture(gl, './texture/Su-27_diffuse.png');
     mObjectNormalTexture = loadTexture(gl, './texture/Su-27_normal.png');
     mBackgroundTexture = loadTexture(gl, './texture/bg_sky.jpg');
-    mUVDemoTexture = loadTexture(gl, './texture/Su-27_diffuse.png');
+    mUVDemoTexture = loadTexture(gl, './texture/spider.png');
     
     udpateViewFrustum();
     setViewFrustumColor();
@@ -2166,7 +2166,7 @@ function loadTexture(gl, url) {
     const border = 0;
     const srcFormat = gl.RGBA;
     const srcType = gl.UNSIGNED_BYTE;
-    const pixel = new Uint8Array([0, 0, 255, 255]);  // opaque blue
+    const pixel = new Uint8Array([255, 255, 255, 255]);  // opaque blue
     gl.texImage2D(gl.TEXTURE_2D, level, internalFormat,
                   width, height, border, srcFormat, srcType,
                   pixel);
