@@ -72,6 +72,9 @@ var mUVDemoPlaneBuffer = null;
 var mUVDemoTexture = null;
 var mUVDemoPlaneVertices = [];
 var mUVDemoPlaneUvs = [];
+var mUVDemoAssistPlaneBuffer = null;
+var mUVDemoAssistPlaneVertices = [];
+var mUVDemoAssistPlaneUvs = [];
 // draw Gimbal
 var mNeedDrawGimbal = false;
 var mPivotBuffer = null;
@@ -1450,6 +1453,7 @@ function initTubeBuffers(gl, innerRadius, outerRadius, height, steps, color, dir
 }
 
 function initUVDemo() {
+    // init uv demo plane
     const vertexCoords = [
         [-1.0,  -1.0, -3.0],
         [ 1.0,  -1.0, -3.0],
@@ -1472,6 +1476,31 @@ function initUVDemo() {
     mUVDemoPlaneUvs.splice(0, mUVDemoPlaneUvs);
     for (var i = 0; i < uvCoords.length; i++) {
         mUVDemoPlaneUvs.push(uvCoords[i]);
+    }
+
+    // init uv demo assist plane
+    const assistVertexCoords = [
+        [1.5,  -3.5, -3.0],
+        [3.5,  -3.5, -3.0],
+        [1.5,  -1.5, -3.0],
+        [3.5,  -1.5, -3.0],
+    ];
+    for (var j = 0; j < assistVertexCoords.length; ++j) {
+        const v = assistVertexCoords[j];
+    
+        // Repeat each color four times for the four vertices of the face
+        mUVDemoAssistPlaneVertices = mUVDemoAssistPlaneVertices.concat(v);  // merge arrays to one
+    }
+
+    const assistUvCoords = [
+        -0.25,    1.25, 
+        1.25,     1.25, 
+        -0.25,    -0.25, 
+        1.25,     -0.25
+    ];
+    mUVDemoAssistPlaneUvs.splice(0, mUVDemoAssistPlaneUvs);
+    for (var i = 0; i < assistUvCoords.length; i++) {
+        mUVDemoAssistPlaneUvs.push(assistUvCoords[i]);
     }
 
     updateUVData();
@@ -1510,6 +1539,24 @@ function updateUVDemoBuffer(gl) {
     };
 }
 
+function updateUVDemoAssistBuffer(gl) {
+    const positionBuffer = gl.createBuffer();
+    // Select the positionBuffer as the one to apply buffer operations to from here out.
+    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(mUVDemoAssistPlaneVertices), gl.STATIC_DRAW);
+
+    // Create a buffer for the viewFrustum's color.
+    const uvBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, uvBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(mUVDemoAssistPlaneUvs), gl.DYNAMIC_DRAW);
+
+    return {
+        position: positionBuffer,
+        uv: uvBuffer,
+        drawCnt: mUVDemoPlaneVertices.length / 3,
+    };
+}
+
 function updateUVMinFilter() {
     var uvMinFilterNearestChecked = document.getElementById("id_min_gl_nearest").checked;
     var uvMinFilterLinearChecked = document.getElementById("id_min_gl_linear").checked;
@@ -1524,16 +1571,12 @@ function updateUVMagFilter() {
     updateUVTexture();
 }
 
-function updateUVWrapS() {
+function updateUVWrapST() {
     var uvWrapSRepeatChecked = document.getElementById("id_gl_wrap_s_repeat").checked;
     var uvWrapSClampChecked = document.getElementById("id_gl_wrap_s_clamp").checked;
-    mIsWrapSRepeat = (uvWrapSRepeatChecked && !uvWrapSClampChecked);
-    updateUVTexture();
-}
-
-function updateUVWrapT() {
     var uvWrapTRepeatChecked = document.getElementById("id_gl_wrap_t_repeat").checked;
     var uvWrapTClampChecked = document.getElementById("id_gl_wrap_t_clamp").checked;
+    mIsWrapSRepeat = (uvWrapSRepeatChecked && !uvWrapSClampChecked);
     mIsWrapTRepeat = (uvWrapTRepeatChecked && !uvWrapTClampChecked);
     updateUVTexture();
 }
@@ -2098,7 +2141,7 @@ function main() {
     mObjectDiffuseTexture = loadTexture(gl, './texture/Su-27_diffuse.png');
     mObjectNormalTexture = loadTexture(gl, './texture/Su-27_normal.png');
     mBackgroundTexture = loadTexture(gl, './texture/bg_sky.jpg');
-    mUVDemoTexture = loadTexture(gl, './texture/spider.png');
+    mUVDemoTexture = loadTextureByParams(gl, './texture/spider.png', false, false, false, true, true);
     
     udpateViewFrustum();
     setViewFrustumColor();
@@ -2124,6 +2167,7 @@ function main() {
     initUVDemo();
     mBackgroundBuffer = updateBackgroundBuffer(gl);
     mUVDemoPlaneBuffer = updateUVDemoBuffer(gl);
+    mUVDemoAssistPlaneBuffer = updateUVDemoAssistBuffer(gl);
 
     var then = 0;
     var oneSecThen = 0;
@@ -2230,11 +2274,11 @@ function loadTextureByParams(gl, url, isMipmap, minNearest, magNearest, sRepeat,
   
       if (isMipmap && isPowerOf2(image.width) && isPowerOf2(image.height)) {
         if (sRepeat) 
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.MIRRORED_REPEAT);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
         else 
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
         if (tRepeat)
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.MIRRORED_REPEAT);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
         else
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
@@ -2242,11 +2286,11 @@ function loadTextureByParams(gl, url, isMipmap, minNearest, magNearest, sRepeat,
         gl.generateMipmap(gl.TEXTURE_2D);
       } else {
         if (sRepeat) 
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.MIRRORED_REPEAT);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
         else 
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
         if (tRepeat)
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.MIRRORED_REPEAT);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
         else
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
         if (minNearest)
@@ -2981,6 +3025,7 @@ function drawScene(gl, basicProgram, basicTexProgram, diffuseLightingProgram, de
     // draw uv demo
     if (mNeedDrawUVDemoPlane) {
         drawUVDemo(gl, basicTexProgram, mUVDemoPlaneBuffer, mUVDemoTexture, mUVDemoPlaneBuffer.drawCnt, deltaTime);
+        drawUVDemo(gl, basicTexProgram, mUVDemoAssistPlaneBuffer, mUVDemoTexture, mUVDemoAssistPlaneBuffer.drawCnt, deltaTime);
     }
 
     if (mNeedDrawFighter && mObjectBuffer.length > 0) {
