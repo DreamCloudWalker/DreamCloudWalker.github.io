@@ -56,6 +56,9 @@
             div#id_per_frag_shader {
                 display: none;
             }
+            div#id_uv_demo {
+                display: none;
+            }
             div#matrix {
                 margin: 10px;
             }
@@ -926,6 +929,47 @@ void main() {
 }
                         </textarea>
                     </div>
+                </div>
+            </div>
+        </div>
+        <div id="id_uv_demo">
+            <h4 style="width: 230px; background: #ffffff">UV坐标</h4>
+            <div style="border: 1px solid #cccccc; width: 15em;">
+                <h5 style="width: 230px; background: #ffffff">GL_TEXTURE_MIN_FILTER</h5>
+                <input type="radio" id="id_min_gl_nearest" name="GL_TEXTURE_MIN_FILTER" value="GL_NEAREST" checked onchange="updateUVMinFilter()"/>GL_NEAREST<br>
+                <input type="radio" id="id_min_gl_linear" name="GL_TEXTURE_MIN_FILTER" value="GL_LINEAR" onchange="updateUVMinFilter()"/>GL_LINEAR<br>
+            </div>
+            <div style="border: 1px solid #cccccc; width: 15em;">
+                <h5 style="width: 230px; background: #ffffff">GL_TEXTURE_MAG_FILTER</h5>
+                <input type="radio" id="id_mag_gl_nearest" name="GL_TEXTURE_MAG_FILTER" value="GL_NEAREST" checked onchange="updateUVMagFilter()"/>GL_NEAREST<br>
+                <input type="radio" id="id_mag_gl_linear" name="GL_TEXTURE_MAG_FILTER" value="GL_LINEAR" onchange="updateUVMagFilter()"/>GL_LINEAR<br>
+            </div>
+            <div style="border: 1px solid #cccccc; width: 15em;">
+                <h5 style="width: 230px; background: #ffffff">GL_TEXTURE_WRAP_S</h5>
+                <input type="radio" id="id_gl_wrap_s_repeat" name="GL_TEXTURE_WRAP_S" value="GL_REPEAT" checked onchange="updateUVWrapS()"/>GL_REPEAT<br>
+                <input type="radio" id="id_gl_wrap_s_clamp" name="GL_TEXTURE_WRAP_S" value="GL_CLAMP" onchange="updateUVWrapS()"/>GL_CLAMP<br>
+            </div>
+            <div style="border: 1px solid #cccccc; width: 15em;">
+                <h5 style="width: 230px; background: #ffffff">GL_TEXTURE_WRAP_T</h5>
+                <input type="radio" id="id_gl_wrap_t_repeat" name="GL_TEXTURE_WRAP_T" value="GL_REPEAT" checked onchange="updateUVWrapT()"/>GL_REPEAT<br>
+                <input type="radio" id="id_gl_wrap_t_clamp" name="GL_TEXTURE_WRAP_T" value="GL_CLAMP" onchange="updateUVWrapT()"/>GL_CLAMP<br>
+            </div>
+            <div style="border: 1px solid #cccccc; width: 29em;">
+                <div id="horizontal" style="margin: 5px">
+                    <br/>vertex1, u = <input  id="id_uv_u_1" style="width: 3.5em;" type="number" value="0" step="0.1" oninput="updateUVData()"/>
+                    <br/>, v = <input  id="id_uv_v_1" style="width: 3.5em;" type="number" value="1" step="0.1" oninput="updateUVData()"/>
+                </div>
+                <div id="horizontal" style="margin: 5px">
+                    <br/>vertex2, u = <input  id="id_uv_u_2" style="width: 3.5em;" type="number" value="1" step="0.1" oninput="updateUVData()"/>
+                    <br/>, v = <input  id="id_uv_v_2" style="width: 3.5em;" type="number" value="1" step="0.1" oninput="updateUVData()"/>
+                </div>
+                <div id="horizontal" style="margin: 5px">
+                    <br/>vertex3, u = <input  id="id_uv_u_3" style="width: 3.5em;" type="number" value="0" step="0.1" oninput="updateUVData()"/>
+                    <br/>, v = <input  id="id_uv_v_3" style="width: 3.5em;" type="number" value="0" step="0.1" oninput="updateUVData()"/>
+                </div>
+                <div id="horizontal" style="margin: 5px">
+                    <br/>vertex4, u = <input  id="id_uv_u_4" style="width: 3.5em;" type="number" value="1" step="0.1" oninput="updateUVData()"/>
+                    <br/>, v = <input  id="id_uv_v_4" style="width: 3.5em;" type="number" value="0" step="0.1" oninput="updateUVData()"/>
                 </div>
             </div>
         </div>

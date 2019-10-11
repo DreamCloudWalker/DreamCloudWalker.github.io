@@ -62,6 +62,10 @@ var mBackgroundBuffer = null;
 var mBackgroundTexture = null;
 var mBackgroundVertices = [];
 var mBackgroundUvs = [];
+var mIsMinGLNearest = false;
+var mIsMagGLNearest = false;
+var mIsWrapSRepeat = false;
+var mIsWrapTRepeat = false;
 // draw UV demo plane
 var mNeedDrawUVDemoPlane = false;
 var mUVDemoPlaneBuffer = null;
@@ -1469,6 +1473,23 @@ function initUVDemo() {
     for (var i = 0; i < uvCoords.length; i++) {
         mUVDemoPlaneUvs.push(uvCoords[i]);
     }
+
+    updateUVData();
+}
+
+function updateUVData() {
+    mUVDemoPlaneUvs[0] = document.getElementById("id_uv_u_1").value;
+    mUVDemoPlaneUvs[1] = document.getElementById("id_uv_v_1").value;
+    mUVDemoPlaneUvs[2] = document.getElementById("id_uv_u_2").value;
+    mUVDemoPlaneUvs[3] = document.getElementById("id_uv_v_2").value;
+    mUVDemoPlaneUvs[4] = document.getElementById("id_uv_u_3").value;
+    mUVDemoPlaneUvs[5] = document.getElementById("id_uv_v_3").value;
+    mUVDemoPlaneUvs[6] = document.getElementById("id_uv_u_4").value;
+    mUVDemoPlaneUvs[7] = document.getElementById("id_uv_v_4").value;
+
+    const canvas = document.querySelector("#glcanvas");
+    const gl = canvas.getContext("webgl") || canvas.getContext('experimental-webgl');
+    mUVDemoPlaneBuffer = updateUVDemoBuffer(gl);
 }
 
 function updateUVDemoBuffer(gl) {
@@ -1487,6 +1508,42 @@ function updateUVDemoBuffer(gl) {
         uv: uvBuffer,
         drawCnt: mUVDemoPlaneVertices.length / 3,
     };
+}
+
+function updateUVMinFilter() {
+    var uvMinFilterNearestChecked = document.getElementById("id_min_gl_nearest").checked;
+    var uvMinFilterLinearChecked = document.getElementById("id_min_gl_linear").checked;
+    mIsMinGLNearest = (uvMinFilterNearestChecked && !uvMinFilterLinearChecked);
+    updateUVTexture();
+}
+
+function updateUVMagFilter() {
+    var uvMagFilterNearestChecked = document.getElementById("id_mag_gl_nearest").checked;
+    var uvMagFilterLinearChecked = document.getElementById("id_mag_gl_linear").checked;
+    mIsMagGLNearest = (uvMagFilterNearestChecked && !uvMagFilterLinearChecked);
+    updateUVTexture();
+}
+
+function updateUVWrapS() {
+    var uvWrapSRepeatChecked = document.getElementById("id_gl_wrap_s_repeat").checked;
+    var uvWrapSClampChecked = document.getElementById("id_gl_wrap_s_clamp").checked;
+    mIsWrapSRepeat = (uvWrapSRepeatChecked && !uvWrapSClampChecked);
+    updateUVTexture();
+}
+
+function updateUVWrapT() {
+    var uvWrapTRepeatChecked = document.getElementById("id_gl_wrap_t_repeat").checked;
+    var uvWrapTClampChecked = document.getElementById("id_gl_wrap_t_clamp").checked;
+    mIsWrapTRepeat = (uvWrapTRepeatChecked && !uvWrapTClampChecked);
+    updateUVTexture();
+}
+
+function updateUVTexture() {
+    const canvas = document.querySelector("#glcanvas");
+    const gl = canvas.getContext("webgl") || canvas.getContext('experimental-webgl');
+    gl.deleteTexture(mUVDemoTexture);
+    mUVDemoTexture = loadTextureByParams(gl, './texture/Su-27_diffuse.png', false, 
+        mIsMinGLNearest, mIsMagGLNearest, mIsWrapSRepeat, mIsWrapTRepeat);
 }
 
 function initBackground() {
@@ -1669,6 +1726,7 @@ function demoPerVertexOrFragLighting() {
     document.getElementById("id_axisangle").style.display = 'none';
     document.getElementById("id_quaternion").style.display = 'none';
     document.getElementById("id_cobramaneuvre").style.display = 'none';
+    document.getElementById("id_uv_demo").style.display = 'none';
     document.getElementById("id_lightdemo").style.display = 'none';
     document.getElementById("id_per_vertex_or_frag_lighting").style.display = 'flex';
 }
@@ -1691,6 +1749,7 @@ function demoLight() {
     document.getElementById("id_axisangle").style.display = 'none';
     document.getElementById("id_quaternion").style.display = 'none';
     document.getElementById("id_cobramaneuvre").style.display = 'none';
+    document.getElementById("id_uv_demo").style.display = 'none';
     document.getElementById("id_lightdemo").style.display = 'flex';
     document.getElementById("id_per_vertex_or_frag_lighting").style.display = 'none';
 }
@@ -1713,6 +1772,7 @@ function demoCobraManeuvre() {
     document.getElementById("id_axisangle").style.display = 'none';
     document.getElementById("id_quaternion").style.display = 'none';
     document.getElementById("id_cobramaneuvre").style.display = 'flex';
+    document.getElementById("id_uv_demo").style.display = 'none';
     document.getElementById("id_lightdemo").style.display = 'none';
     document.getElementById("id_per_vertex_or_frag_lighting").style.display = 'none';
 
@@ -1756,6 +1816,7 @@ function demoShader() {
     document.getElementById("id_axisangle").style.display = 'none';
     document.getElementById("id_quaternion").style.display = 'none';
     document.getElementById("id_cobramaneuvre").style.display = 'none';
+    document.getElementById("id_uv_demo").style.display = 'none';
     document.getElementById("id_lightdemo").style.display = 'none';
     document.getElementById("id_per_vertex_or_frag_lighting").style.display = 'none';
 }
@@ -1778,6 +1839,7 @@ function demoMvpMatrix() {
     document.getElementById("id_axisangle").style.display = 'none';
     document.getElementById("id_quaternion").style.display = 'none';
     document.getElementById("id_cobramaneuvre").style.display = 'none';
+    document.getElementById("id_uv_demo").style.display = 'none';
     document.getElementById("id_lightdemo").style.display = 'none';
     document.getElementById("id_per_vertex_or_frag_lighting").style.display = 'none';
 }
@@ -1800,6 +1862,7 @@ function demoUV() {
     document.getElementById("id_axisangle").style.display = 'none';
     document.getElementById("id_quaternion").style.display = 'none';
     document.getElementById("id_cobramaneuvre").style.display = 'none';
+    document.getElementById("id_uv_demo").style.display = 'flex';
     document.getElementById("id_lightdemo").style.display = 'none';
     document.getElementById("id_per_vertex_or_frag_lighting").style.display = 'none';
 }
@@ -1822,6 +1885,7 @@ function demoModelMatrix() {
     document.getElementById("id_axisangle").style.display = 'none';
     document.getElementById("id_quaternion").style.display = 'none';
     document.getElementById("id_cobramaneuvre").style.display = 'none';
+    document.getElementById("id_uv_demo").style.display = 'none';
     document.getElementById("id_lightdemo").style.display = 'none';
     document.getElementById("id_per_vertex_or_frag_lighting").style.display = 'none';
 }
@@ -1844,6 +1908,7 @@ function demoViewMatrix() {
     document.getElementById("id_axisangle").style.display = 'none';
     document.getElementById("id_quaternion").style.display = 'none';
     document.getElementById("id_cobramaneuvre").style.display = 'none';
+    document.getElementById("id_uv_demo").style.display = 'none';
     document.getElementById("id_lightdemo").style.display = 'none';
     document.getElementById("id_per_vertex_or_frag_lighting").style.display = 'none';
 }
@@ -1866,6 +1931,7 @@ function demoProjMatrix() {
     document.getElementById("id_axisangle").style.display = 'none';
     document.getElementById("id_quaternion").style.display = 'none';
     document.getElementById("id_cobramaneuvre").style.display = 'none';
+    document.getElementById("id_uv_demo").style.display = 'none';
     document.getElementById("id_lightdemo").style.display = 'none';
 }
 
@@ -1887,6 +1953,7 @@ function demoRotateMatrix() {
     document.getElementById("id_axisangle").style.display = 'none';
     document.getElementById("id_quaternion").style.display = 'none';
     document.getElementById("id_cobramaneuvre").style.display = 'none';
+    document.getElementById("id_uv_demo").style.display = 'none';
     document.getElementById("id_lightdemo").style.display = 'none';
     document.getElementById("id_per_vertex_or_frag_lighting").style.display = 'none';
 }
@@ -1909,6 +1976,7 @@ function demoAxisAngle() {
     document.getElementById("id_axisangle").style.display = 'flex';
     document.getElementById("id_quaternion").style.display = 'none';
     document.getElementById("id_cobramaneuvre").style.display = 'none';
+    document.getElementById("id_uv_demo").style.display = 'none';
     document.getElementById("id_lightdemo").style.display = 'none';
     document.getElementById("id_per_vertex_or_frag_lighting").style.display = 'none';
 }
@@ -1931,6 +1999,7 @@ function demoQuaternion() {
     document.getElementById("id_axisangle").style.display = 'none';
     document.getElementById("id_quaternion").style.display = 'flex';
     document.getElementById("id_cobramaneuvre").style.display = 'none';
+    document.getElementById("id_uv_demo").style.display = 'none';
     document.getElementById("id_lightdemo").style.display = 'none';
     document.getElementById("id_per_vertex_or_frag_lighting").style.display = 'none';
 }
@@ -2125,6 +2194,69 @@ function loadTexture(gl, url) {
          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.MIRRORED_REPEAT);
          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      }
+    };
+    image.src = url;
+  
+    return texture;
+}
+
+function loadTextureByParams(gl, url, isMipmap, minNearest, magNearest, sRepeat, tRepeat) {
+    const texture = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+  
+    // Because images have to be download over the internet
+    // they might take a moment until they are ready.
+    // Until then put a single pixel in the texture so we can
+    // use it immediately. When the image has finished downloading
+    // we'll update the texture with the contents of the image.
+    const level = 0;
+    const internalFormat = gl.RGBA;
+    const width = 1;
+    const height = 1;
+    const border = 0;
+    const srcFormat = gl.RGBA;
+    const srcType = gl.UNSIGNED_BYTE;
+    const pixel = new Uint8Array([255, 255, 255, 255]);  // opaque white
+    gl.texImage2D(gl.TEXTURE_2D, level, internalFormat,
+                  width, height, border, srcFormat, srcType,
+                  pixel);
+  
+    const image = new Image();
+    image.onload = function() {
+      gl.bindTexture(gl.TEXTURE_2D, texture);
+      gl.texImage2D(gl.TEXTURE_2D, level, internalFormat,
+                    srcFormat, srcType, image);
+  
+      if (isMipmap && isPowerOf2(image.width) && isPowerOf2(image.height)) {
+        if (sRepeat) 
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.MIRRORED_REPEAT);
+        else 
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        if (tRepeat)
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.MIRRORED_REPEAT);
+        else
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.generateMipmap(gl.TEXTURE_2D);
+      } else {
+        if (sRepeat) 
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.MIRRORED_REPEAT);
+        else 
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        if (tRepeat)
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.MIRRORED_REPEAT);
+        else
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        if (minNearest)
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+        else
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        if (magNearest)
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+        else
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
       }
     };
     image.src = url;
