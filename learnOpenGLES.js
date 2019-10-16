@@ -75,6 +75,15 @@ var mUVDemoPlaneUvs = [];
 var mUVDemoAssistPlaneBuffer = null;
 var mUVDemoAssistPlaneVertices = [];
 var mUVDemoAssistPlaneUvs = [];
+var mUVDemoAssistCubeBuffer = null;
+var mUVDemoAssistCubeVertices = [];
+var mUVDemoAssistCubeColor = [];
+const mUVDemoAssistCubeX = 1.83;
+const mUVDemoAssistCubeY = 3.17;
+const mUVDemoAssistCubeRate = 1.34;
+var mUVDemoAssistUVAxisBuffer = null;
+var mUVDemoAssistUVAxisVertices = [];
+var mUVDemoAssistUVAxisColor = [];
 // draw Gimbal
 var mNeedDrawGimbal = false;
 var mPivotBuffer = null;
@@ -1503,6 +1512,50 @@ function initUVDemo() {
         mUVDemoAssistPlaneUvs.push(assistUvCoords[i]);
     }
 
+    // init assist uv axis
+    const assistAxisVertexCoords = [
+        // u-axis
+        [mUVDemoAssistCubeX,    -mUVDemoAssistCubeX, -3.0],
+        [3.5,                   -mUVDemoAssistCubeX, -3.0],
+        // v-axis
+        [mUVDemoAssistCubeX,    -mUVDemoAssistCubeX, -3.0],
+        [mUVDemoAssistCubeX,    -3.83,               -3.0],
+    ];
+    mUVDemoAssistUVAxisColor = [
+        // u-axis
+        1.0, 0.0, 1.0, 1.0,
+        1.0, 0.0, 1.0, 1.0, 
+        // v-axis
+        0.0, 1.0, 1.0, 1.0,
+        0.0, 1.0, 1.0, 1.0,
+    ];
+    for (var j = 0; j < assistAxisVertexCoords.length; ++j) {
+        const v = assistAxisVertexCoords[j];
+    
+        // Repeat each color four times for the four vertices of the face
+        mUVDemoAssistUVAxisVertices = mUVDemoAssistUVAxisVertices.concat(v);  // merge arrays to one
+    }
+
+    // init assist uv cube
+    const assistCubeVertexCoords = [
+        [mUVDemoAssistCubeX, -mUVDemoAssistCubeY,  -3.0],    // v0
+        [mUVDemoAssistCubeY, -mUVDemoAssistCubeY,  -3.0],    // v1
+        [mUVDemoAssistCubeY, -mUVDemoAssistCubeX,  -3.0],    // v2
+        [mUVDemoAssistCubeX, -mUVDemoAssistCubeX,  -3.0],    // v3
+    ];
+    for (var j = 0; j < assistCubeVertexCoords.length; ++j) {
+        const v = assistCubeVertexCoords[j];
+    
+        // Repeat each color four times for the four vertices of the face
+        mUVDemoAssistCubeVertices = mUVDemoAssistCubeVertices.concat(v);  // merge arrays to one
+    }
+    mUVDemoAssistCubeColor = [
+        1.0, 1.0, 0.0, 1.0,
+        1.0, 1.0, 0.0, 1.0,
+        1.0, 1.0, 0.0, 1.0,
+        1.0, 1.0, 0.0, 1.0,
+    ];
+
     updateUVData();
 }
 
@@ -1516,9 +1569,20 @@ function updateUVData() {
     mUVDemoPlaneUvs[6] = document.getElementById("id_uv_u_4").value;
     mUVDemoPlaneUvs[7] = document.getElementById("id_uv_v_4").value;
 
+    mUVDemoAssistCubeVertices[0] = mUVDemoAssistCubeX + mUVDemoPlaneUvs[0] * mUVDemoAssistCubeRate;
+    mUVDemoAssistCubeVertices[1] = -mUVDemoAssistCubeY + (1 - mUVDemoPlaneUvs[1]) * mUVDemoAssistCubeRate;
+    mUVDemoAssistCubeVertices[3] = mUVDemoAssistCubeY + (mUVDemoPlaneUvs[2] - 1) * mUVDemoAssistCubeRate;
+    mUVDemoAssistCubeVertices[4] = -mUVDemoAssistCubeY + (1 - mUVDemoPlaneUvs[3]) * mUVDemoAssistCubeRate;
+
+    mUVDemoAssistCubeVertices[6] = mUVDemoAssistCubeY + (mUVDemoPlaneUvs[6] - 1) * mUVDemoAssistCubeRate;
+    mUVDemoAssistCubeVertices[7] = -mUVDemoAssistCubeX - mUVDemoPlaneUvs[7] * mUVDemoAssistCubeRate;
+    mUVDemoAssistCubeVertices[9] = mUVDemoAssistCubeX + mUVDemoPlaneUvs[4] * mUVDemoAssistCubeRate;
+    mUVDemoAssistCubeVertices[10] = -mUVDemoAssistCubeX - mUVDemoPlaneUvs[5] * mUVDemoAssistCubeRate;
+
     const canvas = document.querySelector("#glcanvas");
     const gl = canvas.getContext("webgl") || canvas.getContext('experimental-webgl');
     mUVDemoPlaneBuffer = updateUVDemoBuffer(gl);
+    mUVDemoAssistCubeBuffer = updateUVDemoAssistCubeBuffer(gl);
 }
 
 function updateUVDemoBuffer(gl) {
@@ -1554,6 +1618,42 @@ function updateUVDemoAssistBuffer(gl) {
         position: positionBuffer,
         uv: uvBuffer,
         drawCnt: mUVDemoPlaneVertices.length / 3,
+    };
+}
+
+function updateUVDemoAssistAxisBuffer(gl) {
+    // Create a buffer for the viewFrustum's positions.
+    const positionBuffer = gl.createBuffer();
+    // Select the positionBuffer as the one to apply buffer operations to from here out.
+    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(mUVDemoAssistUVAxisVertices), gl.STATIC_DRAW);
+
+    // Create a buffer for the viewFrustum's color.
+    const colorBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(mUVDemoAssistUVAxisColor), gl.STATIC_DRAW);
+
+    return {
+        position: positionBuffer,
+        color: colorBuffer,
+    };
+}
+
+function updateUVDemoAssistCubeBuffer(gl) {
+    // Create a buffer for the viewFrustum's positions.
+    const positionBuffer = gl.createBuffer();
+    // Select the positionBuffer as the one to apply buffer operations to from here out.
+    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(mUVDemoAssistCubeVertices), gl.STATIC_DRAW);
+
+    // Create a buffer for the viewFrustum's color.
+    const colorBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(mUVDemoAssistCubeColor), gl.STATIC_DRAW);
+
+    return {
+        position: positionBuffer,
+        color: colorBuffer,
     };
 }
 
@@ -2168,6 +2268,8 @@ function main() {
     mBackgroundBuffer = updateBackgroundBuffer(gl);
     mUVDemoPlaneBuffer = updateUVDemoBuffer(gl);
     mUVDemoAssistPlaneBuffer = updateUVDemoAssistBuffer(gl);
+    mUVDemoAssistUVAxisBuffer = updateUVDemoAssistAxisBuffer(gl);
+    mUVDemoAssistCubeBuffer = updateUVDemoAssistCubeBuffer(gl);
 
     var then = 0;
     var oneSecThen = 0;
@@ -3022,12 +3124,6 @@ function drawScene(gl, basicProgram, basicTexProgram, diffuseLightingProgram, de
         drawBackground(gl, mBackgroundProgram, mBackgroundBuffer, mBackgroundTexture, mBackgroundBuffer.drawCnt, deltaTime);
     }
 
-    // draw uv demo
-    if (mNeedDrawUVDemoPlane) {
-        drawUVDemo(gl, basicTexProgram, mUVDemoPlaneBuffer, mUVDemoTexture, mUVDemoPlaneBuffer.drawCnt, deltaTime);
-        drawUVDemo(gl, basicTexProgram, mUVDemoAssistPlaneBuffer, mUVDemoTexture, mUVDemoAssistPlaneBuffer.drawCnt, deltaTime);
-    }
-
     if (mNeedDrawFighter && mObjectBuffer.length > 0) {
         for (var i = 0; i < mObjectBuffer.length; i++) {
             drawObject(gl, mLightProgram, mObjectBuffer[i], mObjectDiffuseTexture, mObjectNormalTexture, mObjectBuffer[i].drawCnt, deltaTime, false);
@@ -3044,6 +3140,15 @@ function drawScene(gl, basicProgram, basicTexProgram, diffuseLightingProgram, de
     mat4.multiply(mMvpMatrix, mModelMatrix, mMvpMatrix);
     mat4.multiply(mMvpMatrix, mViewMatrix, mMvpMatrix);
     mat4.multiply(mMvpMatrix, mProjectionMatrix, mMvpMatrix);
+
+    // draw uv demo
+    if (mNeedDrawUVDemoPlane) {
+        drawUVDemo(gl, basicTexProgram, mUVDemoPlaneBuffer, mUVDemoTexture, mUVDemoPlaneBuffer.drawCnt, deltaTime);
+        drawUVDemo(gl, basicTexProgram, mUVDemoAssistPlaneBuffer, mUVDemoTexture, mUVDemoAssistPlaneBuffer.drawCnt, deltaTime);
+        drawArrays(gl, basicProgram, mUVDemoAssistUVAxisBuffer, mUVDemoAssistUVAxisVertices.length / 3, mMvpMatrix, gl.LINES, deltaTime);
+        drawArrays(gl, basicProgram, mUVDemoAssistCubeBuffer, mUVDemoAssistCubeVertices.length / 3, mMvpMatrix, gl.LINE_LOOP, deltaTime);
+    }
+    
     if (mNeedDrawAssistObject && null != mAssistObjectBuffer) {
         vec4.transformMat4(mAssistMvpCoord, mAssistCoord, mMvpMatrix);
         if (0 != mAssistMvpCoord[3]) {
