@@ -6,6 +6,8 @@
         <script src="public/gl-matrix.js"></script>
         <script src="public/three/three.js"></script>
         <script src="public/three/OBJLoader.js"></script>
+        <script src="http://libs.baidu.com/jquery/1.9.0/jquery.js"></script>
+        <script src="public/jquery/jquery.i18n.properties-1.0.9.js"></script>
         <style type="text/css">
             div#canvas-frame {
                 border: none;
@@ -71,48 +73,59 @@
             <div id="horizontal">
                 <div style="width: 230px; background: #ffffff">
                     <ul>
-                        <div id="FPS">FPS: </div>
-                        <li>渲染管线</li>
+                        <div id="horizontal">
+                            <select id="language_select" name="language" onchange="languageSelect(this)">
+                                <option value="zh_cn" id="zh_cn">
+                                    中文 – 简体
+                                </option>
+                                <option value="en" id="en">
+                                    English
+                                </option>
+                            </select>
+                            <div id="FPS" style="margin: 5px">FPS: </div>
+                        </div>
+    
+                        <li data-lang="rendering_tube">渲染管线</li>
                             <ul>
-                                <li><a href="#TOC0.1" onclick="demoShader()">着色器</a></li>
+                                <li><a href="#TOC0.1" onclick="demoShader()" data-lang="shader">着色器</a></li>
                             </ul>
-                        <li>变换矩阵</li>
+                        <li data-lang="transform_matrix">变换矩阵</li>
                             <ul>
-                                <li><a href="#TOC1.1" onclick="demoModelMatrix()">模型矩阵</a></li>
-                                <li><a href="#TOC1.2" onclick="demoRotateMatrix()">欧拉角、万向节</a></li>
-                                <li><a href="#TOC1.3" onclick="demoAxisAngle()">轴-角</a></li>
-                                <li><a href="#TOC1.4" onclick="demoQuaternion()">四元数</a></li>
-                                <li><a href="#TOC1.5" onclick="demoViewMatrix()">视图矩阵</a></li>
-                                <li><a href="#TOC1.6" onclick="demoProjMatrix()">投影矩阵</a></li>
-                                <li><a href="#TOC1.7" onclick="demoMvpMatrix()">MVP</a></li>
-                                <li><a href="#TOC1.7" onclick="demoCobraManeuvre()">眼镜蛇+落叶飘动画</a></li>
+                                <li><a href="#TOC1.1" onclick="demoModelMatrix()" data-lang="model_matrix">模型矩阵</a></li>
+                                <li><a href="#TOC1.2" onclick="demoRotateMatrix()" data-lang="euler_angle">欧拉角、万向节</a></li>
+                                <li><a href="#TOC1.3" onclick="demoAxisAngle()" data-lang="axis_angle">轴-角</a></li>
+                                <li><a href="#TOC1.4" onclick="demoQuaternion()" data-lang="quaternion">四元数</a></li>
+                                <li><a href="#TOC1.5" onclick="demoViewMatrix()" data-lang="view_matrix">视图矩阵</a></li>
+                                <li><a href="#TOC1.6" onclick="demoProjMatrix()" data-lang="proj_matrix">投影矩阵</a></li>
+                                <li><a href="#TOC1.7" onclick="demoMvpMatrix()" data-lang="mvp_matrix">MVP</a></li>
+                                <li><a href="#TOC1.7" onclick="demoCobraManeuvre()" data-lang="rotation_demo">眼镜蛇+落叶飘动画</a></li>
                             </ul>
-                        <li>纹理</li>
+                        <li data-lang="texture">纹理</li>
                             <ul>
-                                <li><a href="#TOC2.1" onclick="demoUV()">UV坐标</a></li>
-                                <li><a href="#TOC2.2">混合与透明排序</a></li>
-                                <li><a href="#TOC2.3">采样器</a></li>
-                                <li><a href="#TOC2.4">Mipmap</a></li>
-                            </ul>
-                        </li>
-                        <li>光照</li>
-                            <ul>
-                                <li><a href="#TOC3.1" onclick="demoLight()">基本光照</a></li>
-                                <li><a href="#TOC3.4">光照模型</a></li>
-                                <li><a href="#TOC3.5">Phong光照</a></li>
-                                <li><a href="#TOC3.6" onclick="demoPerVertexOrFragLighting()">逐顶点&逐像素光照</a></li>
-                                <li><a href="#TOC3.7">菲涅尔效果</a></li>
-                                <li><a href="#TOC3.8">法线贴图</a></li>
-                                <li><a href="#TOC3.9">镜头光晕</a></li>
-                                <li><a href="#TOC3.10">FBO、RTT、阴影</a></li>
-                                <li><a href="#TOC3.11">PBR</a></li>
+                                <li><a href="#TOC2.1" onclick="demoUV()" data-lang="uv_coord">UV坐标</a></li>
+                                <li><a href="#TOC2.2" data-lang="blend_sort">混合与透明排序</a></li>
+                                <li><a href="#TOC2.3" data-lang="sample">采样器</a></li>
+                                <li><a href="#TOC2.4" data-lang="mipmap">Mipmap</a></li>
                             </ul>
                         </li>
-                        <li>场景管理</li>
+                        <li data-lang="lighting">光照</li>
                             <ul>
-                                <li><a href="#TOC4.1">场景树</a></li>
-                                <li><a href="#TOC4.2">四叉/八叉树</a></li>
-                                <li><a href="#TOC4.3">LOD层次细节</a></li>
+                                <li><a href="#TOC3.1" onclick="demoLight()" data-lang="basic_light">基本光照</a></li>
+                                <li><a href="#TOC3.4" data-lang="light_model">光照模型</a></li>
+                                <li><a href="#TOC3.5" data-lang="phong_lighting">Phong光照</a></li>
+                                <li><a href="#TOC3.6" onclick="demoPerVertexOrFragLighting()" data-lang="per_vertex_frag_lighting">逐顶点&逐像素光照</a></li>
+                                <li><a href="#TOC3.7" data-lang="fresnel_reflection">菲涅尔效果</a></li>
+                                <li><a href="#TOC3.8" data-lang="normal_mapping">法线贴图</a></li>
+                                <li><a href="#TOC3.9" data-lang="lens_flare">镜头光晕</a></li>
+                                <li><a href="#TOC3.10" data-lang="fbo_shadow">FBO、RTT、阴影</a></li>
+                                <li><a href="#TOC3.11" data-lang="pbr_rending">PBR</a></li>
+                            </ul>
+                        </li>
+                        <li data-lang="scene_management">场景管理</li>
+                            <ul>
+                                <li><a href="#TOC4.1" data-lang="scene_tree">场景树</a></li>
+                                <li><a href="#TOC4.2" data-lang="quad_oct_tree">四叉/八叉树</a></li>
+                                <li><a href="#TOC4.3" data-lang="level_of_detail">LOD层次细节</a></li>
                             </ul>
                         </li>
                     </ul> 
@@ -121,7 +134,7 @@
                 <canvas id="glcanvas" width="1440" height="720"></canvas>
             </div>
             <div id="id_shader">
-                <button style="display:block; width: 230px; height: 50px" onclick="updateBackgroundShader()">编译并运行着色器&#13;&#10;(左窗口背景绘制为例)</button>
+                <button style="display:block; width: 230px; height: 50px" onclick="updateBackgroundShader()" data-lang="compile_and_run_shader">编译并运行着色器&#13;&#10;(左窗口背景绘制为例)</button>
                 <div id="vertical">
                     <div id="horizontal" style="width: 90em;">
                         <div id="vertical">
@@ -152,13 +165,13 @@ void main() {
                             </textarea>
                         </div>
                     </div><br>
-                    <h5>渲染管线流程图如下：</h5>
+                    <h5 data-lang="render_flow_eg">渲染管线流程图如下：</h5>
                     <img style="width:700px;" src="./texture/render_tube.jpg">
                     <img style="width:700px;" src="./texture/render_flow.jpg">
                 </div>
             </div>
             <div id="id_mvpmatrix">
-                <h4 style="width: 230px; background: #ffffff">MVP矩阵（以计算左边窗口红色圆柱中心点屏幕坐标为例）</h4>
+                <h4 style="width: 230px; background: #ffffff" data-lang="mvp_demo">MVP矩阵（以计算左边窗口红色圆柱中心点屏幕坐标为例）</h4>
                 <div style="border: 1px solid #cccccc; width: 60em; padding: 5px">
                     MVP = ProjMatrix * ViewMatrix * ModelMatrix
                     <div id="horizontal" style="margin: 5px">
@@ -355,7 +368,7 @@ void main() {
                 </div>
             </div>
             <div id="id_modelmatrix">
-                <h4 style="width: 230px; background: #ffffff">模型矩阵</h4>
+                <h4 style="width: 230px; background: #ffffff" data-lang="model_matrix">模型矩阵</h4>
                 <div style="border: 1px solid #cccccc; width: 30em;">
                     ModelMatrix
                     <div id="horizontal">
@@ -384,7 +397,7 @@ void main() {
                     </div>
                 </div>
                 <div>
-                    <h4>欧拉角旋转</h4>
+                    <h4 data-lang="euler_angle_rotation">欧拉角旋转</h4>
                     <div style="border: 1px solid #cccccc; width: 30em;">
                         EulerAngle
                         <div id="horizontal">
@@ -393,7 +406,7 @@ void main() {
                             <br/>, roll<input id="id_roll"  style="width: 3.5em;" type="number" value="0" step="5" oninput="updateEulerAngleByInput()"/>
                         </div>
                     </div>
-                    <h4>平移</h4>
+                    <h4 data-lang="translate">平移</h4>
                     <div style="border: 1px solid #cccccc; width: 30em;">
                         glTranslate
                         <div id="horizontal">
@@ -402,7 +415,7 @@ void main() {
                             <br/>, translateZ<input id="id_translate_z" style="width: 3.5em;" type="number" value="0" step="0.1" oninput="updateTranslateByInput()"/>
                         </div>
                     </div>
-                    <h4>缩放</h4>
+                    <h4 data-lang="scale">缩放</h4>
                     <div style="border: 1px solid #cccccc; width: 30em;">
                         glScale
                         <div id="horizontal">
@@ -414,7 +427,7 @@ void main() {
                 </div>
             </div>
             <div id="id_viewmatrix">
-                <h4 style="width: 230px; background: #ffffff">视图变换</h4>
+                <h4 style="width: 230px; background: #ffffff" data-lang="view_matrix_transform">视图变换</h4>
                 <div style="border: 1px solid #cccccc; width: 30em;">
                     gluLookAt
                     <div id="horizontal">
@@ -433,7 +446,7 @@ void main() {
                         <br/>, cameraUpZ<input id="id_cameraup_z"  style="width: 3.5em;" type="number" value="0" step="0.1" oninput="updateViewMatrixByInput()"/>
                     </div>
                 </div>
-                <h4>视图矩阵</h4>
+                <h4 data-lang="view_matrix">视图矩阵</h4>
                 <div style="border: 1px solid #cccccc; width: 30em;">
                     ViewMatrix = 
                     <div id="horizontal" style="margin: 5px">
@@ -468,7 +481,7 @@ void main() {
                 </div>
             </div>
             <div id="id_projmatrix">
-                <h4 style="width: 230px; background: #ffffff">透视投影变换</h4>
+                <h4 style="width: 230px; background: #ffffff" data-lang="pers_proj_matrix">透视投影变换</h4>
                 <div style="border: 1px solid #cccccc; width: 30em;">
                     gluPerspective
                     <div id="horizontal">
@@ -478,7 +491,7 @@ void main() {
                         <br/>, zFar<input id="id_far" style="width: 3.5em;" type="number" value="10.0" step="0.1" oninput="updateProjMatrixByInput()"/>
                     </div>
                 </div>
-                <h4>投影矩阵</h4>
+                <h4 data-lang="proj_matrix">投影矩阵</h4>
                 <div style="border: 1px solid #cccccc; width: 30em;">
                     ProjMatrix = 
                     <div id="horizontal" style="margin: 5px">
@@ -513,7 +526,7 @@ void main() {
                 </div>
             </div>
             <div id="id_rotatematrix">
-                <h4 style="width: 230px; background: #ffffff">欧拉角旋转</h4>
+                <h4 style="width: 230px; background: #ffffff" data-lang="euler_angle_rotation">欧拉角旋转</h4>
                 <div style="border: 1px solid #cccccc; width: 30em;">
                     EulerAngle
                     <div id="horizontal">
@@ -522,7 +535,7 @@ void main() {
                         <br/>, roll<input id="id_roll_eular"  style="width: 3.5em;" type="number" value="0" step="5" oninput="updateEulerAngleByInputEular()"/>
                     </div>
                 </div>
-                <h4>旋转矩阵</h4>
+                <h4 data-lang="rotation_matrix">旋转矩阵</h4>
                 <div style="border: 1px solid #cccccc; width: 48em; padding: 5px">
                     RotateMatrix = (ZYX顺规——因为物体坐标系相对世界坐标系z-y-x旋转顺序时，将最后的物体坐标系向世界坐标系转换时需要逆序进行，因此矩阵反序相乘)
                     <div id="horizontal" style="margin: 5px">
@@ -608,7 +621,7 @@ void main() {
             </div>
         </div>
         <div id="id_axisangle">
-            <h4 style="width: 230px; background: #ffffff">轴角旋转</h4>
+            <h4 style="width: 230px; background: #ffffff" data-lang="axis_angle_rot">轴角旋转</h4>
             <div style="border: 1px solid #cccccc; width: 30em;">
                 <div id="horizontal" style="margin: 5px">
                     <br/>axis, x = <input  id="id_axis_x" style="width: 3.5em;" type="number" value="1" step="1" oninput="updateAxisAngleValue()"/>
@@ -619,7 +632,7 @@ void main() {
                     <br/>angle = <input  id="id_axis_angle" style="width: 3.5em;" type="number" value="0" step="5" oninput="updateAxisAngleValue()"/>
                 </div>
             </div>
-            <h4>旋转矩阵</h4>
+            <h4 data-lang="rotation_matrix">旋转矩阵</h4>
             <div style="border: 1px solid #cccccc; width: 48em; padding: 5px">
                 RotateMatrix = 
                 <div id="horizontal" style="margin: 5px">
@@ -645,7 +658,7 @@ void main() {
             </div>
         </div>
         <div id="id_quaternion">
-            <h4 style="width: 230px; background: #ffffff">四元数旋转</h4>
+            <h4 style="width: 230px; background: #ffffff" data-lang="quaternion_rot">四元数旋转</h4>
             <div style="border: 1px solid #cccccc; width: 30em;">
                 <div id="horizontal" style="margin: 5px">
                     <br/>quaternion, x = <input  id="id_quat_x" style="width: 3.5em;" type="number" value="0" step="0.1" oninput="updateQuaternionValue()"/>
@@ -654,7 +667,7 @@ void main() {
                     <br/>, w = <input  id="id_quat_w" style="width: 3.5em;" type="number" value="1" step="0.1" oninput="updateQuaternionValue()"/>
                 </div>
             </div>
-            <h4>旋转矩阵</h4>
+            <h4 data-lang="quaternion_rot" data-lang="rotation_matrix">旋转矩阵</h4>
             <div style="border: 1px solid #cccccc; width: 200px; padding: 5px">
                 RotateMatrix = 
                 <div id="horizontal" style="margin: 5px">
@@ -681,27 +694,27 @@ void main() {
             <img src="./texture/quaternion.png" width="400px">
         </div>
         <div id="id_cobramaneuvre">
-            <h4 style="width: 230px; background: #ffffff">原型图：</h4>
+            <h4 style="width: 230px; background: #ffffff" data-lang="prototype">原型图：</h4>
 
             <div id="vertical" style="margin: 5px">
                 <img src="./texture/cobra.gif">
-                <br><label>初始四元数 = </label><label id="id_cobra_init_quat">[0, 0, 0, 1]</label>
-                <br><label>Step1四元数 = quat.fromEuler(0,   0,   0) = </label><label id="id_cobra_step1_quat">[0, 0, 0, 1]</label>
-                <br><label>Step2四元数 = quat.fromEuler(120,   0,  30) = </label><label id="id_falling_leaf_step1_quat">[0, 0, 0, 1]</label>
-                <br><label>Step3四元数 = quat.fromEuler(100, -20,  90) = </label><label id="id_falling_leaf_step2_quat">[0, 0, 0, 1]</label>
-                <br><label>Step4四元数 = quat.fromEuler(80,  -40, 180) = </label><label id="id_falling_leaf_step3_quat">[0, 0, 0, 1]</label>
-                <br><label>Step5四元数 = quat.fromEuler(60,  -20, 270) = </label><label id="id_falling_leaf_step4_quat">[0, 0, 0, 1]</label>
-                <br><label>Step6四元数 = quat.fromEuler(40,    0, 360) = </label><label id="id_cobra_step2_quat">[0, 0, 0, 1]</label>
-                <br><br><label>插值四元数 = quat.fromEuler(0,   0,   0) = </label><label id="id_cobra_interpolate_quat">[0, 0, 0, 1]</label>
+                <br><label>Init Quaternion = </label><label id="id_cobra_init_quat">[0, 0, 0, 1]</label>
+                <br><label>Step1 Quaternion = quat.fromEuler(0,   0,   0) = </label><label id="id_cobra_step1_quat">[0, 0, 0, 1]</label>
+                <br><label>Step2 Quaternion = quat.fromEuler(120,   0,  30) = </label><label id="id_falling_leaf_step1_quat">[0, 0, 0, 1]</label>
+                <br><label>Step3 Quaternion = quat.fromEuler(100, -20,  90) = </label><label id="id_falling_leaf_step2_quat">[0, 0, 0, 1]</label>
+                <br><label>Step4 Quaternion = quat.fromEuler(80,  -40, 180) = </label><label id="id_falling_leaf_step3_quat">[0, 0, 0, 1]</label>
+                <br><label>Step5 Quaternion = quat.fromEuler(60,  -20, 270) = </label><label id="id_falling_leaf_step4_quat">[0, 0, 0, 1]</label>
+                <br><label>Step6 Quaternion = quat.fromEuler(40,    0, 360) = </label><label id="id_cobra_step2_quat">[0, 0, 0, 1]</label>
+                <br><br><label>Interpolation Quaternion = quat.fromEuler(0,   0,   0) = </label><label id="id_cobra_interpolate_quat">[0, 0, 0, 1]</label>
             </div>
         </div>
         <div id="id_lightdemo">
             <div>
-            <button style="display:block; width: 200px; height: 30px" onclick="updateLightShader()">编译并运行</button>
-            <h5 style="width: 230px; background: #ffffff">基本光照：<br><br>
-                <input type="checkbox" id="ambientLightCheckBox" checked onchange="updateLightSwitch()" />环境光<br>
-                <input type="checkbox" id="diffuseLightCheckBox" checked onchange="updateLightSwitch()" />漫射光<br>
-                <input type="checkbox" id="specularLightCheckBox" checked onchange="updateLightSwitch()" />镜面光<br><br>
+            <button style="display:block; width: 200px; height: 30px" onclick="updateLightShader()" data-lang="compile_and_run">编译并运行</button>
+            <h5 style="width: 230px; background: #ffffff">基本光照:<br><br>
+                <input type="checkbox" id="ambientLightCheckBox" checked onchange="updateLightSwitch()" data-lang="ambient_light"/>环境光<br>
+                <input type="checkbox" id="diffuseLightCheckBox" checked onchange="updateLightSwitch()" data-lang="diffuse_light"/>漫射光<br>
+                <input type="checkbox" id="specularLightCheckBox" checked onchange="updateLightSwitch()" data-lang="spec_light"/>镜面光<br><br>
                 <div style="border: 1px solid #cccccc; width: 200px; margin: 1px;">
                     环境光颜色
                     <br/>Red  : <input id="ambient_color_red"   style="width: 160px;" type="range" value="0.5" min="0.0" max="1.0" step="0.01" oninput="updateAmbientColor()"/><label id="label_ambient_red"></label>
@@ -730,7 +743,7 @@ void main() {
             <div id="vertical">
                 <div id="horizontal" style="width: 90em;">
                     <div id="vertical">
-                        <b>顶点着色器</b>
+                        <b>顶点着色器（VertexShader）</b>
                         <textarea spellcheck="false" rows="31" cols="95" id="id_light_vertex_shader">
 attribute vec4 aPosition;
 attribute vec3 aNormal;
@@ -761,7 +774,7 @@ void main() {
                         </textarea>
                     </div>
                     <div id="vertical">
-                        <b>片元着色器</b>
+                        <b>片元着色器（FragmentShader）</b>
                         <textarea spellcheck="false" rows="31" cols="95" id="id_light_fragment_shader">
 precision mediump float;
 
@@ -814,7 +827,7 @@ void main() {
             <div id="vertical">
                 <div id="id_per_vertex_shader" style="width: 90em;">
                     <div id="vertical">
-                        <b>顶点着色器</b>
+                        <b>顶点着色器（VertexShader）</b>
                         <textarea spellcheck="false" rows="31" cols="95" id="id_per_vertex_vertex_shader">
 attribute vec4 aPosition;
 attribute vec3 aNormal;
@@ -845,7 +858,7 @@ void main() {
                         </textarea>
                     </div>
                     <div id="vertical">
-                        <b>片元着色器</b>
+                        <b>片元着色器（FragmentShader）</b>
                         <textarea spellcheck="false" rows="31" cols="95" id="id_per_vertex_fragment_shader">
 precision mediump float;
 
@@ -874,7 +887,7 @@ void main() {
                 </div>
                 <div id="id_per_frag_shader" style="width: 90em;">
                     <div id="vertical">
-                        <b>顶点着色器</b>
+                        <b>顶点着色器（VertexShader）</b>
                         <textarea spellcheck="false" rows="31" cols="95" id="id_per_frag_vertex_shader">
 attribute vec4 aPosition;
 attribute vec3 aNormal;
@@ -898,7 +911,7 @@ void main() {
                         </textarea>
                     </div>
                     <div id="vertical">
-                        <b>片元着色器</b>
+                        <b>片元着色器（FragmentShader）</b>
                         <textarea spellcheck="false" rows="31" cols="95" id="id_per_frag_fragment_shader">
 precision mediump float;
 
@@ -933,7 +946,7 @@ void main() {
             </div>
         </div>
         <div id="id_uv_demo">
-            <h4 style="width: 230px; background: #ffffff">UV坐标</h4>
+            <h4 style="width: 230px; background: #ffffff" data-lang="uv_coord">UV坐标</h4>
             <div style="border: 1px solid #cccccc; width: 15em;">
                 <h5 style="width: 230px; background: #ffffff">GL_TEXTURE_MIN_FILTER</h5>
                 <input type="radio" id="id_min_gl_nearest" name="GL_TEXTURE_MIN_FILTER" value="GL_NEAREST" checked onchange="updateUVMinFilter()"/>GL_NEAREST<br>
