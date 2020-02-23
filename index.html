@@ -397,9 +397,9 @@ void main() {
                     </div>
                 </div>
                 <div>
-                    <h4 data-lang="euler_angle_rotation">欧拉角旋转</h4>
+                    <h4 data-lang="rotate">旋转</h4>
                     <div style="border: 1px solid #cccccc; width: 30em;">
-                        EulerAngle
+                        glRotate
                         <div id="horizontal">
                             <br/>pitch<input  id="id_pitch" style="width: 3.5em;" type="number" value="0" step="5" oninput="updateEulerAngleByInput()"/>
                             <br/>, yaw<input  id="id_yaw"   style="width: 3.5em;" type="number" value="0" step="5" oninput="updateEulerAngleByInput()"/>
@@ -717,19 +717,19 @@ void main() {
                 <input type="checkbox" id="specularLightCheckBox" checked onchange="updateLightSwitch()" data-lang="spec_light"/>镜面光<br><br>
                 <div style="border: 1px solid #cccccc; width: 200px; margin: 1px;">
                     环境光颜色
-                    <br/>Red  : <input id="ambient_color_red"   style="width: 160px;" type="range" value="0.5" min="0.0" max="1.0" step="0.01" oninput="updateAmbientColor()"/><label id="label_ambient_red"></label>
+                    <br/>Red  : <br/><input id="ambient_color_red"   style="width: 160px;" type="range" value="0.5" min="0.0" max="1.0" step="0.01" oninput="updateAmbientColor()"/><label id="label_ambient_red"></label>
                     <br/>Green: <input id="ambient_color_green" style="width: 160px;" type="range" value="0.5" min="0.0" max="1.0" step="0.01" oninput="updateAmbientColor()"/><label id="label_ambient_green"></label>
                     <br/>Blue : <input id="ambient_color_blue"  style="width: 160px;" type="range" value="0.5" min="0.0" max="1.0" step="0.01" oninput="updateAmbientColor()"/><label id="label_ambient_blue"></label>
                 </div>
                 <div style="border: 1px solid #cccccc; width: 200px; margin: 1px;">
                     漫反射光颜色
-                    <br/>Red  : <input id="diffuse_color_red"   style="width: 160px;" type="range" value="1.0" min="0.0" max="1.0" step="0.01" oninput="updateDiffuseColor()"/><label id="label_diffuse_red"></label>
+                    <br/>Red  : <br/><input id="diffuse_color_red"   style="width: 160px;" type="range" value="1.0" min="0.0" max="1.0" step="0.01" oninput="updateDiffuseColor()"/><label id="label_diffuse_red"></label>
                     <br/>Green: <input id="diffuse_color_green" style="width: 160px;" type="range" value="1.0" min="0.0" max="1.0" step="0.01" oninput="updateDiffuseColor()"/><label id="label_diffuse_green"></label>
                     <br/>Blue : <input id="diffuse_color_blue"  style="width: 160px;" type="range" value="1.0" min="0.0" max="1.0" step="0.01" oninput="updateDiffuseColor()"/><label id="label_diffuse_blue"></label>
                 </div>
                 <div style="border: 1px solid #cccccc; width: 200px; margin: 1px;">
                     镜面光颜色
-                    <br/>Red  : <input id="specular_color_red"   style="width: 160px;" type="range" value="1.0" min="0.0" max="1.0" step="0.01" oninput="updateSpecularColor()"/>
+                    <br/>Red  : <br/><input id="specular_color_red"   style="width: 160px;" type="range" value="1.0" min="0.0" max="1.0" step="0.01" oninput="updateSpecularColor()"/>
                     <label id="label_specular_red"></label>
                     <br/>Green: <input id="specular_color_green" style="width: 160px;" type="range" value="1.0" min="0.0" max="1.0" step="0.01" oninput="updateSpecularColor()"/>
                     <label id="label_specular_green"></label>

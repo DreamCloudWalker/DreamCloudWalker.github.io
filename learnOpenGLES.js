@@ -84,6 +84,12 @@ const mUVDemoAssistCubeRate = 1.34;
 var mUVDemoAssistUVAxisBuffer = null;
 var mUVDemoAssistUVAxisVertices = [];
 var mUVDemoAssistUVAxisColor = [];
+// draw cloud anim plane
+var mCloudProgram = null;
+var mCloudPlaneBuffer = null;
+var mCloudTexture = null;
+var mCloudPlaneVertices = [];
+var mCloudPlaneUvs = [];
 // draw Gimbal
 var mNeedDrawGimbal = false;
 var mPivotBuffer = null;
@@ -330,6 +336,117 @@ function onKeyPress(event) {
         default:
             break;
     }
+}
+
+function initCloudAnimShader(gl) {
+    // Vertex shader program
+    const vsSource = `
+        attribute vec4 aPosition;
+        attribute vec2 aTexCoord;
+        uniform mat4 uMVPMatrix;
+        varying lowp vec2 vTexCoord;
+
+        void main() {
+            gl_Position = uMVPMatrix * aPosition;
+            vTexCoord = aTexCoord;
+        }
+    `;
+
+    // Fragment shader program
+    const fsSource = `
+        precision mediump float;
+        uniform sampler2D uTexSampler;
+        uniform float uFogNear;
+        uniform float uFogFar;
+        varying lowp vec2 vTexCoord;
+
+        void main() {
+            vec3 fogColor = vec3(0.27, 0.52, 0.71);
+            float depth = gl_FragCoord.z / gl_FragCoord.w;
+            float fogFactor = smoothstep(uFogNear, uFogFar, depth);
+            gl_FragColor = texture2D(uTexSampler, vTexCoord);
+            gl_FragColor.w *= pow(gl_FragCoord.z, 20.0);
+            gl_FragColor = vec4(fogColor, gl_FragColor.w); // mix(gl_FragColor, vec4(fogColor, gl_FragColor.w), fogFactor);
+        }
+    `;
+
+    // Initialize a shader program
+    const vertexShader = loadShader(gl, gl.VERTEX_SHADER, vsSource);
+    const fragmentShader = loadShader(gl, gl.FRAGMENT_SHADER, fsSource);
+  
+    // Create the shader program
+    const shaderProgram = gl.createProgram();
+    gl.attachShader(shaderProgram, vertexShader);
+    gl.attachShader(shaderProgram, fragmentShader);
+    gl.linkProgram(shaderProgram);
+
+    // If creating the shader program failed, alert
+    if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
+        alert('Unable to initialize the shader program: ' + gl.getProgramInfoLog(shaderProgram));
+        return null;
+    }
+
+    // Collect all the info needed to use the shader program
+    const programInfo = {
+        program: shaderProgram,
+        attribLocations: {
+            vertexPosition: gl.getAttribLocation(shaderProgram, 'aPosition'),
+            textureCoord: gl.getAttribLocation(shaderProgram, 'aTexCoord'),
+        },
+        uniformLocations: {
+            uMVPMatrixHandle: gl.getUniformLocation(shaderProgram, 'uMVPMatrix'),
+            uTexSamplerHandle: gl.getUniformLocation(shaderProgram, 'uTexSampler'),
+            uFogNearHandle: gl.getUniformLocation(shaderProgram, 'uFogNear'),
+            uFogFarHandle: gl.getUniformLocation(shaderProgram, 'uFogFar'),
+        },
+    };
+
+    return programInfo;
+}
+
+function initCloudBuffer(gl) {
+    // init uv demo plane
+    const vertexCoords = [
+        [-1.0, -1.0, -3.0],
+        [ 1.0, -1.0, -3.0],
+        [-1.0,  1.0, -3.0],
+        [ 1.0,  1.0, -3.0],
+    ];
+    for (var j = 0; j < vertexCoords.length; ++j) {
+        const v = vertexCoords[j];
+    
+        // Repeat each color four times for the four vertices of the face
+        mCloudPlaneVertices = mCloudPlaneVertices.concat(v);  // merge arrays to one
+    }
+
+    const uvCoords = [
+        0.0,    1.0, 
+        1.0,    1.0, 
+        0.0,    0.0, 
+        1.0,    0.0
+    ];
+    mCloudPlaneUvs.splice(0, mUVDemoPlaneUvs);
+    for (var i = 0; i < uvCoords.length; i++) {
+        mCloudPlaneUvs.push(uvCoords[i]);
+    }
+
+    /* create buffer */
+    // Create a buffer for the sphere's positions.
+    const positionBuffer = gl.createBuffer();
+    // Select the positionBuffer as the one to apply buffer operations to from here out.
+    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(mCloudPlaneVertices), gl.STATIC_DRAW); 
+
+    // Create a buffer for the viewFrustum's color.
+    const uvBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, uvBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(mCloudPlaneUvs), gl.STATIC_DRAW);
+
+    return {
+        position: positionBuffer,
+        uv: uvBuffer,
+        drawCnt: mCloudPlaneVertices.length / 3,
+    };
 }
 
 function initBasicTexShader(gl) {
@@ -2350,6 +2467,11 @@ function main() {
     mGimbalYBuffer = initTubeBuffers(gl, 1.4 ,1.5, 0.1, 30, vec4.fromValues(0.0, 1.0, 0.0, 1.0), TubeDir.DIR_Y);
     mGimbalZBuffer = initTubeBuffers(gl, 1.6 ,1.7, 0.1, 30, vec4.fromValues(0.0, 0.0, 1.0, 1.0), TubeDir.DIR_Z);
 
+    // init cloud
+    mCloudPlaneBuffer = initCloudBuffer(gl);
+    mCloudProgram = initCloudAnimShader(gl);
+    mCloudTexture = loadTexture(gl, './texture/cloud.png');
+
     // init sphere
     mSphereBuffer = initSphereBuffers(gl, 1.0, 30, vec4.fromValues(1.0, 1.0, 1.0, 1.0));
     // background
@@ -2590,6 +2712,69 @@ function loadTextureByParams(gl, url, isMipmap, minNearest, magNearest, sRepeat,
 
 function isPowerOf2(value) {
     return (value & (value - 1)) == 0;
+}
+
+function drawCloud(gl, program, buffers, texture, drawCount, deltaTime, isGodView) {
+    // Tell WebGL how to pull out the positions from the position buffer into the vertexPosition attribute.
+    {
+        const numComponents = 3;
+        const type = gl.FLOAT;
+        const normalize = false;
+        const stride = 0;
+        const offset = 0;
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffers.position);
+        gl.vertexAttribPointer(
+            program.attribLocations.vertexPosition,
+            numComponents,
+            type,
+            normalize,
+            stride,
+            offset);
+        gl.enableVertexAttribArray(
+            program.attribLocations.vertexPosition);
+    }
+
+    // Tell WebGL how to pull out the texture coordinates from the texture coordinate buffer into the textureCoord attribute.
+    {
+        const numComponents = 2;
+        const type = gl.FLOAT;
+        const normalize = false;
+        const stride = 0;
+        const offset = 0;
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffers.uv);
+        gl.vertexAttribPointer(
+            program.attribLocations.textureCoord,
+            numComponents,
+            type,
+            normalize,
+            stride,
+            offset);
+        gl.enableVertexAttribArray(
+            program.attribLocations.textureCoord);
+    }
+
+    // Tell WebGL to use our program when drawing
+    gl.useProgram(program.program);
+
+    // Specify the texture to map onto the faces.
+    // Tell WebGL we want to affect texture unit 0
+    gl.activeTexture(gl.TEXTURE0);
+    // Bind the diffuseTexture to diffuseTexture unit 0
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    // Tell the shader we bound the diffuseTexture to diffuseTexture unit 0
+    gl.uniform1i(program.uniformLocations.uTexSamplerHandle, 0);
+
+    gl.uniform1f(program.uniformLocations.uFogNearHandle, -100);
+    gl.uniform1f(program.uniformLocations.uFogFarHandle, 3000);
+
+    if (isGodView) {
+        gl.uniformMatrix4fv(program.uniformLocations.uMVPMatrixHandle, false, mGodMvpMatrix);
+    } else {
+        gl.uniformMatrix4fv(program.uniformLocations.uMVPMatrixHandle, false, mMvpMatrix);
+    }
+
+    const drawOffset = 0;
+    gl.drawArrays(gl.TRIANGLE_STRIP, drawOffset, drawCount);
 }
 
 function drawUVDemo(gl, program, buffers, texture, drawCount, deltaTime, isGodView) {
@@ -3310,6 +3495,7 @@ function drawScene(gl, basicProgram, basicTexProgram, diffuseLightingProgram, de
     if (mNeedDrawSphere) {
         drawSphere(gl, mSphereProgram, mSphereBuffer, mSphereBuffer.drawCnt, deltaTime, false);
     }
+    // drawCloud(gl, mCloudProgram, mCloudPlaneBuffer, mCloudTexture, mCloudPlaneBuffer.drawCnt, deltaTime, false);
     updateAnimQuatHtmlValue();
     mCobraAnimFrameEllapse++;
 
