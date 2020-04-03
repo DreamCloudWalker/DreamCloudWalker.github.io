@@ -84,6 +84,14 @@ const mUVDemoAssistCubeRate = 1.34;
 var mUVDemoAssistUVAxisBuffer = null;
 var mUVDemoAssistUVAxisVertices = [];
 var mUVDemoAssistUVAxisColor = [];
+// draw YUV Video
+var mVideo = null;
+var mCopyVideo = false;
+var mNeedDrawYUVVideo = false;
+var mYUVVideoPlaneBuffer = null;
+var mYUVVideoTexture = null;
+var mYUVVideoPlaneVertices = [];
+var mYUVVideoPlaneUvs = [];
 // draw cloud anim plane
 var mCloudProgram = null;
 var mCloudPlaneBuffer = null;
@@ -1668,6 +1676,82 @@ function initTubeBuffers(gl, innerRadius, outerRadius, height, steps, color, dir
     };
 }
 
+function setupVideo(url) {
+    const videoElement = document.createElement('video');
+    var playing = false;
+    var timeupdate = false;
+
+    videoElement.autoplay = true;
+    videoElement.muted = true;
+    videoElement.loop = true;
+
+    videoElement.addEventListener('playing', function() {
+        playing = true;
+        checkReady();
+    }, true);
+   
+    videoElement.addEventListener('timeupdate', function() {
+        timeupdate = true;
+        checkReady();
+    }, true);
+
+    videoElement.src = url;
+    videoElement.play();
+
+    function checkReady() {
+        if (playing && timeupdate) {
+            mCopyVideo = true;
+        }
+    }
+
+    return videoElement;
+}
+
+function initYUVVideoDemo() {
+    // init uv demo plane
+    const vertexCoords = [
+        [-1.0,  -1.0, -3.0],
+        [ 1.0,  -1.0, -3.0],
+        [-1.0,   1.0, -3.0],
+        [ 1.0,   1.0, -3.0],
+    ];
+    for (var j = 0; j < vertexCoords.length; ++j) {
+        const v = vertexCoords[j];
+    
+        // Repeat each color four times for the four vertices of the face
+        mYUVVideoPlaneVertices = mYUVVideoPlaneVertices.concat(v);  // merge arrays to one
+    }
+
+    const uvCoords = [
+        0.0,    1.0, 
+        1.0,    1.0, 
+        0.0,    0.0, 
+        1.0,    0.0
+    ];
+    mYUVVideoPlaneUvs.splice(0, mYUVVideoPlaneUvs);
+    for (var i = 0; i < uvCoords.length; i++) {
+        mYUVVideoPlaneUvs.push(uvCoords[i]);
+    }
+}
+
+function updateYUVVideoDemoBuffer(gl) {
+    const positionBuffer = gl.createBuffer();
+    // Select the positionBuffer as the one to apply buffer operations to from here out.
+    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(mYUVVideoPlaneVertices), gl.STATIC_DRAW);
+
+    // Create a buffer for the viewFrustum's color.
+    const uvBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, uvBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(mYUVVideoPlaneUvs), gl.STATIC_DRAW);
+
+    return {
+        position: positionBuffer,
+        uv: uvBuffer,
+        drawCnt: mYUVVideoPlaneVertices.length / 3,
+    };
+}
+
 function initUVDemo() {
     // init uv demo plane
     const vertexCoords = [
@@ -1896,6 +1980,10 @@ function updateUVTexture() {
         mIsMinGLNearest, mIsMagGLNearest, mIsWrapSRepeat, mIsWrapTRepeat);
 }
 
+function initYUVVideoTexture() {
+
+}
+
 function initBackground() {
     const vertexCoords = [
         [-1.0,  -1.0, 1.0],
@@ -2067,6 +2155,7 @@ function demoPerVertexOrFragLighting() {
     mNeedDrawFighter = false;
     mNeedDrawBackground = true;
     mNeedDrawUVDemoPlane = false;
+    mNeedDrawYUVVideo = false;
     document.getElementById("id_shader").style.display = 'none';
     document.getElementById("id_mvpmatrix").style.display = 'none';
     document.getElementById("id_modelmatrix").style.display = 'none';
@@ -2090,6 +2179,7 @@ function demoLight() {
     mNeedDrawFighter = true;
     mNeedDrawBackground = true;
     mNeedDrawUVDemoPlane = false;
+    mNeedDrawYUVVideo = false;
     document.getElementById("id_shader").style.display = 'none';
     document.getElementById("id_mvpmatrix").style.display = 'none';
     document.getElementById("id_modelmatrix").style.display = 'none';
@@ -2113,6 +2203,7 @@ function demoCobraManeuvre() {
     mNeedDrawFighter = true;
     mNeedDrawBackground = true;
     mNeedDrawUVDemoPlane = false;
+    mNeedDrawYUVVideo = false;
     document.getElementById("id_shader").style.display = 'none';
     document.getElementById("id_mvpmatrix").style.display = 'none';
     document.getElementById("id_modelmatrix").style.display = 'none';
@@ -2157,6 +2248,7 @@ function demoShader() {
     mNeedDrawFighter = true;
     mNeedDrawBackground = true;
     mNeedDrawUVDemoPlane = false;
+    mNeedDrawYUVVideo = false;
     document.getElementById("id_shader").style.display = 'flex';
     document.getElementById("id_mvpmatrix").style.display = 'none';
     document.getElementById("id_modelmatrix").style.display = 'none';
@@ -2180,6 +2272,7 @@ function demoMvpMatrix() {
     mNeedDrawFighter = true;
     mNeedDrawBackground = true;
     mNeedDrawUVDemoPlane = false;
+    mNeedDrawYUVVideo = false;
     document.getElementById("id_shader").style.display = 'none';
     document.getElementById("id_mvpmatrix").style.display = 'flex';
     document.getElementById("id_modelmatrix").style.display = 'none';
@@ -2203,6 +2296,7 @@ function demoUV() {
     mNeedDrawFighter = false;
     mNeedDrawBackground = false;
     mNeedDrawUVDemoPlane = true;
+    mNeedDrawYUVVideo = false;
     document.getElementById("id_shader").style.display = 'none';
     document.getElementById("id_mvpmatrix").style.display = 'none';
     document.getElementById("id_modelmatrix").style.display = 'none';
@@ -2217,6 +2311,30 @@ function demoUV() {
     document.getElementById("id_per_vertex_or_frag_lighting").style.display = 'none';
 }
 
+function demoYUVVideo() {
+    mNeedDrawGimbal = false;
+    mNeedDrawAngleAxis = false;
+    mNeedDrawAssistObject = false;
+    mNeedDrawCobraAnim = false;
+    mNeedDrawSphere = false;
+    mNeedDrawFighter = false;
+    mNeedDrawBackground = false;
+    mNeedDrawUVDemoPlane = false;
+    mNeedDrawYUVVideo = true;
+    document.getElementById("id_shader").style.display = 'none';
+    document.getElementById("id_mvpmatrix").style.display = 'none';
+    document.getElementById("id_modelmatrix").style.display = 'none';
+    document.getElementById("id_viewmatrix").style.display = 'none';
+    document.getElementById("id_projmatrix").style.display = 'none';
+    document.getElementById("id_rotatematrix").style.display = 'none';
+    document.getElementById("id_axisangle").style.display = 'none';
+    document.getElementById("id_quaternion").style.display = 'none';
+    document.getElementById("id_cobramaneuvre").style.display = 'none';
+    document.getElementById("id_uv_demo").style.display = 'none';
+    document.getElementById("id_lightdemo").style.display = 'none';
+    document.getElementById("id_per_vertex_or_frag_lighting").style.display = 'none';
+}
+
 function demoModelMatrix() {
     mNeedDrawGimbal = false;
     mNeedDrawAngleAxis = false;
@@ -2226,6 +2344,7 @@ function demoModelMatrix() {
     mNeedDrawFighter = true;
     mNeedDrawBackground = true;
     mNeedDrawUVDemoPlane = false;
+    mNeedDrawYUVVideo = false;
     document.getElementById("id_shader").style.display = 'none';
     document.getElementById("id_mvpmatrix").style.display = 'none';
     document.getElementById("id_modelmatrix").style.display = 'flex';
@@ -2249,6 +2368,7 @@ function demoViewMatrix() {
     mNeedDrawFighter = true;
     mNeedDrawBackground = true;
     mNeedDrawUVDemoPlane = false;
+    mNeedDrawYUVVideo = false;
     document.getElementById("id_shader").style.display = 'none';
     document.getElementById("id_mvpmatrix").style.display = 'none';
     document.getElementById("id_modelmatrix").style.display = 'none';
@@ -2272,6 +2392,7 @@ function demoProjMatrix() {
     mNeedDrawFighter = true;
     mNeedDrawBackground = true;
     mNeedDrawUVDemoPlane = false;
+    mNeedDrawYUVVideo = false;
     document.getElementById("id_shader").style.display = 'none';
     document.getElementById("id_mvpmatrix").style.display = 'none';
     document.getElementById("id_modelmatrix").style.display = 'none';
@@ -2294,6 +2415,7 @@ function demoRotateMatrix() {
     mNeedDrawFighter = true;
     mNeedDrawBackground = true;
     mNeedDrawUVDemoPlane = false;
+    mNeedDrawYUVVideo = false;
     document.getElementById("id_shader").style.display = 'none';
     document.getElementById("id_mvpmatrix").style.display = 'none';
     document.getElementById("id_modelmatrix").style.display = 'none';
@@ -2317,6 +2439,7 @@ function demoAxisAngle() {
     mNeedDrawFighter = true;
     mNeedDrawBackground = true;
     mNeedDrawUVDemoPlane = false;
+    mNeedDrawYUVVideo = false;
     document.getElementById("id_shader").style.display = 'none';
     document.getElementById("id_mvpmatrix").style.display = 'none';
     document.getElementById("id_modelmatrix").style.display = 'none';
@@ -2340,6 +2463,7 @@ function demoQuaternion() {
     mNeedDrawFighter = true;
     mNeedDrawBackground = true;
     mNeedDrawUVDemoPlane = false;
+    mNeedDrawYUVVideo = false;
     document.getElementById("id_shader").style.display = 'none';
     document.getElementById("id_mvpmatrix").style.display = 'none';
     document.getElementById("id_modelmatrix").style.display = 'none';
@@ -2449,6 +2573,7 @@ function main() {
     mObjectNormalTexture = loadTexture(gl, './texture/Su-27_normal.png');
     mBackgroundTexture = loadTexture(gl, './texture/bg_sky.jpg');
     mUVDemoTexture = loadTextureByParams(gl, './texture/spider.png', false, false, false, true, true);
+    mYUVVideoTexture = createTexture(gl);
     
     udpateViewFrustum();
     setViewFrustumColor();
@@ -2477,11 +2602,14 @@ function main() {
     // background
     initBackground();
     initUVDemo();
+    initYUVVideoDemo();
     mBackgroundBuffer = updateBackgroundBuffer(gl);
     mUVDemoPlaneBuffer = updateUVDemoBuffer(gl);
     mUVDemoAssistPlaneBuffer = updateUVDemoAssistBuffer(gl);
     mUVDemoAssistUVAxisBuffer = updateUVDemoAssistAxisBuffer(gl);
     mUVDemoAssistCubeBuffer = updateUVDemoAssistCubeBuffer(gl);
+    mYUVVideoPlaneBuffer = updateYUVVideoDemoBuffer(gl);
+    mVideo = setupVideo('./texture/pipa.mp4')
 
     var then = 0;
     var oneSecThen = 0;
@@ -2490,6 +2618,12 @@ function main() {
         now *= 0.001;  // convert to seconds
         const deltaTime = now - then;
         then = now;
+
+        // update video texture
+        if (mCopyVideo) {
+            updateYUVTextureFromVideo(gl, mYUVVideoTexture, mVideo);
+        }
+
         // draw scene
         drawScene(gl, basicProgram, basicTexProgram, diffuseLightingProgram, deltaTime);
 
@@ -2592,9 +2726,47 @@ function initFontTexture(gl) {
     return fontTex;
 }
 
+function createTexture(gl) {
+    const texture = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+
+    // Because video havs to be download over the internet
+    // they might take a moment until it's ready so
+    // put a single pixel in the texture so we can
+    // use it immediately.
+    const level = 0;
+    const internalFormat = gl.RGBA;
+    const width = 1;
+    const height = 1;
+    const border = 0;
+    const srcFormat = gl.RGBA;
+    const srcType = gl.UNSIGNED_BYTE;
+    const pixel = new Uint8Array([255, 255, 255, 255]);
+    gl.texImage2D(gl.TEXTURE_2D, level, internalFormat,
+                    width, height, border, srcFormat, srcType,
+                    pixel);
+
+    // Turn off mips and set  wrapping to clamp to edge so it
+    // will work regardless of the dimensions of the video.
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+
+    return texture;
+}
+
+function updateYUVTextureFromVideo(gl, texture, video) {
+    const level = 0;
+    const internalFormat = gl.RGBA;
+    const srcFormat = gl.RGBA;
+    const srcType = gl.UNSIGNED_BYTE;
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.texImage2D(gl.TEXTURE_2D, level, internalFormat, srcFormat, srcType, video);
+}
+
 // Initialize a texture and load an image.
 // When the image finished loading copy it into the texture.
-//
 function loadTexture(gl, url) {
     const texture = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, texture);
@@ -2766,6 +2938,66 @@ function drawCloud(gl, program, buffers, texture, drawCount, deltaTime, isGodVie
 
     gl.uniform1f(program.uniformLocations.uFogNearHandle, -100);
     gl.uniform1f(program.uniformLocations.uFogFarHandle, 3000);
+
+    if (isGodView) {
+        gl.uniformMatrix4fv(program.uniformLocations.uMVPMatrixHandle, false, mGodMvpMatrix);
+    } else {
+        gl.uniformMatrix4fv(program.uniformLocations.uMVPMatrixHandle, false, mMvpMatrix);
+    }
+
+    const drawOffset = 0;
+    gl.drawArrays(gl.TRIANGLE_STRIP, drawOffset, drawCount);
+}
+
+function drawYUVVideo(gl, program, buffers, texture, drawCount, deltaTime, isGodView) {
+    // Tell WebGL how to pull out the positions from the position buffer into the vertexPosition attribute.
+    {
+        const numComponents = 3;
+        const type = gl.FLOAT;
+        const normalize = false;
+        const stride = 0;
+        const offset = 0;
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffers.position);
+        gl.vertexAttribPointer(
+            program.attribLocations.vertexPosition,
+            numComponents,
+            type,
+            normalize,
+            stride,
+            offset);
+        gl.enableVertexAttribArray(
+            program.attribLocations.vertexPosition);
+    }
+
+    // Tell WebGL how to pull out the texture coordinates from the texture coordinate buffer into the textureCoord attribute.
+    {
+        const numComponents = 2;
+        const type = gl.FLOAT;
+        const normalize = false;
+        const stride = 0;
+        const offset = 0;
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffers.uv);
+        gl.vertexAttribPointer(
+            program.attribLocations.textureCoord,
+            numComponents,
+            type,
+            normalize,
+            stride,
+            offset);
+        gl.enableVertexAttribArray(
+            program.attribLocations.textureCoord);
+    }
+
+    // Tell WebGL to use our program when drawing
+    gl.useProgram(program.program);
+
+    // Specify the texture to map onto the faces.
+    // Tell WebGL we want to affect texture unit 0
+    gl.activeTexture(gl.TEXTURE0);
+    // Bind the diffuseTexture to diffuseTexture unit 0
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    // Tell the shader we bound the diffuseTexture to diffuseTexture unit 0
+    gl.uniform1i(program.uniformLocations.uTexSamplerHandle, 0);
 
     if (isGodView) {
         gl.uniformMatrix4fv(program.uniformLocations.uMVPMatrixHandle, false, mGodMvpMatrix);
@@ -3511,6 +3743,11 @@ function drawScene(gl, basicProgram, basicTexProgram, diffuseLightingProgram, de
         drawUVDemo(gl, basicTexProgram, mUVDemoAssistPlaneBuffer, mUVDemoTexture, mUVDemoAssistPlaneBuffer.drawCnt, deltaTime);
         drawArrays(gl, basicProgram, mUVDemoAssistUVAxisBuffer, mUVDemoAssistUVAxisVertices.length / 3, mMvpMatrix, gl.LINES, deltaTime);
         drawArrays(gl, basicProgram, mUVDemoAssistCubeBuffer, mUVDemoAssistCubeVertices.length / 3, mMvpMatrix, gl.LINE_LOOP, deltaTime);
+    }
+
+    // draw yuv video
+    if (mNeedDrawYUVVideo) {
+        drawYUVVideo(gl, basicTexProgram, mYUVVideoPlaneBuffer, mYUVVideoTexture, mYUVVideoPlaneBuffer.drawCnt, deltaTime)
     }
     
     if (mNeedDrawAssistObject && null != mAssistObjectBuffer) {
