@@ -1708,12 +1708,12 @@ function setupVideo(url) {
 }
 
 function initYUVVideoDemo() {
-    // init uv demo plane
+    // init uv demo plane, hard coded, choose a 16:9 video
     const vertexCoords = [
-        [-1.0,  -1.0, -3.0],
-        [ 1.0,  -1.0, -3.0],
-        [-1.0,   1.0, -3.0],
-        [ 1.0,   1.0, -3.0],
+        [-1.41,  -2.5, -0.0],
+        [ 1.41,  -2.5, -0.0],
+        [-1.41,   2.5, -0.0],
+        [ 1.41,   2.5, -0.0],
     ];
     for (var j = 0; j < vertexCoords.length; ++j) {
         const v = vertexCoords[j];
@@ -2609,7 +2609,7 @@ function main() {
     mUVDemoAssistUVAxisBuffer = updateUVDemoAssistAxisBuffer(gl);
     mUVDemoAssistCubeBuffer = updateUVDemoAssistCubeBuffer(gl);
     mYUVVideoPlaneBuffer = updateYUVVideoDemoBuffer(gl);
-    mVideo = setupVideo('./texture/pipa.mp4')
+    mVideo = setupVideo('./texture/f9.mp4')
 
     var then = 0;
     var oneSecThen = 0;
@@ -3811,6 +3811,10 @@ function drawScene(gl, basicProgram, basicTexProgram, diffuseLightingProgram, de
     // draw uv demo
     if (mNeedDrawUVDemoPlane) {
         drawUVDemo(gl, basicTexProgram, mUVDemoPlaneBuffer, mUVDemoTexture, mUVDemoPlaneBuffer.drawCnt, deltaTime, true);
+    }
+    // draw yuv video
+    if (mNeedDrawYUVVideo) {
+        drawYUVVideo(gl, basicTexProgram, mYUVVideoPlaneBuffer, mYUVVideoTexture, mYUVVideoPlaneBuffer.drawCnt, deltaTime, true)
     }
     if (mNeedDrawSphere) {
         drawSphere(gl, mSphereProgram, mSphereBuffer, mSphereBuffer.drawCnt, deltaTime, false);
