@@ -85,7 +85,13 @@ var mUVDemoAssistUVAxisBuffer = null;
 var mUVDemoAssistUVAxisVertices = [];
 var mUVDemoAssistUVAxisColor = [];
 // draw YUV Video
+var FilterMode = {
+    FILTER_NORMAL: 1, 
+    FILTER_INVERSE: 2
+};
+var mFilterMode = FilterMode.FILTER_NORMAL;
 var mVideo = null;
+var mYUVVideoProgram = null;
 var mCopyVideo = false;
 var mNeedDrawYUVVideo = false;
 var mYUVVideoPlaneBuffer = null;
@@ -1029,7 +1035,7 @@ function updateBuffer(gl, vertices, colors) {
     };
 }
 
-function udpateViewFrustum() {
+function updateViewFrustum() {
     mViewFrustumVertices.splice(0, mViewFrustumVertices.length);  // clear
 
     // count near plane coord
@@ -1752,6 +1758,68 @@ function updateYUVVideoDemoBuffer(gl) {
     };
 }
 
+function updateYUVVideoFilterSwitch() {
+    var filterNormalChecked = document.getElementById("id_filter_normal_rb").checked;
+    var filterInverseChecked = document.getElementById("id_filter_inverse_rb").checked;
+    if (filterNormalChecked) {
+        mFilterMode = FilterMode.FILTER_NORMAL;
+        document.getElementById("id_video_filter_inverse").style.display = 'none';
+        document.getElementById("id_video_filter_normal").style.display = 'flex';
+    } else if (filterInverseChecked) {
+        mFilterMode = FilterMode.FILTER_INVERSE;
+        document.getElementById("id_video_filter_inverse").style.display = 'flex';
+        document.getElementById("id_video_filter_normal").style.display = 'none';
+    }
+    updateYUVVideoShader();
+}
+
+function updateYUVVideoShader() {
+    const canvas = document.querySelector("#glcanvas");
+    // Initialize the GL context
+    const gl = canvas.getContext("webgl") || canvas.getContext('experimental-webgl');
+    var vsSource;
+    var fsSource;
+    if (mFilterMode == FilterMode.FILTER_NORMAL) {
+        // Vertex shader program
+        vsSource = document.getElementById('id_video_filter_normal_vertex_shader').value;
+        // Fragment shader program
+        fsSource = document.getElementById('id_video_filter_normal_fragment_shader').value;
+    } else if (mFilterMode == FilterMode.FILTER_INVERSE) {
+        // Vertex shader program
+        vsSource = document.getElementById('id_video_filter_inverse_vertex_shader').value;
+        // Fragment shader program
+        fsSource = document.getElementById('id_video_filter_inverse_fragment_shader').value;
+    }
+
+    // Initialize a shader program
+    var vertexShader = loadShader(gl, gl.VERTEX_SHADER, vsSource);
+    var fragmentShader = loadShader(gl, gl.FRAGMENT_SHADER, fsSource);
+  
+    // Create the shader program
+    var shaderProgram = gl.createProgram();
+    gl.attachShader(shaderProgram, vertexShader);
+    gl.attachShader(shaderProgram, fragmentShader);
+    gl.linkProgram(shaderProgram);
+  
+    // If creating the shader program failed, alert
+    if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
+        alert('Unable to initialize the shader program: ' + gl.getProgramInfoLog(shaderProgram));
+        return null;
+    }
+
+    mYUVVideoProgram = {
+        program: shaderProgram,
+        attribLocations: {
+            vertexPosition: gl.getAttribLocation(shaderProgram, 'aPosition'),
+            textureCoord: gl.getAttribLocation(shaderProgram, 'aTexCoord'),
+        },
+        uniformLocations: {
+            uMVPMatrixHandle: gl.getUniformLocation(shaderProgram, 'uMVPMatrix'),
+            uTexSamplerHandle: gl.getUniformLocation(shaderProgram, 'uTexSampler'),
+        },
+    }
+}
+
 function initUVDemo() {
     // init uv demo plane
     const vertexCoords = [
@@ -2333,6 +2401,7 @@ function demoYUVVideo() {
     document.getElementById("id_uv_demo").style.display = 'none';
     document.getElementById("id_lightdemo").style.display = 'none';
     document.getElementById("id_per_vertex_or_frag_lighting").style.display = 'none';
+    document.getElementById("id_yuv_video").style.display = 'flex';
 }
 
 function demoModelMatrix() {
@@ -2562,6 +2631,7 @@ function main() {
     updateBackgroundShader();
     updateLightShader();
     updateSphereShader();
+    updateYUVVideoShader();
     const basicProgram = initBasicShader(gl);
     const basicTexProgram = initBasicTexShader(gl);
     const diffuseLightingProgram = initDiffuseLightingShader(gl);
@@ -2575,7 +2645,7 @@ function main() {
     mUVDemoTexture = loadTextureByParams(gl, './texture/spider.png', false, false, false, true, true);
     mYUVVideoTexture = createTexture(gl);
     
-    udpateViewFrustum();
+    updateViewFrustum();
     setViewFrustumColor();
     updateNearPlane();
     updateFarPlane();
@@ -3747,7 +3817,7 @@ function drawScene(gl, basicProgram, basicTexProgram, diffuseLightingProgram, de
 
     // draw yuv video
     if (mNeedDrawYUVVideo) {
-        drawYUVVideo(gl, basicTexProgram, mYUVVideoPlaneBuffer, mYUVVideoTexture, mYUVVideoPlaneBuffer.drawCnt, deltaTime)
+        drawYUVVideo(gl, mYUVVideoProgram, mYUVVideoPlaneBuffer, mYUVVideoTexture, mYUVVideoPlaneBuffer.drawCnt, deltaTime)
     }
     
     if (mNeedDrawAssistObject && null != mAssistObjectBuffer) {
@@ -3814,7 +3884,7 @@ function drawScene(gl, basicProgram, basicTexProgram, diffuseLightingProgram, de
     }
     // draw yuv video
     if (mNeedDrawYUVVideo) {
-        drawYUVVideo(gl, basicTexProgram, mYUVVideoPlaneBuffer, mYUVVideoTexture, mYUVVideoPlaneBuffer.drawCnt, deltaTime, true)
+        drawYUVVideo(gl, mYUVVideoProgram, mYUVVideoPlaneBuffer, mYUVVideoTexture, mYUVVideoPlaneBuffer.drawCnt, deltaTime, true)
     }
     if (mNeedDrawSphere) {
         drawSphere(gl, mSphereProgram, mSphereBuffer, mSphereBuffer.drawCnt, deltaTime, false);
@@ -4187,7 +4257,7 @@ function updateProjMatrixByInput() {
 
     mProjectionMatrix = mat4.create();
     mat4.perspective(mProjectionMatrix, 2 * mHalfFov, mAspect, mNear, mFar);
-    udpateViewFrustum();
+    updateViewFrustum();
     updateNearPlane();
     updateFarPlane();
 
