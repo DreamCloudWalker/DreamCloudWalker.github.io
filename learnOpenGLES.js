@@ -85,6 +85,7 @@ var mUVDemoAssistUVAxisBuffer = null;
 var mUVDemoAssistUVAxisVertices = [];
 var mUVDemoAssistUVAxisColor = [];
 // draw YUV Video
+var mYUVInited = false;
 var mVideo = null;
 var mYUVVideoProgram = null;
 var mCopyVideo = false;
@@ -93,6 +94,7 @@ var mYUVVideoPlaneBuffer = null;
 var mYUVVideoTexture = null;
 var mYUVVideoPlaneVertices = [];
 var mYUVVideoPlaneUvs = [];
+var mFrameBufferObject = null;
 // draw cloud anim plane
 var mCloudProgram = null;
 var mCloudPlaneBuffer = null;
@@ -1780,6 +1782,8 @@ function updateYUVVideoFilterSwitch() {
         fragReader.open('get', './filter/inverse.fs', false);
     } else if (document.getElementById("id_filter_reminiscence_rb").checked) {
         fragReader.open('get', './filter/reminiscence.fs', false);
+    } else if (document.getElementById("id_filter_lut_illusion".checked)) {
+        fragReader.open('get', './filter/illusion.fs', false)
     }
 
     // vertReader.send();
@@ -2420,6 +2424,15 @@ function demoYUVVideo() {
     fragDiv.addEventListener('change', function() {
         handleFileSelect('id_video_filter_fragment_shader');
      }, false);
+
+     // FBO
+     if (!mYUVInited) {
+        const canvas = document.querySelector("#glcanvas");
+        // Initialize the GL context
+        const gl = canvas.getContext("webgl") || canvas.getContext('experimental-webgl');
+        mFrameBufferObject = new FrameBufferObject(gl, gl.TEXTURE0, 720, 1280); // video's width and height
+        mYUVInited = true;
+     }
 }
 
 function demoModelMatrix() {
