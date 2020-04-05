@@ -85,11 +85,6 @@ var mUVDemoAssistUVAxisBuffer = null;
 var mUVDemoAssistUVAxisVertices = [];
 var mUVDemoAssistUVAxisColor = [];
 // draw YUV Video
-var FilterMode = {
-    FILTER_NORMAL: 1, 
-    FILTER_INVERSE: 2
-};
-var mFilterMode = FilterMode.FILTER_NORMAL;
 var mVideo = null;
 var mYUVVideoProgram = null;
 var mCopyVideo = false;
@@ -1774,27 +1769,23 @@ function handleFileSelect(event, id) {
 }
 
 function updateYUVVideoFilterSwitch() {
-    var filterNormalChecked = document.getElementById("id_filter_normal_rb").checked;
-    var filterInverseChecked = document.getElementById("id_filter_inverse_rb").checked;
-    var vertTextArea = document.getElementById('id_video_filter_vertex_shader')
+    // var vertTextArea = document.getElementById('id_video_filter_vertex_shader')
     var fragTextArea = document.getElementById('id_video_filter_fragment_shader')
-    var vertReader = new XMLHttpRequest();
+    // var vertReader = new XMLHttpRequest();
     var fragReader = new XMLHttpRequest();
 
-    if (filterNormalChecked) {
-        mFilterMode = FilterMode.FILTER_NORMAL;
-        vertReader.open('get', './filter/normal.vs', false);
+    if (document.getElementById("id_filter_normal_rb").checked) {
         fragReader.open('get', './filter/normal.fs', false);
-    } else if (filterInverseChecked) {
-        mFilterMode = FilterMode.FILTER_INVERSE;
-        vertReader.open('get', './filter/inverse.vs', false);
+    } else if (document.getElementById("id_filter_inverse_rb").checked) {
         fragReader.open('get', './filter/inverse.fs', false);
+    } else if (document.getElementById("id_filter_reminiscence_rb").checked) {
+        fragReader.open('get', './filter/reminiscence.fs', false);
     }
 
-    vertReader.send();
+    // vertReader.send();
     fragReader.send();
-    vertTextArea.innerHTML = vertReader.responseText;
-    fragTextArea.innerHTML = fragReader.responseText
+    // vertTextArea.innerHTML = vertReader.responseText;
+    fragTextArea.innerHTML = fragReader.responseText;
 
     updateYUVVideoShader();
 }

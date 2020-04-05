@@ -996,9 +996,10 @@ void main() {
         <div id="id_yuv_video">
             <div>
                 <button style="display:block; width: 200px; height: 30px" onclick="updateSphereShader()">编译并运行</button>
-                <h5 style="width: 230px; background: #ffffff">YUV视频滤镜<br><br></h5>
-                <input type="radio" id="id_filter_normal_rb" name="video_filter" value="filter_normal" data-lang="video_filter_normal" checked onchange="updateYUVVideoFilterSwitch()"/>普通<br>
-                <input type="radio" id="id_filter_inverse_rb" name="video_filter" value="filter_inverse" data-lang="video_filter_inverse" onchange="updateYUVVideoFilterSwitch()"/>反色<br>
+                <h5 style="width: 230px; background: #ffffff">YUV Video Filter<br><br></h5>
+                <input type="radio" id="id_filter_normal_rb" name="video_filter" value="filter_normal" data-lang="video_filter_normal" checked onchange="updateYUVVideoFilterSwitch()"/>Normal<br>
+                <input type="radio" id="id_filter_inverse_rb" name="video_filter" value="filter_inverse" data-lang="video_filter_inverse" onchange="updateYUVVideoFilterSwitch()"/>Inverse<br>
+                <input type="radio" id="id_filter_reminiscence_rb" name="video_filter" value="filter_reminiscence" onchange="updateYUVVideoFilterSwitch()"/>Snow Reminiscence<br>
             </div>
             <div id="vertical">
                 <div id="id_video_filter" style="width: 90em;">
