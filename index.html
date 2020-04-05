@@ -67,23 +67,8 @@
             div#id_yuv_video {
                 display: none;
             }
-            div#id_video_filter_normal {
+            div#id_video_filter {
                 display: flex;
-            }
-            div#id_video_filter_normal_vertex_shader {
-                display: flex;
-            }
-            div#id_video_filter_normal_fragment_shader {
-                display: flex;
-            }
-            div#id_video_filter_inverse {
-                display: none;
-            }
-            div#id_video_filter_inverse_vertex_shader {
-                display: none;
-            }
-            div#id_video_filter_inverse_fragment_shader {
-                display: none;
             }
         </style>
         <script src="learnOpenGLES.js"></script>
@@ -1012,14 +997,14 @@ void main() {
             <div>
                 <button style="display:block; width: 200px; height: 30px" onclick="updateSphereShader()">编译并运行</button>
                 <h5 style="width: 230px; background: #ffffff">YUV视频滤镜<br><br></h5>
-                <input type="radio" id="id_filter_normal_rb" name="video_filter" value="filter_normal" checked onchange="updateYUVVideoFilterSwitch()"/>普通<br>
-                <input type="radio" id="id_filter_inverse_rb" name="video_filter" value="filter_inverse" onchange="updateYUVVideoFilterSwitch()"/>反色<br>
+                <input type="radio" id="id_filter_normal_rb" name="video_filter" value="filter_normal" data-lang="video_filter_normal" checked onchange="updateYUVVideoFilterSwitch()"/>普通<br>
+                <input type="radio" id="id_filter_inverse_rb" name="video_filter" value="filter_inverse" data-lang="video_filter_inverse" onchange="updateYUVVideoFilterSwitch()"/>反色<br>
             </div>
             <div id="vertical">
-                <div id="id_video_filter_normal" style="width: 90em;">
+                <div id="id_video_filter" style="width: 90em;">
                     <div id="vertical">
-                        <b>顶点着色器（VertexShader）</b>
-                        <textarea spellcheck="false" rows="31" cols="95" id="id_video_filter_normal_vertex_shader">
+                        <div id="horizontal" style="margin: 5px"> <b>顶点着色器（VertexShader）</b> <input type="file" id="file_filter_vertex_shader" name="files"/> </div>
+                        <textarea spellcheck="false" rows="31" cols="95" id="id_video_filter_vertex_shader">
 attribute vec4 aPosition;
 attribute vec2 aTexCoord;
 uniform mat4 uMVPMatrix;
@@ -1032,8 +1017,8 @@ void main() {
                         </textarea>
                     </div>
                     <div id="vertical">
-                        <b>片元着色器（FragmentShader）</b>
-                        <textarea spellcheck="false" rows="31" cols="95" id="id_video_filter_normal_fragment_shader">
+                        <div id="horizontal" style="margin: 5px"> <b>片元着色器（FragmentShader）</b> <input type="file" id="file_filter_frag_shader" name="files"/> </div>
+                        <textarea spellcheck="false" rows="31" cols="95" id="id_video_filter_fragment_shader">
 precision mediump float;
 
 uniform sampler2D uTexSampler;
@@ -1041,36 +1026,6 @@ varying lowp vec2 vTexCoord;
 
 void main() {
     gl_FragColor = texture2D(uTexSampler, vTexCoord);
-}
-                        </textarea>
-                    </div>
-                </div>
-                <div id="id_video_filter_inverse" style="width: 90em;">
-                    <div id="vertical">
-                        <b>顶点着色器（VertexShader）</b>
-                        <textarea spellcheck="false" rows="31" cols="95" id="id_video_filter_inverse_vertex_shader">
-attribute vec4 aPosition;
-attribute vec2 aTexCoord;
-uniform mat4 uMVPMatrix;
-varying lowp vec2 vTexCoord;
-
-void main() {
-    gl_Position = uMVPMatrix * aPosition;
-    vTexCoord = aTexCoord;
-}
-                        </textarea>
-                    </div>
-                    <div id="vertical">
-                        <b>片元着色器（FragmentShader）</b>
-                        <textarea spellcheck="false" rows="31" cols="95" id="id_video_filter_inverse_fragment_shader">
-precision mediump float;
-uniform sampler2D uTexSampler;
-varying lowp vec2 vTexCoord;
-
-void main() {
-    vec4 color = texture2D(uTexSampler, vTexCoord);
-    float gray = 0.2989 * color.r + 0.5870 * color.g + 0.1140 * color.b;
-    gl_FragColor = vec4(1.0 - gray, 1.0 - gray, 1.0 - gray, color.a);
 }
                         </textarea>
                     </div>

@@ -1758,18 +1758,44 @@ function updateYUVVideoDemoBuffer(gl) {
     };
 }
 
+function handleFileSelect(event, id) {
+    var files = event.target.files; // FileList object
+    for (var i = 0, f; f = files[i]; i++) {
+        var reader = new FileReader();
+        reader.onload = (function (theFile) {
+            return function (e) {
+                var textArea = document.getElementById(id);
+                textArea.value = e.target.result;
+            };
+        })(f);
+        reader.readAsText(f);
+    }
+    updateYUVVideoShader();
+}
+
 function updateYUVVideoFilterSwitch() {
     var filterNormalChecked = document.getElementById("id_filter_normal_rb").checked;
     var filterInverseChecked = document.getElementById("id_filter_inverse_rb").checked;
+    var vertTextArea = document.getElementById('id_video_filter_vertex_shader')
+    var fragTextArea = document.getElementById('id_video_filter_fragment_shader')
+    var vertReader = new XMLHttpRequest();
+    var fragReader = new XMLHttpRequest();
+
     if (filterNormalChecked) {
         mFilterMode = FilterMode.FILTER_NORMAL;
-        document.getElementById("id_video_filter_inverse").style.display = 'none';
-        document.getElementById("id_video_filter_normal").style.display = 'flex';
+        vertReader.open('get', './filter/normal.vs', false);
+        fragReader.open('get', './filter/normal.fs', false);
     } else if (filterInverseChecked) {
         mFilterMode = FilterMode.FILTER_INVERSE;
-        document.getElementById("id_video_filter_inverse").style.display = 'flex';
-        document.getElementById("id_video_filter_normal").style.display = 'none';
+        vertReader.open('get', './filter/inverse.vs', false);
+        fragReader.open('get', './filter/inverse.fs', false);
     }
+
+    vertReader.send();
+    fragReader.send();
+    vertTextArea.innerHTML = vertReader.responseText;
+    fragTextArea.innerHTML = fragReader.responseText
+
     updateYUVVideoShader();
 }
 
@@ -1779,17 +1805,10 @@ function updateYUVVideoShader() {
     const gl = canvas.getContext("webgl") || canvas.getContext('experimental-webgl');
     var vsSource;
     var fsSource;
-    if (mFilterMode == FilterMode.FILTER_NORMAL) {
-        // Vertex shader program
-        vsSource = document.getElementById('id_video_filter_normal_vertex_shader').value;
-        // Fragment shader program
-        fsSource = document.getElementById('id_video_filter_normal_fragment_shader').value;
-    } else if (mFilterMode == FilterMode.FILTER_INVERSE) {
-        // Vertex shader program
-        vsSource = document.getElementById('id_video_filter_inverse_vertex_shader').value;
-        // Fragment shader program
-        fsSource = document.getElementById('id_video_filter_inverse_fragment_shader').value;
-    }
+    // Vertex shader program
+    vsSource = document.getElementById('id_video_filter_vertex_shader').value;
+    // Fragment shader program
+    fsSource = document.getElementById('id_video_filter_fragment_shader').value;
 
     // Initialize a shader program
     var vertexShader = loadShader(gl, gl.VERTEX_SHADER, vsSource);
@@ -2402,6 +2421,14 @@ function demoYUVVideo() {
     document.getElementById("id_lightdemo").style.display = 'none';
     document.getElementById("id_per_vertex_or_frag_lighting").style.display = 'none';
     document.getElementById("id_yuv_video").style.display = 'flex';
+    var vertexDiv = document.getElementById('file_filter_vertex_shader')
+    vertexDiv.addEventListener('change', function() {
+        handleFileSelect(event, 'id_video_filter_vertex_shader');
+     }, false);
+    var fragDiv = document.getElementById('file_filter_frag_shader')
+    fragDiv.addEventListener('change', function() {
+        handleFileSelect('id_video_filter_fragment_shader');
+     }, false);
 }
 
 function demoModelMatrix() {
