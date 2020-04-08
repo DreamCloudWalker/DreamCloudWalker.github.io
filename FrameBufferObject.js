@@ -1,8 +1,6 @@
 var FrameBufferObject = function(gl, activeTextureType, width, height) {
     const mFrameBufferId = gl.createFramebuffer(); // generate FBO id
     const mRenderBufferId = gl.createRenderbuffer();
-    const mWidth = width;
-    const mHeight = height;
     this.gl = gl;
     gl.activeTexture(activeTextureType);
     const mTextureId = generateTextureID(gl, width, height);

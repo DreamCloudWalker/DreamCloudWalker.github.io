@@ -38,6 +38,15 @@ const FALLING_LEAF4_FRAME_CNT = 30;
 const COBRA_STEP2_FRAME_CNT = 50;
 const COBRA_Z_OFFSET = 1.3;
 const COBRA_Y_OFFSET = 1.3;
+// basic
+var mCanvas = null;
+// Initialize the GL context
+var mGl = null;
+var mThen = 0;
+var mOneSecThen = 0;
+var mBasicProgram = null;
+var mBasicTexProgram = null;
+var mDiffuseLightingProgram = null;
 // chapter
 var mChapterTitle = ChapterTitle.CHAPTER_MATRIX;
 // draw object
@@ -347,6 +356,8 @@ function onKeyPress(event) {
         default:
             break;
     }
+
+    requestRender();
 }
 
 function initCloudAnimShader(gl) {
@@ -615,6 +626,8 @@ function updateBackgroundShader() {
             uTexSamplerHandle: gl.getUniformLocation(shaderProgram, 'uTexSampler'),
         },
     };
+
+    requestRender();
 }
 
 function initDiffuseLightingShader(gl) {
@@ -700,6 +713,8 @@ function updateLightSwitch() {
     mUseAmbientColor = document.getElementById("ambientLightCheckBox").checked;
     mUseDiffuseColor = document.getElementById("diffuseLightCheckBox").checked;
     mUseSpecularColor = document.getElementById("specularLightCheckBox").checked;
+
+    requestRender();
 }
 
 function updateAmbientColor() {
@@ -709,6 +724,8 @@ function updateAmbientColor() {
     document.getElementById("label_ambient_red").innerHTML = mAmbientColor[0].toFixed(2);
     document.getElementById("label_ambient_green").innerHTML = mAmbientColor[1].toFixed(2);
     document.getElementById("label_ambient_blue").innerHTML = mAmbientColor[2].toFixed(2);
+
+    requestRender();
 }
 
 function updateDiffuseColor() {
@@ -718,11 +735,15 @@ function updateDiffuseColor() {
     document.getElementById("label_diffuse_red").innerHTML = mDiffuseColor[0].toFixed(2);
     document.getElementById("label_diffuse_green").innerHTML = mDiffuseColor[1].toFixed(2);
     document.getElementById("label_diffuse_blue").innerHTML = mDiffuseColor[2].toFixed(2);
+
+    requestRender();
 }
 
 function updateSpecularShininess() {
     mSpecularShininess = document.getElementById("specular_shininess").value * 100;
     document.getElementById("label_specular_shininess").innerHTML = mSpecularShininess.toFixed(0);
+
+    requestRender();
 }
 
 function updateSpecularColor() {
@@ -732,6 +753,8 @@ function updateSpecularColor() {
     document.getElementById("label_specular_red").innerHTML = mSpecularColor[0].toFixed(2);
     document.getElementById("label_specular_green").innerHTML = mSpecularColor[1].toFixed(2);
     document.getElementById("label_specular_blue").innerHTML = mSpecularColor[2].toFixed(2);
+
+    requestRender();
 }
 
 function updateInitQuatHtmlValue() {
@@ -807,6 +830,8 @@ function updateLightShader() {
             uUseSpecular: gl.getUniformLocation(shaderProgram, 'uUseSpecular'),
         },
     }
+
+    requestRender();
 }
 
 // creates a shader of the given type, uploads the source and compiles it.
@@ -967,6 +992,8 @@ function updateNearPlane() {
     mNearPlaneVertices.push(mNear * Math.tan(mHalfFov));
     mNearPlaneVertices.push(-mNear * Math.tan(mHalfFov));
     mNearPlaneVertices.push(-mNear + EYE_INIT_POS_Z);
+
+    requestRender();
 }
 
 function updateFarPlane() {
@@ -991,6 +1018,8 @@ function updateFarPlane() {
     mFarPlaneVertices.push(mFar * Math.tan(mHalfFov));
     mFarPlaneVertices.push(-mFar * Math.tan(mHalfFov));
     mFarPlaneVertices.push(-mFar + EYE_INIT_POS_Z);
+
+    requestRender();
 }
 
 function setNearFarPlaneColor() {
@@ -1030,6 +1059,8 @@ function updateBuffer(gl, vertices, colors) {
         position: positionBuffer,
         color: colorBuffer,
     };
+
+    requestRender();
 }
 
 function updateViewFrustum() {
@@ -1234,6 +1265,8 @@ function updatePerVflSwitch() {
         document.getElementById("id_per_frag_shader").style.display = 'none';
     }
     updateSphereShader();
+
+    requestRender();
 }
 
 function updateSphereShader() {
@@ -1683,28 +1716,36 @@ function setupVideo(url) {
     const videoElement = document.createElement('video');
     var playing = false;
     var timeupdate = false;
+    var intervalID = null;
 
     videoElement.autoplay = true;
-    videoElement.muted = true;
-    videoElement.loop = true;
+    videoElement.src = url;
+    // videoElement.muted = true;
+    // videoElement.loop = true;
 
     videoElement.addEventListener('playing', function() {
         playing = true;
         checkReady();
     }, true);
-   
     videoElement.addEventListener('timeupdate', function() {
         timeupdate = true;
         checkReady();
     }, true);
-
-    videoElement.src = url;
-    videoElement.play();
+    videoElement.addEventListener('canplaythrough', startVideo, true);
+    videoElement.addEventListener('ended', endVideo, true);
 
     function checkReady() {
         if (playing && timeupdate) {
             mCopyVideo = true;
         }
+    }
+
+    function startVideo() {
+        videoElement.play();
+        intervalID = setInterval(requestRender, 30);
+    }
+    function endVideo() {
+        clearInterval(intervalID);
     }
 
     return videoElement;
@@ -1832,6 +1873,8 @@ function updateYUVVideoShader() {
             uTexSamplerHandle: gl.getUniformLocation(shaderProgram, 'uTexSampler'),
         },
     }
+
+    requestRender();
 }
 
 function initUVDemo() {
@@ -2202,6 +2245,8 @@ function handleMouseDown(event) {
     }
 
     mLastMouseY = event.clientY;
+
+    requestRender();
 }
 
 function handleMouseUp() {
@@ -2226,6 +2271,8 @@ function handleMouseMove(event) {
         mEyePosPitching = -deltaY / 100;
         updateViewMatrixByMouse();
     }
+
+    requestRender();
 }
 
 function demoPerVertexOrFragLighting() {
@@ -2250,6 +2297,9 @@ function demoPerVertexOrFragLighting() {
     document.getElementById("id_uv_demo").style.display = 'none';
     document.getElementById("id_lightdemo").style.display = 'none';
     document.getElementById("id_per_vertex_or_frag_lighting").style.display = 'flex';
+    document.getElementById("id_yuv_video").style.display = 'none';
+
+    requestRender();
 }
 
 function demoLight() {
@@ -2274,6 +2324,9 @@ function demoLight() {
     document.getElementById("id_uv_demo").style.display = 'none';
     document.getElementById("id_lightdemo").style.display = 'flex';
     document.getElementById("id_per_vertex_or_frag_lighting").style.display = 'none';
+    document.getElementById("id_yuv_video").style.display = 'none';
+
+    requestRender();
 }
 
 function demoCobraManeuvre() {
@@ -2298,6 +2351,7 @@ function demoCobraManeuvre() {
     document.getElementById("id_uv_demo").style.display = 'none';
     document.getElementById("id_lightdemo").style.display = 'none';
     document.getElementById("id_per_vertex_or_frag_lighting").style.display = 'none';
+    document.getElementById("id_yuv_video").style.display = 'none';
 
     // update mEye
     mEye[0] = EYE_INIT_POS_Z;
@@ -2319,6 +2373,8 @@ function demoCobraManeuvre() {
     document.getElementById("id_cameraup_z").value = mCameraUp[2];
     updateViewMatrixHtml();
     updateViewFrustumPose();
+
+    requestRender();
 }
 
 function demoShader() {
@@ -2343,6 +2399,9 @@ function demoShader() {
     document.getElementById("id_uv_demo").style.display = 'none';
     document.getElementById("id_lightdemo").style.display = 'none';
     document.getElementById("id_per_vertex_or_frag_lighting").style.display = 'none';
+    document.getElementById("id_yuv_video").style.display = 'none';
+
+    requestRender();
 }
 
 function demoMvpMatrix() {
@@ -2367,6 +2426,9 @@ function demoMvpMatrix() {
     document.getElementById("id_uv_demo").style.display = 'none';
     document.getElementById("id_lightdemo").style.display = 'none';
     document.getElementById("id_per_vertex_or_frag_lighting").style.display = 'none';
+    document.getElementById("id_yuv_video").style.display = 'none';
+
+    requestRender();
 }
 
 function demoUV() {
@@ -2391,6 +2453,9 @@ function demoUV() {
     document.getElementById("id_uv_demo").style.display = 'flex';
     document.getElementById("id_lightdemo").style.display = 'none';
     document.getElementById("id_per_vertex_or_frag_lighting").style.display = 'none';
+    document.getElementById("id_yuv_video").style.display = 'none';
+
+    requestRender();
 }
 
 function demoYUVVideo() {
@@ -2427,10 +2492,11 @@ function demoYUVVideo() {
 
      // FBO
      if (!mYUVInited) {
-        const canvas = document.querySelector("#glcanvas");
-        // Initialize the GL context
-        const gl = canvas.getContext("webgl") || canvas.getContext('experimental-webgl');
-        mFrameBufferObject = new FrameBufferObject(gl, gl.TEXTURE0, 720, 1280); // video's width and height
+        initYUVVideoDemo();
+        mYUVVideoPlaneBuffer = updateYUVVideoDemoBuffer(mGl);
+        mVideo = setupVideo('./texture/f9.mp4')
+
+        mFrameBufferObject = new FrameBufferObject(mGl, mGl.TEXTURE0, 720, 1280); // video's width and height
         mYUVInited = true;
      }
 }
@@ -2457,6 +2523,9 @@ function demoModelMatrix() {
     document.getElementById("id_uv_demo").style.display = 'none';
     document.getElementById("id_lightdemo").style.display = 'none';
     document.getElementById("id_per_vertex_or_frag_lighting").style.display = 'none';
+    document.getElementById("id_yuv_video").style.display = 'none';
+
+    requestRender();
 }
 
 function demoViewMatrix() {
@@ -2481,6 +2550,9 @@ function demoViewMatrix() {
     document.getElementById("id_uv_demo").style.display = 'none';
     document.getElementById("id_lightdemo").style.display = 'none';
     document.getElementById("id_per_vertex_or_frag_lighting").style.display = 'none';
+    document.getElementById("id_yuv_video").style.display = 'none';
+
+    requestRender();
 }
 
 function demoProjMatrix() {
@@ -2504,6 +2576,9 @@ function demoProjMatrix() {
     document.getElementById("id_cobramaneuvre").style.display = 'none';
     document.getElementById("id_uv_demo").style.display = 'none';
     document.getElementById("id_lightdemo").style.display = 'none';
+    document.getElementById("id_yuv_video").style.display = 'none';
+
+    requestRender();
 }
 
 function demoRotateMatrix() {
@@ -2528,6 +2603,9 @@ function demoRotateMatrix() {
     document.getElementById("id_uv_demo").style.display = 'none';
     document.getElementById("id_lightdemo").style.display = 'none';
     document.getElementById("id_per_vertex_or_frag_lighting").style.display = 'none';
+    document.getElementById("id_yuv_video").style.display = 'none';
+
+    requestRender();
 }
 
 function demoAxisAngle() {
@@ -2552,6 +2630,9 @@ function demoAxisAngle() {
     document.getElementById("id_uv_demo").style.display = 'none';
     document.getElementById("id_lightdemo").style.display = 'none';
     document.getElementById("id_per_vertex_or_frag_lighting").style.display = 'none';
+    document.getElementById("id_yuv_video").style.display = 'none';
+
+    requestRender();
 }
 
 function demoQuaternion() {
@@ -2576,6 +2657,9 @@ function demoQuaternion() {
     document.getElementById("id_uv_demo").style.display = 'none';
     document.getElementById("id_lightdemo").style.display = 'none';
     document.getElementById("id_per_vertex_or_frag_lighting").style.display = 'none';
+    document.getElementById("id_yuv_video").style.display = 'none';
+
+    requestRender();
 }
 
 // Chrome addEventListener onmousewheel
@@ -2590,12 +2674,12 @@ function addEvent(obj, xEvent, fn) {
 }
 
 function main() {
-    const canvas = document.querySelector("#glcanvas");
+    mCanvas = document.querySelector("#glcanvas");
     // Initialize the GL context
-    const gl = canvas.getContext("webgl") || canvas.getContext('experimental-webgl');
+    mGl = mCanvas.getContext("webgl") || mCanvas.getContext('experimental-webgl');
 
     // Only continue if WebGL is available and working
-    if (!gl) {
+    if (!mGl) {
         alert("Unable to initialize WebGL. Your browser or machine may not support it.");
         return;
     }
@@ -2617,14 +2701,14 @@ function main() {
     updateInitQuatHtmlValue();
 
     // mouse
-    canvas.onmousedown = handleMouseDown;
-    canvas.onmouseup = handleMouseUp;
-    canvas.onmousemove = handleMouseMove;
-    canvas.onmouseout = handleMouseOut;
+    mCanvas.onmousedown = handleMouseDown;
+    mCanvas.onmouseup = handleMouseUp;
+    mCanvas.onmousemove = handleMouseMove;
+    mCanvas.onmouseout = handleMouseOut;
     // mouse wheel
 
-    mViewportWidth = canvas.clientWidth / 2;
-    mViewportHeight = canvas.clientHeight;
+    mViewportWidth = mCanvas.clientWidth / 2;
+    mViewportHeight = mCanvas.clientHeight;
 
     // create view matrix
     mEye = vec3.fromValues(mLastEyePosX, mLastEyePosY, mLastEyePosZ);
@@ -2663,80 +2747,80 @@ function main() {
     updateLightShader();
     updateSphereShader();
     updateYUVVideoShader();
-    const basicProgram = initBasicShader(gl);
-    const basicTexProgram = initBasicTexShader(gl);
-    const diffuseLightingProgram = initDiffuseLightingShader(gl);
+    mBasicProgram = initBasicShader(mGl);
+    mBasicTexProgram = initBasicTexShader(mGl);
+    mDiffuseLightingProgram = initDiffuseLightingShader(mGl);
 
     // Here's where we call the routine that builds all the objects we'll be drawing.
-    initObjectBuffers(gl);
+    initObjectBuffers(mGl);
     // texture
-    mObjectDiffuseTexture = loadTexture(gl, './texture/Su-27_diffuse.png');
-    mObjectNormalTexture = loadTexture(gl, './texture/Su-27_normal.png');
-    mBackgroundTexture = loadTexture(gl, './texture/bg_sky.jpg');
-    mUVDemoTexture = loadTextureByParams(gl, './texture/spider.png', false, false, false, true, true);
-    mYUVVideoTexture = createTexture(gl);
+    mObjectDiffuseTexture = loadTexture(mGl, './texture/Su-27_diffuse.png');
+    mObjectNormalTexture = loadTexture(mGl, './texture/Su-27_normal.png');
+    mBackgroundTexture = loadTexture(mGl, './texture/bg_sky.jpg');
+    mUVDemoTexture = loadTextureByParams(mGl, './texture/spider.png', false, false, false, true, true);
+    mYUVVideoTexture = createTexture(mGl);
     
     updateViewFrustum();
     setViewFrustumColor();
     updateNearPlane();
     updateFarPlane();
     setNearFarPlaneColor();
-    mAxisBuffer = initAxisBuffers(gl);
-    mAngleAxisBuffer = initAngleAxisBuffers(gl);
-    mAssistObjectBuffer = initCylinderBuffers(gl, 0.05, 0.5, 10, vec4.fromValues(1.0, 0.0, 0.0, 1.0), mAssistCoord, TubeDir.DIR_Z);
+    mAxisBuffer = initAxisBuffers(mGl);
+    mAngleAxisBuffer = initAngleAxisBuffers(mGl);
+    mAssistObjectBuffer = initCylinderBuffers(mGl, 0.05, 0.5, 10, vec4.fromValues(1.0, 0.0, 0.0, 1.0), mAssistCoord, TubeDir.DIR_Z);
     // mPivotBuffer = initCylinderBuffers(gl, 0.05, 2.4, 10, vec4.fromValues(1.0, 1.0, 0.0, 1.0), vec3.fromValues(0.0, 0.0, 0.0), TubeDir.DIR_Y);
     // mGimbalZPivot1Buffer = initCylinderBuffers(gl, 0.05, 0.2, 10, vec4.fromValues(0.0, 0.0, 1.0, 1.0), vec3.fromValues(1.5, 0.0, 0.0), TubeDir.DIR_X);
     // mGimbalZPivot2Buffer = initCylinderBuffers(gl, 0.05, 0.2, 10, vec4.fromValues(0.0, 0.0, 1.0, 1.0), vec3.fromValues(-1.5, 0.0, 0.0), TubeDir.DIR_X);
     // mGimbalXPivot1Buffer = initCylinderBuffers(gl, 0.05, 0.2, 10, vec4.fromValues(1.0, 0.0, 0.0, 1.0), vec3.fromValues(0.0, 0.0, 1.3), TubeDir.DIR_Z);
     // mGimbalXPivot2Buffer = initCylinderBuffers(gl, 0.05, 0.2, 10, vec4.fromValues(1.0, 0.0, 0.0, 1.0), vec3.fromValues(0.0, 0.0, -1.3), TubeDir.DIR_Z);
-    mGimbalXBuffer = initTubeBuffers(gl, 1.2 ,1.3, 0.1, 30, vec4.fromValues(1.0, 0.0, 0.0, 1.0), TubeDir.DIR_X);
-    mGimbalYBuffer = initTubeBuffers(gl, 1.4 ,1.5, 0.1, 30, vec4.fromValues(0.0, 1.0, 0.0, 1.0), TubeDir.DIR_Y);
-    mGimbalZBuffer = initTubeBuffers(gl, 1.6 ,1.7, 0.1, 30, vec4.fromValues(0.0, 0.0, 1.0, 1.0), TubeDir.DIR_Z);
+    mGimbalXBuffer = initTubeBuffers(mGl, 1.2 ,1.3, 0.1, 30, vec4.fromValues(1.0, 0.0, 0.0, 1.0), TubeDir.DIR_X);
+    mGimbalYBuffer = initTubeBuffers(mGl, 1.4 ,1.5, 0.1, 30, vec4.fromValues(0.0, 1.0, 0.0, 1.0), TubeDir.DIR_Y);
+    mGimbalZBuffer = initTubeBuffers(mGl, 1.6 ,1.7, 0.1, 30, vec4.fromValues(0.0, 0.0, 1.0, 1.0), TubeDir.DIR_Z);
 
     // init cloud
-    mCloudPlaneBuffer = initCloudBuffer(gl);
-    mCloudProgram = initCloudAnimShader(gl);
-    mCloudTexture = loadTexture(gl, './texture/cloud.png');
+    mCloudPlaneBuffer = initCloudBuffer(mGl);
+    mCloudProgram = initCloudAnimShader(mGl);
+    mCloudTexture = loadTexture(mGl, './texture/cloud.png');
 
     // init sphere
-    mSphereBuffer = initSphereBuffers(gl, 1.0, 30, vec4.fromValues(1.0, 1.0, 1.0, 1.0));
+    mSphereBuffer = initSphereBuffers(mGl, 1.0, 30, vec4.fromValues(1.0, 1.0, 1.0, 1.0));
     // background
     initBackground();
     initUVDemo();
-    initYUVVideoDemo();
-    mBackgroundBuffer = updateBackgroundBuffer(gl);
-    mUVDemoPlaneBuffer = updateUVDemoBuffer(gl);
-    mUVDemoAssistPlaneBuffer = updateUVDemoAssistBuffer(gl);
-    mUVDemoAssistUVAxisBuffer = updateUVDemoAssistAxisBuffer(gl);
-    mUVDemoAssistCubeBuffer = updateUVDemoAssistCubeBuffer(gl);
-    mYUVVideoPlaneBuffer = updateYUVVideoDemoBuffer(gl);
-    mVideo = setupVideo('./texture/f9.mp4')
+    mBackgroundBuffer = updateBackgroundBuffer(mGl);
+    mUVDemoPlaneBuffer = updateUVDemoBuffer(mGl);
+    mUVDemoAssistPlaneBuffer = updateUVDemoAssistBuffer(mGl);
+    mUVDemoAssistUVAxisBuffer = updateUVDemoAssistAxisBuffer(mGl);
+    mUVDemoAssistCubeBuffer = updateUVDemoAssistCubeBuffer(mGl);
+    
+    requestRender();
+}
 
-    var then = 0;
-    var oneSecThen = 0;
-    // Draw the scene repeatedly
-    function render(now) {
-        now *= 0.001;  // convert to seconds
-        const deltaTime = now - then;
-        then = now;
+// Draw the scene repeatedly
+function onDrawFrame(now) {
+    now *= 0.001;  // convert to seconds
+    const deltaTime = now - mThen;
+    mThen = now;
 
-        // update video texture
-        if (mCopyVideo) {
-            updateYUVTextureFromVideo(gl, mYUVVideoTexture, mVideo);
-        }
-
-        // draw scene
-        drawScene(gl, basicProgram, basicTexProgram, diffuseLightingProgram, deltaTime);
-
-        if (now - oneSecThen > 1) {
-            oneSecThen = now;
-            // update fps
-            document.getElementById("FPS").innerHTML = 'FPS: ' + (1.0 / deltaTime).toFixed(2);
-        }
-
-        requestAnimationFrame(render);
+    // update video texture
+    if (mCopyVideo) {
+        updateYUVTextureFromVideo(mGl, mYUVVideoTexture, mVideo);
     }
-    requestAnimationFrame(render);
+
+    // draw scene
+    drawScene(mGl, mBasicProgram, mBasicTexProgram, mDiffuseLightingProgram, deltaTime);
+
+    if (now - mOneSecThen > 1) {
+        mOneSecThen = now;
+        // update fps
+        document.getElementById("FPS").innerHTML = 'FPS: ' + (1.0 / deltaTime).toFixed(2);
+    }
+
+    // requestRender();
+}
+
+function requestRender() {
+    requestAnimationFrame(onDrawFrame);
 }
 
 function makeVerticesForString(fontInfo, str) {
@@ -2914,6 +2998,7 @@ function loadTexture(gl, url) {
          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
       }
+      requestRender();
     };
     image.src = url;
   
@@ -2977,6 +3062,7 @@ function loadTextureByParams(gl, url, isMipmap, minNearest, magNearest, sRepeat,
         else
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
       }
+      requestRender();
     };
     image.src = url;
   
@@ -3953,36 +4039,50 @@ function drawScene(gl, basicProgram, basicTexProgram, diffuseLightingProgram, de
     // }
 
     updateHtmlParamByRender();
+
+    if (mNeedDrawCobraAnim) {
+        requestRender();
+    }
 }
 
 function updateModelMatrixByInput() {
     mTranslateX = document.getElementById("id_m03").value;
     mTranslateY = document.getElementById("id_m13").value;
     mTranslateZ = document.getElementById("id_m23").value;
+
+    requestRender();
 }
 
 function updateEulerAngleByInput() {
     mPitching = document.getElementById("id_pitch").value * DEGREE_TO_RADIUS;
     mYawing = document.getElementById("id_yaw").value * DEGREE_TO_RADIUS;
     mRolling = document.getElementById("id_roll").value * DEGREE_TO_RADIUS;
+
+    requestRender();
 }
 
 function updateEulerAngleByInputEular() {
     mPitching = document.getElementById("id_pitch_eular").value * DEGREE_TO_RADIUS;
     mYawing = document.getElementById("id_yaw_eular").value * DEGREE_TO_RADIUS;
     mRolling = document.getElementById("id_roll_eular").value * DEGREE_TO_RADIUS;
+
+    requestRender();
 }
 
 function updateTranslateByInput() {
     mTranslateX = document.getElementById("id_translate_x").value;
     mTranslateY = document.getElementById("id_translate_y").value;
     mTranslateZ = document.getElementById("id_translate_z").value;
+
+    requestRender();
 }
 
 function updateScaleByInput() {
     mScaleX = document.getElementById("id_scale_x").value;
     mScaleY = document.getElementById("id_scale_y").value;
     mScaleZ = document.getElementById("id_scale_z").value;
+
+    requestRender();
 }
 
 function updateHtmlParamByRender() {
@@ -4104,6 +4204,8 @@ function updateViewMatrixByMouse() {
     document.getElementById("id_cameraup_z").value = mCameraUp[2];
     updateViewMatrixHtml();
     updateViewFrustumPose();
+    
+    requestRender();
 }
 
 function updateViewMatrixByInput() {
@@ -4123,6 +4225,8 @@ function updateViewMatrixByInput() {
     mat4.invert(mVIMatrix, mVIMatrix);
     updateViewMatrixHtml();
     updateViewFrustumPose();
+
+    requestRender();
 }
 
 function updateViewMatrixHtml() {
@@ -4269,6 +4373,8 @@ function updateAxisAngleValue() {
     mRotAxis[1] = document.getElementById("id_axis_y").value;
     mRotAxis[2] = document.getElementById("id_axis_z").value;
     mRotAngle = document.getElementById("id_axis_angle").value * DEGREE_TO_RADIUS;
+
+    requestRender();
 }
 
 function updateQuaternionValue() {
@@ -4293,6 +4399,8 @@ function updateProjMatrixByInput() {
     updateFarPlane();
 
     updateProjMatrixHtml();
+
+    requestRender();
 }
 
 function executePitching(step) {
