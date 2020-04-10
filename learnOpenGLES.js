@@ -39,10 +39,9 @@ const COBRA_STEP2_FRAME_CNT = 50;
 const COBRA_Z_OFFSET = 1.3;
 const COBRA_Y_OFFSET = 1.3;
 // basic
-var mCanvas = null;
+var mGLCanvas = null;
+var mGLView = null;
 // Initialize the GL context
-var mGl = null;
-var mThen = 0;
 var mOneSecThen = 0;
 var mBasicProgram = null;
 var mBasicTexProgram = null;
@@ -230,6 +229,7 @@ var mFallingLeaf4Quat = quat.create();   // quat.fromEuler(FALLING_LEAF_QUAT, 80
 var mCobraStep2Quat = quat.create();    // quat.fromEuler(COBRA_STEP2_QUAT, 0, 0, 0);
 var mCobraZOffset = 0.0;
 var mCobraYOffset = 0.0;
+
 // draw font
 const FONTINFO = {
     letterHeight: 8,
@@ -312,6 +312,186 @@ var language_pack = {
 $(document).ready(function(){
     language_pack.loadProperties(0);
 });
+
+class GLScene extends GLCanvas {
+    constructor(glView) {
+        super(glView);
+    }
+
+    onGLCreated() {
+        console.log("GLScene, onGLCreated");
+         // init light value
+         updateLightSwitch();
+         updateAmbientColor();
+         updateDiffuseColor();
+         updateSpecularColor();
+         updateSpecularShininess();
+ 
+         // initialize anim params
+         mCobraStep1Quat = quat.fromEuler(mCobraStep1Quat, 120, 0, 30);
+         mFallingLeaf1Quat = quat.fromEuler(mFallingLeaf1Quat, 100, -20, 90);
+         mFallingLeaf2Quat = quat.fromEuler(mFallingLeaf2Quat, 80, -40, 180);
+         mFallingLeaf3Quat = quat.fromEuler(mFallingLeaf3Quat, 60, -20, 270);
+         mFallingLeaf4Quat = quat.fromEuler(mFallingLeaf4Quat, 40, 0, 360);
+         mCobraStep2Quat = quat.fromEuler(mCobraStep2Quat, 0, 0, 0);
+         updateInitQuatHtmlValue();
+ 
+         // mouse
+         mGLView.onmousedown = handleMouseDown;
+         mGLView.onmouseup = handleMouseUp;
+         mGLView.onmousemove = handleMouseMove;
+         mGLView.onmouseout = handleMouseOut;
+         // mouse wheel 
+    }
+
+    onGLResourcesLoading() {
+        console.log("GLScene, onGLResourcesLoading");
+    }
+
+    onGLResize(width, height) {
+        console.log("GLScene, onGLResize");
+        let gl = this.getGL();
+       
+        mViewportWidth = width / 2;
+        mViewportHeight = height;
+
+        // create view matrix
+        mEye = vec3.fromValues(mLastEyePosX, mLastEyePosY, mLastEyePosZ);
+        mLookAtCenter = vec3.fromValues(mLastLookAtX, mLastLookAtY, mLastLookAtZ);
+        mCameraUp = vec3.fromValues(0.0, 1.0, 0.0);
+        vec3.copy(mLastCameraUp, mCameraUp);
+        mViewMatrix = mat4.create();
+        mat4.lookAt(mViewMatrix, mEye, mLookAtCenter, mCameraUp);
+        mat4.copy(mVIMatrix, mViewMatrix);
+        mat4.invert(mVIMatrix, mVIMatrix);
+        updateViewMatrixHtml();
+
+        // Create a perspective matrix
+        mAspect = mViewportWidth / mViewportHeight; // gl.canvas.clientWidth / gl.canvas.clientHeight;
+
+        // note: glmatrix.js always has the first argument
+        // as the destination to receive the result.
+        mProjectionMatrix = mat4.create();
+        mat4.perspective(mProjectionMatrix, 2 * mHalfFov, mAspect, mNear, mFar);
+        updateProjMatrixHtml();
+        // ortho
+        // mat4.ortho(mProjectionMatrix, -mAspect, mAspect, -1, 1, mNear, mFar);
+
+        // god view matrix
+        mGodViewMatrix = mat4.create();
+        mat4.lookAt(mGodViewMatrix, vec3.fromValues(12.0, 12.0, 12.0), mLookAtCenter, mCameraUp);
+        mat4.copy(mGodVIMatrix, mGodViewMatrix);
+        mat4.invert(mGodVIMatrix, mGodVIMatrix);
+        mGodProjectionMatrix = mat4.create();
+        mat4.perspective(mGodProjectionMatrix, HALF_FOV, mAspect, GOD_FRUSTOM_NEAR, GOD_FRUSTOM_FAR);
+        mat4.multiply(mGodMvpMatrix, mGodProjectionMatrix, mGodViewMatrix);
+        mat4.copy(mViewFrustumMvpMatrix, mGodMvpMatrix);
+
+        // init shader
+        updateBackgroundShader();
+        updateLightShader();
+        updateSphereShader();
+        updateYUVVideoShader();
+        mBasicProgram = initBasicShader(gl);
+        mBasicTexProgram = initBasicTexShader(gl);
+        mDiffuseLightingProgram = initDiffuseLightingShader(gl);
+
+        // Here's where we call the routine that builds all the objects we'll be drawing.
+        initObjectBuffers(gl);
+        // texture
+        mObjectDiffuseTexture = loadTexture(gl, './texture/Su-27_diffuse.png');
+        mObjectNormalTexture = loadTexture(gl, './texture/Su-27_normal.png');
+        mBackgroundTexture = loadTexture(gl, './texture/bg_sky.jpg');
+        mUVDemoTexture = loadTextureByParams(gl, './texture/spider.png', false, false, false, true, true);
+        mYUVVideoTexture = createTexture(gl);
+        
+        updateViewFrustum();
+        setViewFrustumColor();
+        updateNearPlane();
+        updateFarPlane();
+        setNearFarPlaneColor();
+        mAxisBuffer = initAxisBuffers(gl);
+        mAngleAxisBuffer = initAngleAxisBuffers(gl);
+        mAssistObjectBuffer = initCylinderBuffers(gl, 0.05, 0.5, 10, vec4.fromValues(1.0, 0.0, 0.0, 1.0), mAssistCoord, TubeDir.DIR_Z);
+        // mPivotBuffer = initCylinderBuffers(gl, 0.05, 2.4, 10, vec4.fromValues(1.0, 1.0, 0.0, 1.0), vec3.fromValues(0.0, 0.0, 0.0), TubeDir.DIR_Y);
+        // mGimbalZPivot1Buffer = initCylinderBuffers(gl, 0.05, 0.2, 10, vec4.fromValues(0.0, 0.0, 1.0, 1.0), vec3.fromValues(1.5, 0.0, 0.0), TubeDir.DIR_X);
+        // mGimbalZPivot2Buffer = initCylinderBuffers(gl, 0.05, 0.2, 10, vec4.fromValues(0.0, 0.0, 1.0, 1.0), vec3.fromValues(-1.5, 0.0, 0.0), TubeDir.DIR_X);
+        // mGimbalXPivot1Buffer = initCylinderBuffers(gl, 0.05, 0.2, 10, vec4.fromValues(1.0, 0.0, 0.0, 1.0), vec3.fromValues(0.0, 0.0, 1.3), TubeDir.DIR_Z);
+        // mGimbalXPivot2Buffer = initCylinderBuffers(gl, 0.05, 0.2, 10, vec4.fromValues(1.0, 0.0, 0.0, 1.0), vec3.fromValues(0.0, 0.0, -1.3), TubeDir.DIR_Z);
+        mGimbalXBuffer = initTubeBuffers(gl, 1.2 ,1.3, 0.1, 30, vec4.fromValues(1.0, 0.0, 0.0, 1.0), TubeDir.DIR_X);
+        mGimbalYBuffer = initTubeBuffers(gl, 1.4 ,1.5, 0.1, 30, vec4.fromValues(0.0, 1.0, 0.0, 1.0), TubeDir.DIR_Y);
+        mGimbalZBuffer = initTubeBuffers(gl, 1.6 ,1.7, 0.1, 30, vec4.fromValues(0.0, 0.0, 1.0, 1.0), TubeDir.DIR_Z);
+
+        // init cloud
+        mCloudPlaneBuffer = initCloudBuffer(gl);
+        mCloudProgram = initCloudAnimShader(gl);
+        mCloudTexture = loadTexture(gl, './texture/cloud.png');
+
+        // init sphere
+        mSphereBuffer = initSphereBuffers(gl, 1.0, 30, vec4.fromValues(1.0, 1.0, 1.0, 1.0));
+        // background
+        initBackground();
+        initUVDemo();
+        mBackgroundBuffer = updateBackgroundBuffer(gl);
+        mUVDemoPlaneBuffer = updateUVDemoBuffer(gl);
+        mUVDemoAssistPlaneBuffer = updateUVDemoAssistBuffer(gl);
+        mUVDemoAssistUVAxisBuffer = updateUVDemoAssistAxisBuffer(gl);
+        mUVDemoAssistCubeBuffer = updateUVDemoAssistCubeBuffer(gl);
+        
+        requestRender();
+    }
+
+    onDrawFrame(now, deltaTime) {
+        let gl = this.getGL();
+
+        // update video texture
+        if (mCopyVideo) {
+            updateYUVTextureFromVideo(gl, mYUVVideoTexture, mVideo);
+        }
+
+        // draw scene
+        drawScene(gl, mBasicProgram, mBasicTexProgram, mDiffuseLightingProgram, deltaTime);
+
+        if (now - mOneSecThen > 1) {
+            mOneSecThen = now;
+            // update fps
+            document.getElementById("FPS").innerHTML = 'FPS: ' + (1.0 / deltaTime).toFixed(2);
+        }
+    }
+
+    onGLDestoryed() {
+        console.log("GLScene, onGLDestoryed");
+        // TODO gl delete?
+
+    }
+}
+
+function requestRender() {
+    if (null != mGLCanvas) {
+        mGLCanvas.requestRender();
+    }
+}
+
+function onSurfaceCreated(id) {
+    mGLView = document.getElementById(id);
+    mGLCanvas = new GLScene(mGLView);
+    mGLCanvas.create();
+    onSurfaceChanged();
+}
+
+function onSurfaceChanged() {
+    if (null != mGLCanvas && null != mGLView) {
+        mGLCanvas.resize(mGLView.clientWidth, mGLView.clientHeight);
+    }
+}
+
+function onDestoryed() {
+    if (null != mGLCanvas) {
+        mGLCanvas.destory();
+        mGLCanvas = null;
+    }
+    mGLView = null;
+}
 
 function languageSelect(language) {
     if (language.value == "zh_cn") {
@@ -1999,6 +2179,8 @@ function updateUVData() {
     const gl = canvas.getContext("webgl") || canvas.getContext('experimental-webgl');
     mUVDemoPlaneBuffer = updateUVDemoBuffer(gl);
     mUVDemoAssistCubeBuffer = updateUVDemoAssistCubeBuffer(gl);
+
+    requestRender();
 }
 
 function updateUVDemoBuffer(gl) {
@@ -2492,11 +2674,12 @@ function demoYUVVideo() {
 
      // FBO
      if (!mYUVInited) {
+        let gl = mGLCanvas.getGL();
         initYUVVideoDemo();
-        mYUVVideoPlaneBuffer = updateYUVVideoDemoBuffer(mGl);
+        mYUVVideoPlaneBuffer = updateYUVVideoDemoBuffer(gl);
         mVideo = setupVideo('./texture/f9.mp4')
 
-        mFrameBufferObject = new FrameBufferObject(mGl, mGl.TEXTURE0, 720, 1280); // video's width and height
+        mFrameBufferObject = new FrameBufferObject(gl, gl.TEXTURE0, 720, 1280); // video's width and height
         mYUVInited = true;
      }
 }
@@ -2671,156 +2854,6 @@ function addEvent(obj, xEvent, fn) {
     } else {
         obj.addEventListener(xEvent, fn, false);
     }
-}
-
-function main() {
-    mCanvas = document.querySelector("#glcanvas");
-    // Initialize the GL context
-    mGl = mCanvas.getContext("webgl") || mCanvas.getContext('experimental-webgl');
-
-    // Only continue if WebGL is available and working
-    if (!mGl) {
-        alert("Unable to initialize WebGL. Your browser or machine may not support it.");
-        return;
-    }
-
-    // init light value
-    updateLightSwitch();
-    updateAmbientColor();
-    updateDiffuseColor();
-    updateSpecularColor();
-    updateSpecularShininess();
-
-    // initialize anim params
-    mCobraStep1Quat = quat.fromEuler(mCobraStep1Quat, 120, 0, 30);
-    mFallingLeaf1Quat = quat.fromEuler(mFallingLeaf1Quat, 100, -20, 90);
-    mFallingLeaf2Quat = quat.fromEuler(mFallingLeaf2Quat, 80, -40, 180);
-    mFallingLeaf3Quat = quat.fromEuler(mFallingLeaf3Quat, 60, -20, 270);
-    mFallingLeaf4Quat = quat.fromEuler(mFallingLeaf4Quat, 40, 0, 360);
-    mCobraStep2Quat = quat.fromEuler(mCobraStep2Quat, 0, 0, 0);
-    updateInitQuatHtmlValue();
-
-    // mouse
-    mCanvas.onmousedown = handleMouseDown;
-    mCanvas.onmouseup = handleMouseUp;
-    mCanvas.onmousemove = handleMouseMove;
-    mCanvas.onmouseout = handleMouseOut;
-    // mouse wheel
-
-    mViewportWidth = mCanvas.clientWidth / 2;
-    mViewportHeight = mCanvas.clientHeight;
-
-    // create view matrix
-    mEye = vec3.fromValues(mLastEyePosX, mLastEyePosY, mLastEyePosZ);
-    mLookAtCenter = vec3.fromValues(mLastLookAtX, mLastLookAtY, mLastLookAtZ);
-    mCameraUp = vec3.fromValues(0.0, 1.0, 0.0);
-    vec3.copy(mLastCameraUp, mCameraUp);
-    mViewMatrix = mat4.create();
-    mat4.lookAt(mViewMatrix, mEye, mLookAtCenter, mCameraUp);
-    mat4.copy(mVIMatrix, mViewMatrix);
-    mat4.invert(mVIMatrix, mVIMatrix);
-    updateViewMatrixHtml();
-
-    // Create a perspective matrix
-    mAspect = mViewportWidth / mViewportHeight; // gl.canvas.clientWidth / gl.canvas.clientHeight;
-
-    // note: glmatrix.js always has the first argument
-    // as the destination to receive the result.
-    mProjectionMatrix = mat4.create();
-    mat4.perspective(mProjectionMatrix, 2 * mHalfFov, mAspect, mNear, mFar);
-    updateProjMatrixHtml();
-    // ortho
-    // mat4.ortho(mProjectionMatrix, -mAspect, mAspect, -1, 1, mNear, mFar);
-
-    // god view matrix
-    mGodViewMatrix = mat4.create();
-    mat4.lookAt(mGodViewMatrix, vec3.fromValues(12.0, 12.0, 12.0), mLookAtCenter, mCameraUp);
-    mat4.copy(mGodVIMatrix, mGodViewMatrix);
-    mat4.invert(mGodVIMatrix, mGodVIMatrix);
-    mGodProjectionMatrix = mat4.create();
-    mat4.perspective(mGodProjectionMatrix, HALF_FOV, mAspect, GOD_FRUSTOM_NEAR, GOD_FRUSTOM_FAR);
-    mat4.multiply(mGodMvpMatrix, mGodProjectionMatrix, mGodViewMatrix);
-    mat4.copy(mViewFrustumMvpMatrix, mGodMvpMatrix);
-
-    // init shader
-    updateBackgroundShader();
-    updateLightShader();
-    updateSphereShader();
-    updateYUVVideoShader();
-    mBasicProgram = initBasicShader(mGl);
-    mBasicTexProgram = initBasicTexShader(mGl);
-    mDiffuseLightingProgram = initDiffuseLightingShader(mGl);
-
-    // Here's where we call the routine that builds all the objects we'll be drawing.
-    initObjectBuffers(mGl);
-    // texture
-    mObjectDiffuseTexture = loadTexture(mGl, './texture/Su-27_diffuse.png');
-    mObjectNormalTexture = loadTexture(mGl, './texture/Su-27_normal.png');
-    mBackgroundTexture = loadTexture(mGl, './texture/bg_sky.jpg');
-    mUVDemoTexture = loadTextureByParams(mGl, './texture/spider.png', false, false, false, true, true);
-    mYUVVideoTexture = createTexture(mGl);
-    
-    updateViewFrustum();
-    setViewFrustumColor();
-    updateNearPlane();
-    updateFarPlane();
-    setNearFarPlaneColor();
-    mAxisBuffer = initAxisBuffers(mGl);
-    mAngleAxisBuffer = initAngleAxisBuffers(mGl);
-    mAssistObjectBuffer = initCylinderBuffers(mGl, 0.05, 0.5, 10, vec4.fromValues(1.0, 0.0, 0.0, 1.0), mAssistCoord, TubeDir.DIR_Z);
-    // mPivotBuffer = initCylinderBuffers(gl, 0.05, 2.4, 10, vec4.fromValues(1.0, 1.0, 0.0, 1.0), vec3.fromValues(0.0, 0.0, 0.0), TubeDir.DIR_Y);
-    // mGimbalZPivot1Buffer = initCylinderBuffers(gl, 0.05, 0.2, 10, vec4.fromValues(0.0, 0.0, 1.0, 1.0), vec3.fromValues(1.5, 0.0, 0.0), TubeDir.DIR_X);
-    // mGimbalZPivot2Buffer = initCylinderBuffers(gl, 0.05, 0.2, 10, vec4.fromValues(0.0, 0.0, 1.0, 1.0), vec3.fromValues(-1.5, 0.0, 0.0), TubeDir.DIR_X);
-    // mGimbalXPivot1Buffer = initCylinderBuffers(gl, 0.05, 0.2, 10, vec4.fromValues(1.0, 0.0, 0.0, 1.0), vec3.fromValues(0.0, 0.0, 1.3), TubeDir.DIR_Z);
-    // mGimbalXPivot2Buffer = initCylinderBuffers(gl, 0.05, 0.2, 10, vec4.fromValues(1.0, 0.0, 0.0, 1.0), vec3.fromValues(0.0, 0.0, -1.3), TubeDir.DIR_Z);
-    mGimbalXBuffer = initTubeBuffers(mGl, 1.2 ,1.3, 0.1, 30, vec4.fromValues(1.0, 0.0, 0.0, 1.0), TubeDir.DIR_X);
-    mGimbalYBuffer = initTubeBuffers(mGl, 1.4 ,1.5, 0.1, 30, vec4.fromValues(0.0, 1.0, 0.0, 1.0), TubeDir.DIR_Y);
-    mGimbalZBuffer = initTubeBuffers(mGl, 1.6 ,1.7, 0.1, 30, vec4.fromValues(0.0, 0.0, 1.0, 1.0), TubeDir.DIR_Z);
-
-    // init cloud
-    mCloudPlaneBuffer = initCloudBuffer(mGl);
-    mCloudProgram = initCloudAnimShader(mGl);
-    mCloudTexture = loadTexture(mGl, './texture/cloud.png');
-
-    // init sphere
-    mSphereBuffer = initSphereBuffers(mGl, 1.0, 30, vec4.fromValues(1.0, 1.0, 1.0, 1.0));
-    // background
-    initBackground();
-    initUVDemo();
-    mBackgroundBuffer = updateBackgroundBuffer(mGl);
-    mUVDemoPlaneBuffer = updateUVDemoBuffer(mGl);
-    mUVDemoAssistPlaneBuffer = updateUVDemoAssistBuffer(mGl);
-    mUVDemoAssistUVAxisBuffer = updateUVDemoAssistAxisBuffer(mGl);
-    mUVDemoAssistCubeBuffer = updateUVDemoAssistCubeBuffer(mGl);
-    
-    requestRender();
-}
-
-// Draw the scene repeatedly
-function onDrawFrame(now) {
-    now *= 0.001;  // convert to seconds
-    const deltaTime = now - mThen;
-    mThen = now;
-
-    // update video texture
-    if (mCopyVideo) {
-        updateYUVTextureFromVideo(mGl, mYUVVideoTexture, mVideo);
-    }
-
-    // draw scene
-    drawScene(mGl, mBasicProgram, mBasicTexProgram, mDiffuseLightingProgram, deltaTime);
-
-    if (now - mOneSecThen > 1) {
-        mOneSecThen = now;
-        // update fps
-        document.getElementById("FPS").innerHTML = 'FPS: ' + (1.0 / deltaTime).toFixed(2);
-    }
-
-    // requestRender();
-}
-
-function requestRender() {
-    requestAnimationFrame(onDrawFrame);
 }
 
 function makeVerticesForString(fontInfo, str) {

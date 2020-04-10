@@ -3,7 +3,7 @@
     <head>
         <meta charset="UTF-8">
         <title>LearnOpenGLES</title>
-        <script src="FrameBufferObject.js"></script>
+        <script src="base/FrameBufferObject.js"></script>
         <script src="public/gl-matrix.js"></script>
         <script src="public/three/three.js"></script>
         <script src="public/three/OBJLoader.js"></script>
@@ -72,10 +72,15 @@
                 display: flex;
             }
         </style>
+        <script src="base/GLCanvas.js"></script>
         <script src="learnOpenGLES.js"></script>
     </head>
 
-    <body onload="main();" style="background: #ffffff" onkeypress="onKeyPress(event)">
+    <body style="background: #ffffff" 
+          onload="onSurfaceCreated('glcanvas');" 
+          onresize="onSurfaceChanged()"
+          onunload="onDestoryed()"
+          onkeypress="onKeyPress(event)">
         <div id="vertical">
             <div id="horizontal">
                 <div style="width: 230px; background: #ffffff">
@@ -139,7 +144,7 @@
                     </ul> 
                 </div>
 
-                <canvas id="glcanvas" width="1440" height="720"></canvas>
+                <canvas id="glcanvas" width="1440" height="720">Looks like your browser do not support WebGL!</canvas>
             </div>
             <div id="id_shader">
                 <button style="display:block; width: 230px; height: 50px" onclick="updateBackgroundShader()" data-lang="compile_and_run_shader">编译并运行着色器&#13;&#10;(左窗口背景绘制为例)</button>
