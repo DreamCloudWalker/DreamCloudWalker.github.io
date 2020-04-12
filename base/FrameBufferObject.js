@@ -13,10 +13,17 @@ var FrameBufferObject = function(gl, activeTextureType, width, height) {
     // recover 
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.bindRenderbuffer(gl.RENDERBUFFER, null);
+
+    this.getTextureId = function() {
+        return mTextureId;
+    }
     
     this.bind = function () {
-        gl.viewport(0, 0, width, height);
         gl.bindFramebuffer(gl.FRAMEBUFFER, mFrameBufferId);
+
+        gl.viewport(0, 0, width, height);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
         // 绑定2D纹理关联到fbo
         gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, mTextureId, 0);
         // 绑定fbo纹理到渲染缓冲区对象
@@ -29,9 +36,15 @@ var FrameBufferObject = function(gl, activeTextureType, width, height) {
         }
     }
 
-    this.unbind = function() {
+    this.unbind = function() {  // will render to canvas after unbind
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
         gl.bindRenderbuffer(gl.RENDERBUFFER, null);
+    }
+
+    this.release = function() {
+        gl.deleteTexture(mTextureId);
+        gl.deleteFramebuffer(mFrameBufferId);
+        gl.deleteRenderbuffer(mRenderBufferId);
     }
 
     function generateTextureID(gl, width, height) {

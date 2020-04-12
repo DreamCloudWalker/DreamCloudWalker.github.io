@@ -75,8 +75,9 @@ class GLCanvas {
         if (!instance.mIsGLValid) 
             return;
         requestAnimationFrame(function () {
-            let time      = new Date().getTime();
+            let time      = new Date().getTime();   
             let deltaTime = time - instance.mRenderTime;
+            deltaTime *= 0.001; // convert to seconds
             instance.mRenderTime = time;
             instance.onDrawFrame.call(instance, time, deltaTime);
         });

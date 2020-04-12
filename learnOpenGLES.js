@@ -38,6 +38,14 @@ const FALLING_LEAF4_FRAME_CNT = 30;
 const COBRA_STEP2_FRAME_CNT = 50;
 const COBRA_Z_OFFSET = 1.3;
 const COBRA_Y_OFFSET = 1.3;
+// video filter mode
+const VideoFilter = {
+    NORMAL: 0, 
+    INVERSE: 1, 
+    SNOW_REMINISCENCE: 2, 
+    LUT_ILLUSION: 3, 
+    SOUL_OUT: 4,
+};
 // basic
 var mGLCanvas = null;
 var mGLView = null;
@@ -94,15 +102,28 @@ var mUVDemoAssistUVAxisVertices = [];
 var mUVDemoAssistUVAxisColor = [];
 // draw YUV Video
 var mYUVInited = false;
+var mVideoFilter = VideoFilter.NORMAL;
 var mVideo = null;
 var mYUVVideoProgram = null;
+// var mYUVVideoCurFrameProgram = null;mYUVNotFirstFrame
 var mCopyVideo = false;
 var mNeedDrawYUVVideo = false;
 var mYUVVideoPlaneBuffer = null;
+var mYUVVideoPlaneRot180Buffer = null;
 var mYUVVideoTexture = null;
 var mYUVVideoPlaneVertices = [];
+var mYUVVideoPlaneRot180Vertices = [];
 var mYUVVideoPlaneUvs = [];
+var mYUVVideoPlaneUvsRot90 = [];
+// var mYUVVideoPlaneUvRot90Buffer = null;
+var mSouloutModifyTime = 0
+// var mLutTexture = null;
+// var mNotFirstFrame = false;
+var mIdentityMatrix = mat4.create();
 var mFrameBufferObject = null;
+var mFrameBufferObject1 = null;
+// var mFrameBufferObject2 = null;
+// var mFrameBufferObject3 = null;
 // draw cloud anim plane
 var mCloudProgram = null;
 var mCloudPlaneBuffer = null;
@@ -320,6 +341,7 @@ class GLScene extends GLCanvas {
 
     onGLCreated() {
         console.log("GLScene, onGLCreated");
+        let gl = this.getGL();
          // init light value
          updateLightSwitch();
          updateAmbientColor();
@@ -342,6 +364,57 @@ class GLScene extends GLCanvas {
          mGLView.onmousemove = handleMouseMove;
          mGLView.onmouseout = handleMouseOut;
          // mouse wheel 
+
+         // init shader
+        updateBackgroundShader();
+        updateLightShader();
+        updateSphereShader();
+        updateYUVVideoShader();
+        mBasicProgram = initBasicShader(gl);
+        mBasicTexProgram = initBasicTexShader(gl);
+        mDiffuseLightingProgram = initDiffuseLightingShader(gl);
+
+        // Here's where we call the routine that builds all the objects we'll be drawing.
+        initObjectBuffers(gl);
+        // texture
+        mObjectDiffuseTexture = loadTexture(gl, './texture/Su-27_diffuse.png');
+        mObjectNormalTexture = loadTexture(gl, './texture/Su-27_normal.png');
+        mBackgroundTexture = loadTexture(gl, './texture/bg_sky.jpg');
+        mUVDemoTexture = loadTextureByParams(gl, './texture/spider.png', false, false, false, true, true);
+        mYUVVideoTexture = createTexture(gl);
+        // mLutTexture = loadTexture(gl, './texture/lookup_vertigo.png');
+        updateViewFrustum();
+        setViewFrustumColor();
+        updateNearPlane();
+        updateFarPlane();
+        setNearFarPlaneColor();
+        mAxisBuffer = initAxisBuffers(gl);
+        mAngleAxisBuffer = initAngleAxisBuffers(gl);
+        mAssistObjectBuffer = initCylinderBuffers(gl, 0.05, 0.5, 10, vec4.fromValues(1.0, 0.0, 0.0, 1.0), mAssistCoord, TubeDir.DIR_Z);
+        // mPivotBuffer = initCylinderBuffers(gl, 0.05, 2.4, 10, vec4.fromValues(1.0, 1.0, 0.0, 1.0), vec3.fromValues(0.0, 0.0, 0.0), TubeDir.DIR_Y);
+        // mGimbalZPivot1Buffer = initCylinderBuffers(gl, 0.05, 0.2, 10, vec4.fromValues(0.0, 0.0, 1.0, 1.0), vec3.fromValues(1.5, 0.0, 0.0), TubeDir.DIR_X);
+        // mGimbalZPivot2Buffer = initCylinderBuffers(gl, 0.05, 0.2, 10, vec4.fromValues(0.0, 0.0, 1.0, 1.0), vec3.fromValues(-1.5, 0.0, 0.0), TubeDir.DIR_X);
+        // mGimbalXPivot1Buffer = initCylinderBuffers(gl, 0.05, 0.2, 10, vec4.fromValues(1.0, 0.0, 0.0, 1.0), vec3.fromValues(0.0, 0.0, 1.3), TubeDir.DIR_Z);
+        // mGimbalXPivot2Buffer = initCylinderBuffers(gl, 0.05, 0.2, 10, vec4.fromValues(1.0, 0.0, 0.0, 1.0), vec3.fromValues(0.0, 0.0, -1.3), TubeDir.DIR_Z);
+        mGimbalXBuffer = initTubeBuffers(gl, 1.2 ,1.3, 0.1, 30, vec4.fromValues(1.0, 0.0, 0.0, 1.0), TubeDir.DIR_X);
+        mGimbalYBuffer = initTubeBuffers(gl, 1.4 ,1.5, 0.1, 30, vec4.fromValues(0.0, 1.0, 0.0, 1.0), TubeDir.DIR_Y);
+        mGimbalZBuffer = initTubeBuffers(gl, 1.6 ,1.7, 0.1, 30, vec4.fromValues(0.0, 0.0, 1.0, 1.0), TubeDir.DIR_Z);
+
+        // init cloud
+        mCloudPlaneBuffer = initCloudBuffer(gl);
+        mCloudProgram = initCloudAnimShader(gl);
+        mCloudTexture = loadTexture(gl, './texture/cloud.png');
+
+        // init sphere
+        mSphereBuffer = initSphereBuffers(gl, 1.0, 30, vec4.fromValues(1.0, 1.0, 1.0, 1.0));
+        // background
+        initBackground();
+        initUVDemo();
+        mBackgroundBuffer = updateBackgroundBuffer(gl);
+        mUVDemoPlaneBuffer = updateUVDemoBuffer(gl);
+        mUVDemoAssistPlaneBuffer = updateUVDemoAssistBuffer(gl);
+        mUVDemoAssistUVAxisBuffer = updateUVDemoAssistAxisBuffer(gl);
+        mUVDemoAssistCubeBuffer = updateUVDemoAssistCubeBuffer(gl);
     }
 
     onGLResourcesLoading() {
@@ -386,57 +459,6 @@ class GLScene extends GLCanvas {
         mat4.perspective(mGodProjectionMatrix, HALF_FOV, mAspect, GOD_FRUSTOM_NEAR, GOD_FRUSTOM_FAR);
         mat4.multiply(mGodMvpMatrix, mGodProjectionMatrix, mGodViewMatrix);
         mat4.copy(mViewFrustumMvpMatrix, mGodMvpMatrix);
-
-        // init shader
-        updateBackgroundShader();
-        updateLightShader();
-        updateSphereShader();
-        updateYUVVideoShader();
-        mBasicProgram = initBasicShader(gl);
-        mBasicTexProgram = initBasicTexShader(gl);
-        mDiffuseLightingProgram = initDiffuseLightingShader(gl);
-
-        // Here's where we call the routine that builds all the objects we'll be drawing.
-        initObjectBuffers(gl);
-        // texture
-        mObjectDiffuseTexture = loadTexture(gl, './texture/Su-27_diffuse.png');
-        mObjectNormalTexture = loadTexture(gl, './texture/Su-27_normal.png');
-        mBackgroundTexture = loadTexture(gl, './texture/bg_sky.jpg');
-        mUVDemoTexture = loadTextureByParams(gl, './texture/spider.png', false, false, false, true, true);
-        mYUVVideoTexture = createTexture(gl);
-        
-        updateViewFrustum();
-        setViewFrustumColor();
-        updateNearPlane();
-        updateFarPlane();
-        setNearFarPlaneColor();
-        mAxisBuffer = initAxisBuffers(gl);
-        mAngleAxisBuffer = initAngleAxisBuffers(gl);
-        mAssistObjectBuffer = initCylinderBuffers(gl, 0.05, 0.5, 10, vec4.fromValues(1.0, 0.0, 0.0, 1.0), mAssistCoord, TubeDir.DIR_Z);
-        // mPivotBuffer = initCylinderBuffers(gl, 0.05, 2.4, 10, vec4.fromValues(1.0, 1.0, 0.0, 1.0), vec3.fromValues(0.0, 0.0, 0.0), TubeDir.DIR_Y);
-        // mGimbalZPivot1Buffer = initCylinderBuffers(gl, 0.05, 0.2, 10, vec4.fromValues(0.0, 0.0, 1.0, 1.0), vec3.fromValues(1.5, 0.0, 0.0), TubeDir.DIR_X);
-        // mGimbalZPivot2Buffer = initCylinderBuffers(gl, 0.05, 0.2, 10, vec4.fromValues(0.0, 0.0, 1.0, 1.0), vec3.fromValues(-1.5, 0.0, 0.0), TubeDir.DIR_X);
-        // mGimbalXPivot1Buffer = initCylinderBuffers(gl, 0.05, 0.2, 10, vec4.fromValues(1.0, 0.0, 0.0, 1.0), vec3.fromValues(0.0, 0.0, 1.3), TubeDir.DIR_Z);
-        // mGimbalXPivot2Buffer = initCylinderBuffers(gl, 0.05, 0.2, 10, vec4.fromValues(1.0, 0.0, 0.0, 1.0), vec3.fromValues(0.0, 0.0, -1.3), TubeDir.DIR_Z);
-        mGimbalXBuffer = initTubeBuffers(gl, 1.2 ,1.3, 0.1, 30, vec4.fromValues(1.0, 0.0, 0.0, 1.0), TubeDir.DIR_X);
-        mGimbalYBuffer = initTubeBuffers(gl, 1.4 ,1.5, 0.1, 30, vec4.fromValues(0.0, 1.0, 0.0, 1.0), TubeDir.DIR_Y);
-        mGimbalZBuffer = initTubeBuffers(gl, 1.6 ,1.7, 0.1, 30, vec4.fromValues(0.0, 0.0, 1.0, 1.0), TubeDir.DIR_Z);
-
-        // init cloud
-        mCloudPlaneBuffer = initCloudBuffer(gl);
-        mCloudProgram = initCloudAnimShader(gl);
-        mCloudTexture = loadTexture(gl, './texture/cloud.png');
-
-        // init sphere
-        mSphereBuffer = initSphereBuffers(gl, 1.0, 30, vec4.fromValues(1.0, 1.0, 1.0, 1.0));
-        // background
-        initBackground();
-        initUVDemo();
-        mBackgroundBuffer = updateBackgroundBuffer(gl);
-        mUVDemoPlaneBuffer = updateUVDemoBuffer(gl);
-        mUVDemoAssistPlaneBuffer = updateUVDemoAssistBuffer(gl);
-        mUVDemoAssistUVAxisBuffer = updateUVDemoAssistAxisBuffer(gl);
-        mUVDemoAssistCubeBuffer = updateUVDemoAssistCubeBuffer(gl);
         
         requestRender();
     }
@@ -450,9 +472,9 @@ class GLScene extends GLCanvas {
         }
 
         // draw scene
-        drawScene(gl, mBasicProgram, mBasicTexProgram, mDiffuseLightingProgram, deltaTime);
+        drawScene(gl, mBasicProgram, mBasicTexProgram, mDiffuseLightingProgram, now, deltaTime);
 
-        if (now - mOneSecThen > 1) {
+        if (now - mOneSecThen > 1000) {
             mOneSecThen = now;
             // update fps
             document.getElementById("FPS").innerHTML = 'FPS: ' + (1.0 / deltaTime).toFixed(2);
@@ -1239,8 +1261,6 @@ function updateBuffer(gl, vertices, colors) {
         position: positionBuffer,
         color: colorBuffer,
     };
-
-    requestRender();
 }
 
 function updateViewFrustum() {
@@ -1901,7 +1921,7 @@ function setupVideo(url) {
     videoElement.autoplay = true;
     videoElement.src = url;
     // videoElement.muted = true;
-    // videoElement.loop = true;
+    videoElement.loop = true;
 
     videoElement.addEventListener('playing', function() {
         playing = true;
@@ -1934,10 +1954,10 @@ function setupVideo(url) {
 function initYUVVideoDemo() {
     // init uv demo plane, hard coded, choose a 16:9 video
     const vertexCoords = [
-        [-1.41,  -2.5, -0.0],
-        [ 1.41,  -2.5, -0.0],
-        [-1.41,   2.5, -0.0],
-        [ 1.41,   2.5, -0.0],
+        [-1.41,  -2.5, 0.0],
+        [ 1.41,  -2.5, 0.0],
+        [-1.41,   2.5, 0.0],
+        [ 1.41,   2.5, 0.0],
     ];
     for (var j = 0; j < vertexCoords.length; ++j) {
         const v = vertexCoords[j];
@@ -1946,8 +1966,21 @@ function initYUVVideoDemo() {
         mYUVVideoPlaneVertices = mYUVVideoPlaneVertices.concat(v);  // merge arrays to one
     }
 
+    const vertexCoordsRot180 = [
+        [-1.41,   2.5, 0.0],
+        [ 1.41,   2.5, 0.0],
+        [-1.41,  -2.5, 0.0],
+        [ 1.41,  -2.5, 0.0],
+    ];
+    for (var j = 0; j < vertexCoordsRot180.length; ++j) {
+        const v = vertexCoordsRot180[j];
+    
+        // Repeat each color four times for the four vertices of the face
+        mYUVVideoPlaneRot180Vertices = mYUVVideoPlaneRot180Vertices.concat(v);  // merge arrays to one
+    }
+
     const uvCoords = [
-        0.0,    1.0, 
+        0.0,    1.0,     // normal
         1.0,    1.0, 
         0.0,    0.0, 
         1.0,    0.0
@@ -1956,13 +1989,24 @@ function initYUVVideoDemo() {
     for (var i = 0; i < uvCoords.length; i++) {
         mYUVVideoPlaneUvs.push(uvCoords[i]);
     }
+
+    const uvCoordsRot90 = [
+        1.0, 1.0,   // rotate 90
+        1.0, 0.0,
+        0.0, 1.0,
+        0.0, 0.0
+    ];
+    mYUVVideoPlaneUvsRot90.splice(0, mYUVVideoPlaneUvsRot90);
+    for (var i = 0; i < uvCoordsRot90.length; i++) {
+        mYUVVideoPlaneUvsRot90.push(uvCoordsRot90[i]);
+    }
 }
 
-function updateYUVVideoDemoBuffer(gl) {
+function updateYUVVideoDemoBuffer(gl, vertices) {
     const positionBuffer = gl.createBuffer();
     // Select the positionBuffer as the one to apply buffer operations to from here out.
     gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(mYUVVideoPlaneVertices), gl.STATIC_DRAW);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
 
     // Create a buffer for the viewFrustum's color.
     const uvBuffer = gl.createBuffer();
@@ -1972,9 +2016,21 @@ function updateYUVVideoDemoBuffer(gl) {
     return {
         position: positionBuffer,
         uv: uvBuffer,
-        drawCnt: mYUVVideoPlaneVertices.length / 3,
+        drawCnt: vertices.length / 3,
     };
 }
+
+// function updateYUVRot90VideoDemoUVBuffer(gl) {
+//     // Create a buffer for the viewFrustum's color.
+//     const uvBuffer = gl.createBuffer();
+//     gl.bindBuffer(gl.ARRAY_BUFFER, uvBuffer);
+//     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(mYUVVideoPlaneUvsRot90), gl.STATIC_DRAW);
+
+//     return {
+//         uv: uvBuffer,
+//         drawCnt: mYUVVideoPlaneVertices.length / 3,
+//     };
+// }
 
 function handleFileSelect(event, id) {
     var files = event.target.files; // FileList object
@@ -1998,13 +2054,23 @@ function updateYUVVideoFilterSwitch() {
     var fragReader = new XMLHttpRequest();
 
     if (document.getElementById("id_filter_normal_rb").checked) {
+        mVideoFilter = VideoFilter.NORMAL;
         fragReader.open('get', './filter/normal.fs', false);
     } else if (document.getElementById("id_filter_inverse_rb").checked) {
+        mVideoFilter = VideoFilter.INVERSE;
         fragReader.open('get', './filter/inverse.fs', false);
     } else if (document.getElementById("id_filter_reminiscence_rb").checked) {
+        mVideoFilter = VideoFilter.SNOW_REMINISCENCE;
         fragReader.open('get', './filter/reminiscence.fs', false);
-    } else if (document.getElementById("id_filter_lut_illusion".checked)) {
-        fragReader.open('get', './filter/illusion.fs', false)
+    } else if (document.getElementById("id_filter_lut_illusion_rb").checked) {
+        mVideoFilter = VideoFilter.LUT_ILLUSION;
+        fragReader.open('get', './filter/illusion.fs', false);
+    } else if (document.getElementById("id_filter_soul_out_rb").checked) {
+        mVideoFilter = VideoFilter.SOUL_OUT;
+        fragReader.open('get', './filter/soulout.fs', false);
+    } else {
+        mVideoFilter = VideoFilter.NORMAL;
+        fragReader.open('get', './filter/normal.fs', false);
     }
 
     // vertReader.send();
@@ -2016,15 +2082,27 @@ function updateYUVVideoFilterSwitch() {
 }
 
 function updateYUVVideoShader() {
-    const canvas = document.querySelector("#glcanvas");
     // Initialize the GL context
-    const gl = canvas.getContext("webgl") || canvas.getContext('experimental-webgl');
+    const gl = mGLCanvas.getGL();
     var vsSource;
     var fsSource;
+    var curFrameFsSource;
     // Vertex shader program
     vsSource = document.getElementById('id_video_filter_vertex_shader').value;
     // Fragment shader program
     fsSource = document.getElementById('id_video_filter_fragment_shader').value;
+    // if (VideoFilter.LUT_ILLUSION == mVideoFilter) {
+    //     curFrameFsSource = document.getElementById('id_video_filter_fragment_shader').value;
+    //     // recover fsSource to normal fs
+    //     fsSource = `
+    //         precision mediump float;
+    //         uniform sampler2D uTexSampler;
+    //         varying lowp vec2 vTexCoord;
+    //         void main() {
+    //             gl_FragColor = texture2D(uTexSampler, vTexCoord);
+    //         }
+    //     `;
+    // }
 
     // Initialize a shader program
     var vertexShader = loadShader(gl, gl.VERTEX_SHADER, vsSource);
@@ -2042,6 +2120,32 @@ function updateYUVVideoShader() {
         return null;
     }
 
+    // if (VideoFilter.LUT_ILLUSION == mVideoFilter) {
+    //     var curFrameFsShader = loadShader(gl, gl.FRAGMENT_SHADER, curFrameFsSource);
+    //     var curFrameProgram = gl.createProgram();
+    //     gl.attachShader(curFrameProgram, vertexShader);
+    //     gl.attachShader(curFrameProgram, curFrameFsShader);
+    //     gl.linkProgram(curFrameProgram);
+    //     // If creating the shader program failed, alert
+    //     if (!gl.getProgramParameter(curFrameProgram, gl.LINK_STATUS)) {
+    //         alert('Unable to initialize the shader program: ' + gl.getProgramInfoLog(curFrameProgram));
+    //         return null;
+    //     }
+    //     mYUVVideoCurFrameProgram = {
+    //         program: curFrameProgram,
+    //         attribLocations: {
+    //             vertexPosition: gl.getAttribLocation(curFrameProgram, 'aPosition'),
+    //             textureCoord: gl.getAttribLocation(curFrameProgram, 'aTexCoord'),
+    //         },
+    //         uniformLocations: {
+    //             uMVPMatrixHandle: gl.getUniformLocation(curFrameProgram, 'uMVPMatrix'),
+    //             uTexSamplerHandle: gl.getUniformLocation(curFrameProgram, 'uTexSampler'),
+    //             uLastInputTexHandle: gl.getUniformLocation(curFrameProgram, 'uLastInputTex'),
+    //             uLookUpTableTexHandle: gl.getUniformLocation(curFrameProgram, 'uLookUpTableTex'),
+    //         },
+    //     }
+    // }
+
     mYUVVideoProgram = {
         program: shaderProgram,
         attribLocations: {
@@ -2051,6 +2155,9 @@ function updateYUVVideoShader() {
         uniformLocations: {
             uMVPMatrixHandle: gl.getUniformLocation(shaderProgram, 'uMVPMatrix'),
             uTexSamplerHandle: gl.getUniformLocation(shaderProgram, 'uTexSampler'),
+            uSouloutTexSamplerHandle: gl.getUniformLocation(shaderProgram, 'uSouloutTexSampler'),
+            uProgressHandle: gl.getUniformLocation(shaderProgram, 'uProgress'),
+            uDrawFBOHandle: gl.getUniformLocation(shaderProgram, 'uDrawFBO'),
         },
     }
 
@@ -2676,10 +2783,15 @@ function demoYUVVideo() {
      if (!mYUVInited) {
         let gl = mGLCanvas.getGL();
         initYUVVideoDemo();
-        mYUVVideoPlaneBuffer = updateYUVVideoDemoBuffer(gl);
+        mYUVVideoPlaneBuffer = updateYUVVideoDemoBuffer(gl, mYUVVideoPlaneVertices);
+        mYUVVideoPlaneRot180Buffer = updateYUVVideoDemoBuffer(gl, mYUVVideoPlaneRot180Vertices);
+        // mYUVVideoPlaneUvRot90Buffer = updateYUVRot90VideoDemoUVBuffer(gl);
         mVideo = setupVideo('./texture/f9.mp4')
 
-        mFrameBufferObject = new FrameBufferObject(gl, gl.TEXTURE0, 720, 1280); // video's width and height
+        mFrameBufferObject = new FrameBufferObject(gl, gl.TEXTURE1, 720, 1280);
+        // mFrameBufferObject1 = new FrameBufferObject(gl, gl.TEXTURE8, 720, 1280); // video's width and height
+        // mFrameBufferObject2 = new FrameBufferObject(gl, gl.TEXTURE9, 720, 1280);
+        // mFrameBufferObject3 = new FrameBufferObject(gl, gl.TEXTURE10, 720, 1280);
         mYUVInited = true;
      }
 }
@@ -3169,7 +3281,150 @@ function drawCloud(gl, program, buffers, texture, drawCount, deltaTime, isGodVie
     gl.drawArrays(gl.TRIANGLE_STRIP, drawOffset, drawCount);
 }
 
-function drawYUVVideo(gl, program, buffers, texture, drawCount, deltaTime, isGodView) {
+// function drawVideoCurFrame(gl, program, buffers, drawCount, isGodView) {
+//     // Tell WebGL to use our program when drawing
+//     gl.useProgram(program.program);
+
+//     // Tell WebGL how to pull out the positions from the position buffer into the vertexPosition attribute.
+//     {
+//         const numComponents = 3;
+//         const type = gl.FLOAT;
+//         const normalize = false;
+//         const stride = 0;
+//         const offset = 0;
+//         gl.bindBuffer(gl.ARRAY_BUFFER, buffers.position);
+//         gl.vertexAttribPointer(
+//             program.attribLocations.vertexPosition,
+//             numComponents,
+//             type,
+//             normalize,
+//             stride,
+//             offset);
+//         gl.enableVertexAttribArray(
+//             program.attribLocations.vertexPosition);
+//     }
+
+//     // Tell WebGL how to pull out the texture coordinates from the texture coordinate buffer into the textureCoord attribute.
+//     {
+//         const numComponents = 2;
+//         const type = gl.FLOAT;
+//         const normalize = false;
+//         const stride = 0;
+//         const offset = 0;
+//         gl.bindBuffer(gl.ARRAY_BUFFER, buffers.uv);
+//         gl.vertexAttribPointer(
+//             program.attribLocations.textureCoord,
+//             numComponents,
+//             type,
+//             normalize,
+//             stride,
+//             offset);
+//         gl.enableVertexAttribArray(
+//             program.attribLocations.textureCoord);
+//     }
+
+//     gl.activeTexture(gl.TEXTURE3);
+//     gl.bindTexture(gl.TEXTURE_2D, mFrameBufferObject1.getTextureId());
+//     gl.uniform1i(program.uniformLocations.uTexSamplerHandle, 3);
+
+//     gl.activeTexture(gl.TEXTURE4);
+//     gl.bindTexture(gl.TEXTURE_2D, !mNotFirstFrame ? mFrameBufferObject1.getTextureId() : mFrameBufferObject2.getTextureId());
+//     gl.uniform1i(program.uniformLocations.uLastInputTexHandle, 4);
+
+//     gl.activeTexture(gl.TEXTURE5);
+//     gl.bindTexture(gl.TEXTURE_2D, mLutTexture);
+//     gl.uniform1i(program.uniformLocations.uLookUpTableTexHandle, 5);
+
+//     if (isGodView) {
+//         gl.uniformMatrix4fv(program.uniformLocations.uMVPMatrixHandle, false, mGodMvpMatrix);
+//     } else {
+//         gl.uniformMatrix4fv(program.uniformLocations.uMVPMatrixHandle, false, mMvpMatrix);
+//     }
+
+//     gl.clear(gl.COLOR_BUFFER_BIT);
+//     const drawOffset = 0;
+//     gl.drawArrays(gl.TRIANGLE_STRIP, drawOffset, drawCount);
+
+//     gl.disableVertexAttribArray(program.attribLocations.vertexPosition);
+//     gl.disableVertexAttribArray(program.attribLocations.textureCoord);
+
+//     // recover
+//     gl.activeTexture(gl.TEXTURE3);
+//     gl.bindTexture(gl.TEXTURE_2D, mFrameBufferObject1.getTextureId());
+//     gl.activeTexture(gl.TEXTURE0);
+
+//     gl.activeTexture(gl.TEXTURE4);
+//     gl.bindTexture(gl.TEXTURE_2D, !mNotFirstFrame ? mFrameBufferObject1.getTextureId() : mFrameBufferObject2.getTextureId());
+//     gl.activeTexture(gl.TEXTURE0);
+
+//     gl.activeTexture(gl.TEXTURE5);
+//     gl.bindTexture(gl.TEXTURE_2D, mLutTexture);
+//     gl.activeTexture(gl.TEXTURE0);
+// }
+
+// function drawVideoToBuffer(gl, program, buffers, drawCount, isGodView) {
+//     // Tell WebGL to use our program when drawing
+//     gl.useProgram(program.program);
+
+//     // Tell WebGL how to pull out the positions from the position buffer into the vertexPosition attribute.
+//     {
+//         const numComponents = 3;
+//         const type = gl.FLOAT;
+//         const normalize = false;
+//         const stride = 0;
+//         const offset = 0;
+//         gl.bindBuffer(gl.ARRAY_BUFFER, buffers.position);
+//         gl.vertexAttribPointer(
+//             program.attribLocations.vertexPosition,
+//             numComponents,
+//             type,
+//             normalize,
+//             stride,
+//             offset);
+//         gl.enableVertexAttribArray(
+//             program.attribLocations.vertexPosition);
+//     }
+
+//     // Tell WebGL how to pull out the texture coordinates from the texture coordinate buffer into the textureCoord attribute.
+//     {
+//         const numComponents = 2;
+//         const type = gl.FLOAT;
+//         const normalize = false;
+//         const stride = 0;
+//         const offset = 0;
+//         gl.bindBuffer(gl.ARRAY_BUFFER, buffers.uv);
+//         gl.vertexAttribPointer(
+//             program.attribLocations.textureCoord,
+//             numComponents,
+//             type,
+//             normalize,
+//             stride,
+//             offset);
+//         gl.enableVertexAttribArray(
+//             program.attribLocations.textureCoord);
+//     }
+
+//     if (isGodView) {
+//         gl.uniformMatrix4fv(program.uniformLocations.uMVPMatrixHandle, false, mGodMvpMatrix);
+//     } else {
+//         gl.uniformMatrix4fv(program.uniformLocations.uMVPMatrixHandle, false, mMvpMatrix);
+//     }
+
+//     gl.activeTexture(gl.TEXTURE3);
+//     gl.bindTexture(gl.TEXTURE_2D, mFrameBufferObject3.getTextureId());
+//     gl.uniform1i(program.uniformLocations.uTexSamplerHandle, 3);
+
+//     gl.clear(gl.COLOR_BUFFER_BIT);
+//     const drawOffset = 0;
+//     gl.drawArrays(gl.TRIANGLE_STRIP, drawOffset, drawCount);
+
+//     // recover
+//     gl.activeTexture(gl.TEXTURE3);
+//     gl.bindTexture(gl.TEXTURE_2D, mFrameBufferObject3.getTextureId());
+//     gl.activeTexture(gl.TEXTURE0);
+// }
+
+function drawYUVVideo(gl, program, buffers, buffersUvRot90, texture, drawCount, now, deltaTime, drawFBO, isGodView) {
     // Tell WebGL how to pull out the positions from the position buffer into the vertexPosition attribute.
     {
         const numComponents = 3;
@@ -3219,14 +3474,27 @@ function drawYUVVideo(gl, program, buffers, texture, drawCount, deltaTime, isGod
     // Tell the shader we bound the diffuseTexture to diffuseTexture unit 0
     gl.uniform1i(program.uniformLocations.uTexSamplerHandle, 0);
 
+    if (VideoFilter.SOUL_OUT == mVideoFilter && !drawFBO) {
+        gl.activeTexture(gl.TEXTURE1);
+        gl.bindTexture(gl.TEXTURE_2D, mFrameBufferObject.getTextureId());
+        gl.uniform1i(program.uniformLocations.uSouloutTexSamplerHandle, 1);
+        var progress = (now - mSouloutModifyTime) / 500.0
+        // console.log('progress = ' + progress + ', now = ' + now + ', mSouloutModifyTime = ' + mSouloutModifyTime);
+        gl.uniform1f(program.uniformLocations.uProgressHandle, progress);
+        gl.uniform1i(program.uniformLocations.uDrawFBOHandle, drawFBO ? 1 : 0)
+    }
+
     if (isGodView) {
         gl.uniformMatrix4fv(program.uniformLocations.uMVPMatrixHandle, false, mGodMvpMatrix);
     } else {
-        gl.uniformMatrix4fv(program.uniformLocations.uMVPMatrixHandle, false, mMvpMatrix);
+        gl.uniformMatrix4fv(program.uniformLocations.uMVPMatrixHandle, false, drawFBO? mIdentityMatrix : mMvpMatrix);
     }
 
     const drawOffset = 0;
     gl.drawArrays(gl.TRIANGLE_STRIP, drawOffset, drawCount);
+
+    gl.disableVertexAttribArray(program.attribLocations.vertexPosition);
+    gl.disableVertexAttribArray(program.attribLocations.textureCoord);
 }
 
 function drawUVDemo(gl, program, buffers, texture, drawCount, deltaTime, isGodView) {
@@ -3894,7 +4162,7 @@ function drawObject(gl, lightingProgram, buffers, diffuseTexture, normalTexture,
     gl.drawArrays(gl.TRIANGLES, drawOffset, drawCount);
 }
 
-function drawScene(gl, basicProgram, basicTexProgram, diffuseLightingProgram, deltaTime) {
+function drawScene(gl, basicProgram, basicTexProgram, diffuseLightingProgram, now, deltaTime) {
     mTimeEllapse += deltaTime;
 
     mViewFrustumBuffer = updateViewFrustumBuffer(gl);
@@ -3967,7 +4235,39 @@ function drawScene(gl, basicProgram, basicTexProgram, diffuseLightingProgram, de
 
     // draw yuv video
     if (mNeedDrawYUVVideo) {
-        drawYUVVideo(gl, mYUVVideoProgram, mYUVVideoPlaneBuffer, mYUVVideoTexture, mYUVVideoPlaneBuffer.drawCnt, deltaTime)
+        // if (VideoFilter.LUT_ILLUSION == mVideoFilter) {
+        //     mFrameBufferObject1.bind();  // draw video to first FBO mFrameBufferObject1
+        // }
+        // mFrameBufferObject.bind();  // draw video to first FBO mFrameBufferObject1
+        // drawYUVVideo(gl, mYUVVideoProgram, mYUVVideoPlaneRot180Buffer, null, mYUVVideoTexture, mYUVVideoPlaneRot180Buffer.drawCnt, now, deltaTime, true);
+        // mFrameBufferObject.unbind();
+        if ((VideoFilter.SOUL_OUT == mVideoFilter) && (now - mSouloutModifyTime > 500)) {
+            mSouloutModifyTime = now;
+            mFrameBufferObject.bind();
+            drawYUVVideo(gl, mYUVVideoProgram, mYUVVideoPlaneRot180Buffer, null, mYUVVideoTexture, mYUVVideoPlaneRot180Buffer.drawCnt, now, deltaTime, true);
+            mFrameBufferObject.unbind();
+        }
+
+        drawYUVVideo(gl, mYUVVideoProgram, mYUVVideoPlaneBuffer, null, mYUVVideoTexture, mYUVVideoPlaneBuffer.drawCnt, now, deltaTime, false);
+
+        // if (VideoFilter.LUT_ILLUSION == mVideoFilter) {
+        //     mFrameBufferObject.unbind();
+
+        //     // // 在顶层画帧，真正画绘制的画面
+        //     // drawVideoCurFrame(gl, mYUVVideoCurFrameProgram, buffers, drawCount, false);
+
+        //     // // 绘制当前帧画到mFrameBufferObject3的fbo中
+        //     // mFrameBufferObject3.bind();
+        //     // drawVideoCurFrame(gl, mYUVVideoCurFrameProgram, buffers, drawCount, false);
+        //     // mFrameBufferObject3.unbind();
+
+        //     // // 使用mFrameBufferObject1的fbo，再绘制mFrameBufferObject2的纹理fbo中
+        //     // mFrameBufferObject2.bind();
+        //     // drawVideoToBuffer(gl, program, buffers, drawCount, false);
+        //     // mFrameBufferObject2.unbind();
+
+        //     // mNotFirstFrame = true;
+        // }
     }
     
     if (mNeedDrawAssistObject && null != mAssistObjectBuffer) {
@@ -4034,7 +4334,7 @@ function drawScene(gl, basicProgram, basicTexProgram, diffuseLightingProgram, de
     }
     // draw yuv video
     if (mNeedDrawYUVVideo) {
-        drawYUVVideo(gl, mYUVVideoProgram, mYUVVideoPlaneBuffer, mYUVVideoTexture, mYUVVideoPlaneBuffer.drawCnt, deltaTime, true)
+        drawYUVVideo(gl, mYUVVideoProgram, mYUVVideoPlaneBuffer, null, mYUVVideoTexture, mYUVVideoPlaneBuffer.drawCnt, now, deltaTime, false, true)
     }
     if (mNeedDrawSphere) {
         drawSphere(gl, mSphereProgram, mSphereBuffer, mSphereBuffer.drawCnt, deltaTime, false);
