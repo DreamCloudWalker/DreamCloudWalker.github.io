@@ -1942,7 +1942,7 @@ function setupVideo(url) {
 
     function startVideo() {
         videoElement.play();
-        intervalID = setInterval(requestRender, 30);
+        intervalID = setInterval(requestRender, 16);
     }
     function endVideo() {
         clearInterval(intervalID);
@@ -2471,7 +2471,7 @@ function initObjectBuffers(gl) {
     }
 
     var loader = new THREE.OBJLoader();
-    loader.load('./model/Su-27.obj', function(object) {
+    loader.load('./model/SU-27.obj', function(object) {
         for (var i = 0; i < object.children.length; i++) {
             var vertices = object.children[i].geometry.attributes.position;
             var normals = object.children[i].geometry.attributes.normal;
@@ -2564,379 +2564,13 @@ function handleMouseMove(event) {
     requestRender();
 }
 
-function demoPerVertexOrFragLighting() {
-    mNeedDrawGimbal = false;
-    mNeedDrawAngleAxis = false;
-    mNeedDrawAssistObject = false;
-    mNeedDrawCobraAnim = false;
-    mNeedDrawSphere = true;
-    mNeedDrawFighter = false;
-    mNeedDrawBackground = true;
-    mNeedDrawUVDemoPlane = false;
-    mNeedDrawYUVVideo = false;
-    document.getElementById("id_shader").style.display = 'none';
-    document.getElementById("id_mvpmatrix").style.display = 'none';
-    document.getElementById("id_modelmatrix").style.display = 'none';
-    document.getElementById("id_viewmatrix").style.display = 'none';
-    document.getElementById("id_projmatrix").style.display = 'none';
-    document.getElementById("id_rotatematrix").style.display = 'none';
-    document.getElementById("id_axisangle").style.display = 'none';
-    document.getElementById("id_quaternion").style.display = 'none';
-    document.getElementById("id_cobramaneuvre").style.display = 'none';
-    document.getElementById("id_uv_demo").style.display = 'none';
-    document.getElementById("id_lightdemo").style.display = 'none';
-    document.getElementById("id_per_vertex_or_frag_lighting").style.display = 'flex';
-    document.getElementById("id_yuv_video").style.display = 'none';
-
-    requestRender();
-}
-
-function demoLight() {
-    mNeedDrawGimbal = false;
-    mNeedDrawAngleAxis = false;
-    mNeedDrawAssistObject = false;
-    mNeedDrawCobraAnim = false;
-    mNeedDrawSphere = false;
-    mNeedDrawFighter = true;
-    mNeedDrawBackground = true;
-    mNeedDrawUVDemoPlane = false;
-    mNeedDrawYUVVideo = false;
-    document.getElementById("id_shader").style.display = 'none';
-    document.getElementById("id_mvpmatrix").style.display = 'none';
-    document.getElementById("id_modelmatrix").style.display = 'none';
-    document.getElementById("id_viewmatrix").style.display = 'none';
-    document.getElementById("id_projmatrix").style.display = 'none';
-    document.getElementById("id_rotatematrix").style.display = 'none';
-    document.getElementById("id_axisangle").style.display = 'none';
-    document.getElementById("id_quaternion").style.display = 'none';
-    document.getElementById("id_cobramaneuvre").style.display = 'none';
-    document.getElementById("id_uv_demo").style.display = 'none';
-    document.getElementById("id_lightdemo").style.display = 'flex';
-    document.getElementById("id_per_vertex_or_frag_lighting").style.display = 'none';
-    document.getElementById("id_yuv_video").style.display = 'none';
-
-    requestRender();
-}
-
-function demoCobraManeuvre() {
-    mNeedDrawGimbal = false;
-    mNeedDrawAngleAxis = false;
-    mNeedDrawAssistObject = false;
-    mNeedDrawCobraAnim = true;
-    mNeedDrawSphere = false;
-    mNeedDrawFighter = true;
-    mNeedDrawBackground = true;
-    mNeedDrawUVDemoPlane = false;
-    mNeedDrawYUVVideo = false;
-    document.getElementById("id_shader").style.display = 'none';
-    document.getElementById("id_mvpmatrix").style.display = 'none';
-    document.getElementById("id_modelmatrix").style.display = 'none';
-    document.getElementById("id_viewmatrix").style.display = 'none';
-    document.getElementById("id_projmatrix").style.display = 'none';
-    document.getElementById("id_rotatematrix").style.display = 'none';
-    document.getElementById("id_axisangle").style.display = 'none';
-    document.getElementById("id_quaternion").style.display = 'none';
-    document.getElementById("id_cobramaneuvre").style.display = 'flex';
-    document.getElementById("id_uv_demo").style.display = 'none';
-    document.getElementById("id_lightdemo").style.display = 'none';
-    document.getElementById("id_per_vertex_or_frag_lighting").style.display = 'none';
-    document.getElementById("id_yuv_video").style.display = 'none';
-
-    // update mEye
-    mEye[0] = EYE_INIT_POS_Z;
-    mEye[1] = 0;
-    mEye[2] = 0;
-
-    // update view matrix
-    mat4.lookAt(mViewMatrix, mEye, mLookAtCenter, mCameraUp);
-    mat4.copy(mVIMatrix, mViewMatrix);
-    mat4.invert(mVIMatrix, mVIMatrix);
-    document.getElementById("id_eye_x").value = mEye[0];
-    document.getElementById("id_eye_y").value = mEye[1];
-    document.getElementById("id_eye_z").value = mEye[2];
-    document.getElementById("id_lookat_x").value = mLookAtCenter[0];
-    document.getElementById("id_lookat_y").value = mLookAtCenter[1];
-    document.getElementById("id_lookat_z").value = mLookAtCenter[2];
-    document.getElementById("id_cameraup_x").value = mCameraUp[0];
-    document.getElementById("id_cameraup_y").value = mCameraUp[1];
-    document.getElementById("id_cameraup_z").value = mCameraUp[2];
-    updateViewMatrixHtml();
-    updateViewFrustumPose();
-
-    requestRender();
-}
-
-function demoShader() {
-    mNeedDrawGimbal = false;
-    mNeedDrawAngleAxis = false;
-    mNeedDrawAssistObject = false;
-    mNeedDrawCobraAnim = false;
-    mNeedDrawSphere = false;
-    mNeedDrawFighter = true;
-    mNeedDrawBackground = true;
-    mNeedDrawUVDemoPlane = false;
-    mNeedDrawYUVVideo = false;
-    document.getElementById("id_shader").style.display = 'flex';
-    document.getElementById("id_mvpmatrix").style.display = 'none';
-    document.getElementById("id_modelmatrix").style.display = 'none';
-    document.getElementById("id_viewmatrix").style.display = 'none';
-    document.getElementById("id_projmatrix").style.display = 'none';
-    document.getElementById("id_rotatematrix").style.display = 'none';
-    document.getElementById("id_axisangle").style.display = 'none';
-    document.getElementById("id_quaternion").style.display = 'none';
-    document.getElementById("id_cobramaneuvre").style.display = 'none';
-    document.getElementById("id_uv_demo").style.display = 'none';
-    document.getElementById("id_lightdemo").style.display = 'none';
-    document.getElementById("id_per_vertex_or_frag_lighting").style.display = 'none';
-    document.getElementById("id_yuv_video").style.display = 'none';
-
-    requestRender();
-}
-
-function demoMvpMatrix() {
-    mNeedDrawGimbal = false;
-    mNeedDrawAngleAxis = false;
-    mNeedDrawAssistObject = true;
-    mNeedDrawCobraAnim = false;
-    mNeedDrawSphere = false;
-    mNeedDrawFighter = true;
-    mNeedDrawBackground = true;
-    mNeedDrawUVDemoPlane = false;
-    mNeedDrawYUVVideo = false;
-    document.getElementById("id_shader").style.display = 'none';
-    document.getElementById("id_mvpmatrix").style.display = 'flex';
-    document.getElementById("id_modelmatrix").style.display = 'none';
-    document.getElementById("id_viewmatrix").style.display = 'none';
-    document.getElementById("id_projmatrix").style.display = 'none';
-    document.getElementById("id_rotatematrix").style.display = 'none';
-    document.getElementById("id_axisangle").style.display = 'none';
-    document.getElementById("id_quaternion").style.display = 'none';
-    document.getElementById("id_cobramaneuvre").style.display = 'none';
-    document.getElementById("id_uv_demo").style.display = 'none';
-    document.getElementById("id_lightdemo").style.display = 'none';
-    document.getElementById("id_per_vertex_or_frag_lighting").style.display = 'none';
-    document.getElementById("id_yuv_video").style.display = 'none';
-
-    requestRender();
-}
-
-function demoUV() {
+function switchDemo(demoId) {
     mNeedDrawGimbal = false;
     mNeedDrawAngleAxis = false;
     mNeedDrawAssistObject = false;
     mNeedDrawCobraAnim = false;
     mNeedDrawSphere = false;
     mNeedDrawFighter = false;
-    mNeedDrawBackground = false;
-    mNeedDrawUVDemoPlane = true;
-    mNeedDrawYUVVideo = false;
-    document.getElementById("id_shader").style.display = 'none';
-    document.getElementById("id_mvpmatrix").style.display = 'none';
-    document.getElementById("id_modelmatrix").style.display = 'none';
-    document.getElementById("id_viewmatrix").style.display = 'none';
-    document.getElementById("id_projmatrix").style.display = 'none';
-    document.getElementById("id_rotatematrix").style.display = 'none';
-    document.getElementById("id_axisangle").style.display = 'none';
-    document.getElementById("id_quaternion").style.display = 'none';
-    document.getElementById("id_cobramaneuvre").style.display = 'none';
-    document.getElementById("id_uv_demo").style.display = 'flex';
-    document.getElementById("id_lightdemo").style.display = 'none';
-    document.getElementById("id_per_vertex_or_frag_lighting").style.display = 'none';
-    document.getElementById("id_yuv_video").style.display = 'none';
-
-    requestRender();
-}
-
-function demoYUVVideo() {
-    mNeedDrawGimbal = false;
-    mNeedDrawAngleAxis = false;
-    mNeedDrawAssistObject = false;
-    mNeedDrawCobraAnim = false;
-    mNeedDrawSphere = false;
-    mNeedDrawFighter = false;
-    mNeedDrawBackground = false;
-    mNeedDrawUVDemoPlane = false;
-    mNeedDrawYUVVideo = true;
-    document.getElementById("id_shader").style.display = 'none';
-    document.getElementById("id_mvpmatrix").style.display = 'none';
-    document.getElementById("id_modelmatrix").style.display = 'none';
-    document.getElementById("id_viewmatrix").style.display = 'none';
-    document.getElementById("id_projmatrix").style.display = 'none';
-    document.getElementById("id_rotatematrix").style.display = 'none';
-    document.getElementById("id_axisangle").style.display = 'none';
-    document.getElementById("id_quaternion").style.display = 'none';
-    document.getElementById("id_cobramaneuvre").style.display = 'none';
-    document.getElementById("id_uv_demo").style.display = 'none';
-    document.getElementById("id_lightdemo").style.display = 'none';
-    document.getElementById("id_per_vertex_or_frag_lighting").style.display = 'none';
-    document.getElementById("id_yuv_video").style.display = 'flex';
-    var vertexDiv = document.getElementById('file_filter_vertex_shader')
-    vertexDiv.addEventListener('change', function() {
-        handleFileSelect(event, 'id_video_filter_vertex_shader');
-     }, false);
-    var fragDiv = document.getElementById('file_filter_frag_shader')
-    fragDiv.addEventListener('change', function() {
-        handleFileSelect('id_video_filter_fragment_shader');
-     }, false);
-
-     // FBO
-     if (!mYUVInited) {
-        let gl = mGLCanvas.getGL();
-        initYUVVideoDemo();
-        mYUVVideoPlaneBuffer = updateYUVVideoDemoBuffer(gl, mYUVVideoPlaneVertices);
-        mYUVVideoPlaneRot180Buffer = updateYUVVideoDemoBuffer(gl, mYUVVideoPlaneRot180Vertices);
-        // mYUVVideoPlaneUvRot90Buffer = updateYUVRot90VideoDemoUVBuffer(gl);
-        mVideo = setupVideo('./texture/f9.mp4')
-
-        mFrameBufferObject = new FrameBufferObject(gl, gl.TEXTURE1, 720, 1280);
-        // mFrameBufferObject1 = new FrameBufferObject(gl, gl.TEXTURE8, 720, 1280); // video's width and height
-        // mFrameBufferObject2 = new FrameBufferObject(gl, gl.TEXTURE9, 720, 1280);
-        // mFrameBufferObject3 = new FrameBufferObject(gl, gl.TEXTURE10, 720, 1280);
-        mYUVInited = true;
-     }
-}
-
-function demoModelMatrix() {
-    mNeedDrawGimbal = false;
-    mNeedDrawAngleAxis = false;
-    mNeedDrawAssistObject = false;
-    mNeedDrawCobraAnim = false;
-    mNeedDrawSphere = false;
-    mNeedDrawFighter = true;
-    mNeedDrawBackground = true;
-    mNeedDrawUVDemoPlane = false;
-    mNeedDrawYUVVideo = false;
-    document.getElementById("id_shader").style.display = 'none';
-    document.getElementById("id_mvpmatrix").style.display = 'none';
-    document.getElementById("id_modelmatrix").style.display = 'flex';
-    document.getElementById("id_viewmatrix").style.display = 'none';
-    document.getElementById("id_projmatrix").style.display = 'none';
-    document.getElementById("id_rotatematrix").style.display = 'none';
-    document.getElementById("id_axisangle").style.display = 'none';
-    document.getElementById("id_quaternion").style.display = 'none';
-    document.getElementById("id_cobramaneuvre").style.display = 'none';
-    document.getElementById("id_uv_demo").style.display = 'none';
-    document.getElementById("id_lightdemo").style.display = 'none';
-    document.getElementById("id_per_vertex_or_frag_lighting").style.display = 'none';
-    document.getElementById("id_yuv_video").style.display = 'none';
-
-    requestRender();
-}
-
-function demoViewMatrix() {
-    mNeedDrawGimbal = false;
-    mNeedDrawAngleAxis = false;
-    mNeedDrawAssistObject = false;
-    mNeedDrawCobraAnim = false;
-    mNeedDrawSphere = false;
-    mNeedDrawFighter = true;
-    mNeedDrawBackground = true;
-    mNeedDrawUVDemoPlane = false;
-    mNeedDrawYUVVideo = false;
-    document.getElementById("id_shader").style.display = 'none';
-    document.getElementById("id_mvpmatrix").style.display = 'none';
-    document.getElementById("id_modelmatrix").style.display = 'none';
-    document.getElementById("id_viewmatrix").style.display = 'flex';
-    document.getElementById("id_projmatrix").style.display = 'none';
-    document.getElementById("id_rotatematrix").style.display = 'none';
-    document.getElementById("id_axisangle").style.display = 'none';
-    document.getElementById("id_quaternion").style.display = 'none';
-    document.getElementById("id_cobramaneuvre").style.display = 'none';
-    document.getElementById("id_uv_demo").style.display = 'none';
-    document.getElementById("id_lightdemo").style.display = 'none';
-    document.getElementById("id_per_vertex_or_frag_lighting").style.display = 'none';
-    document.getElementById("id_yuv_video").style.display = 'none';
-
-    requestRender();
-}
-
-function demoProjMatrix() {
-    mNeedDrawGimbal = false;
-    mNeedDrawAngleAxis = false;
-    mNeedDrawAssistObject = false;
-    mNeedDrawCobraAnim = false;
-    mNeedDrawSphere = false;
-    mNeedDrawFighter = true;
-    mNeedDrawBackground = true;
-    mNeedDrawUVDemoPlane = false;
-    mNeedDrawYUVVideo = false;
-    document.getElementById("id_shader").style.display = 'none';
-    document.getElementById("id_mvpmatrix").style.display = 'none';
-    document.getElementById("id_modelmatrix").style.display = 'none';
-    document.getElementById("id_viewmatrix").style.display = 'none';
-    document.getElementById("id_projmatrix").style.display = 'flex';
-    document.getElementById("id_rotatematrix").style.display = 'none';
-    document.getElementById("id_axisangle").style.display = 'none';
-    document.getElementById("id_quaternion").style.display = 'none';
-    document.getElementById("id_cobramaneuvre").style.display = 'none';
-    document.getElementById("id_uv_demo").style.display = 'none';
-    document.getElementById("id_lightdemo").style.display = 'none';
-    document.getElementById("id_yuv_video").style.display = 'none';
-
-    requestRender();
-}
-
-function demoRotateMatrix() {
-    mNeedDrawGimbal = true;
-    mNeedDrawAngleAxis = false;
-    mNeedDrawAssistObject = false;
-    mNeedDrawCobraAnim = false;
-    mNeedDrawSphere = false;
-    mNeedDrawFighter = true;
-    mNeedDrawBackground = true;
-    mNeedDrawUVDemoPlane = false;
-    mNeedDrawYUVVideo = false;
-    document.getElementById("id_shader").style.display = 'none';
-    document.getElementById("id_mvpmatrix").style.display = 'none';
-    document.getElementById("id_modelmatrix").style.display = 'none';
-    document.getElementById("id_viewmatrix").style.display = 'none';
-    document.getElementById("id_projmatrix").style.display = 'none';
-    document.getElementById("id_rotatematrix").style.display = 'flex';
-    document.getElementById("id_axisangle").style.display = 'none';
-    document.getElementById("id_quaternion").style.display = 'none';
-    document.getElementById("id_cobramaneuvre").style.display = 'none';
-    document.getElementById("id_uv_demo").style.display = 'none';
-    document.getElementById("id_lightdemo").style.display = 'none';
-    document.getElementById("id_per_vertex_or_frag_lighting").style.display = 'none';
-    document.getElementById("id_yuv_video").style.display = 'none';
-
-    requestRender();
-}
-
-function demoAxisAngle() {
-    mNeedDrawGimbal = false;
-    mNeedDrawAngleAxis = true;
-    mNeedDrawAssistObject = false;
-    mNeedDrawCobraAnim = false;
-    mNeedDrawSphere = false;
-    mNeedDrawFighter = true;
-    mNeedDrawBackground = true;
-    mNeedDrawUVDemoPlane = false;
-    mNeedDrawYUVVideo = false;
-    document.getElementById("id_shader").style.display = 'none';
-    document.getElementById("id_mvpmatrix").style.display = 'none';
-    document.getElementById("id_modelmatrix").style.display = 'none';
-    document.getElementById("id_viewmatrix").style.display = 'none';
-    document.getElementById("id_projmatrix").style.display = 'none';
-    document.getElementById("id_rotatematrix").style.display = 'none';
-    document.getElementById("id_axisangle").style.display = 'flex';
-    document.getElementById("id_quaternion").style.display = 'none';
-    document.getElementById("id_cobramaneuvre").style.display = 'none';
-    document.getElementById("id_uv_demo").style.display = 'none';
-    document.getElementById("id_lightdemo").style.display = 'none';
-    document.getElementById("id_per_vertex_or_frag_lighting").style.display = 'none';
-    document.getElementById("id_yuv_video").style.display = 'none';
-
-    requestRender();
-}
-
-function demoQuaternion() {
-    mNeedDrawGimbal = false;
-    mNeedDrawAngleAxis = false;
-    mNeedDrawAssistObject = false;
-    mNeedDrawCobraAnim = false;
-    mNeedDrawSphere = false;
-    mNeedDrawFighter = true;
     mNeedDrawBackground = true;
     mNeedDrawUVDemoPlane = false;
     mNeedDrawYUVVideo = false;
@@ -2947,12 +2581,127 @@ function demoQuaternion() {
     document.getElementById("id_projmatrix").style.display = 'none';
     document.getElementById("id_rotatematrix").style.display = 'none';
     document.getElementById("id_axisangle").style.display = 'none';
-    document.getElementById("id_quaternion").style.display = 'flex';
+    document.getElementById("id_quaternion").style.display = 'none';
     document.getElementById("id_cobramaneuvre").style.display = 'none';
     document.getElementById("id_uv_demo").style.display = 'none';
     document.getElementById("id_lightdemo").style.display = 'none';
     document.getElementById("id_per_vertex_or_frag_lighting").style.display = 'none';
     document.getElementById("id_yuv_video").style.display = 'none';
+
+    switch (demoId) {
+        case 'Shader':
+            mNeedDrawFighter = true;
+            mNeedDrawBackground = true;
+            document.getElementById("id_shader").style.display = 'flex';
+            break;
+        case 'EulerAngle':
+            mNeedDrawGimbal = true;
+            mNeedDrawFighter = true;
+            mNeedDrawBackground = true;
+            document.getElementById("id_rotatematrix").style.display = 'flex';
+            break;
+        case 'AxisAngle':
+            mNeedDrawAngleAxis = true;
+            mNeedDrawFighter = true;
+            mNeedDrawBackground = true;
+            document.getElementById("id_axisangle").style.display = 'flex';
+            break;
+        case 'Quaternion':
+            mNeedDrawFighter = true;
+            mNeedDrawBackground = true;
+            document.getElementById("id_quaternion").style.display = 'flex';
+            break;
+        case 'MvpMatrix':
+            mNeedDrawAssistObject = true;
+            mNeedDrawFighter = true;
+            mNeedDrawBackground = true;
+            document.getElementById("id_mvpmatrix").style.display = 'flex';
+            break;
+        case 'ModelMatrix':
+            mNeedDrawFighter = true;
+            mNeedDrawBackground = true;
+            document.getElementById("id_modelmatrix").style.display = 'flex';
+            break;
+        case 'ViewMatrix':
+            mNeedDrawFighter = true;
+            mNeedDrawBackground = true;
+            document.getElementById("id_viewmatrix").style.display = 'flex';
+            break;
+        case 'ProjectionMatrix':
+            mNeedDrawFighter = true;
+            mNeedDrawBackground = true;
+            document.getElementById("id_projmatrix").style.display = 'flex';
+            break;
+        case 'UV':
+            mNeedDrawUVDemoPlane = true;
+            document.getElementById("id_uv_demo").style.display = 'flex';
+            break;
+        case 'PerVertexOrFragLighting':
+            mNeedDrawSphere = true;
+            document.getElementById("id_per_vertex_or_frag_lighting").style.display = 'flex';
+            break;
+        case 'Light':
+            mNeedDrawFighter = true;
+            mNeedDrawBackground = true;
+            document.getElementById("id_lightdemo").style.display = 'flex';
+            break;
+        case 'CobraManeuvre':
+            mNeedDrawCobraAnim = true;
+            mNeedDrawFighter = true;
+            mNeedDrawBackground = true;
+            document.getElementById("id_cobramaneuvre").style.display = 'flex';
+            // update mEye
+            mEye[0] = EYE_INIT_POS_Z;
+            mEye[1] = 0;
+            mEye[2] = 0;
+
+            // update view matrix
+            mat4.lookAt(mViewMatrix, mEye, mLookAtCenter, mCameraUp);
+            mat4.copy(mVIMatrix, mViewMatrix);
+            mat4.invert(mVIMatrix, mVIMatrix);
+            document.getElementById("id_eye_x").value = mEye[0];
+            document.getElementById("id_eye_y").value = mEye[1];
+            document.getElementById("id_eye_z").value = mEye[2];
+            document.getElementById("id_lookat_x").value = mLookAtCenter[0];
+            document.getElementById("id_lookat_y").value = mLookAtCenter[1];
+            document.getElementById("id_lookat_z").value = mLookAtCenter[2];
+            document.getElementById("id_cameraup_x").value = mCameraUp[0];
+            document.getElementById("id_cameraup_y").value = mCameraUp[1];
+            document.getElementById("id_cameraup_z").value = mCameraUp[2];
+            updateViewMatrixHtml();
+            updateViewFrustumPose();
+            break;
+        case 'YUVVideo':
+            mNeedDrawYUVVideo = true;
+            document.getElementById("id_yuv_video").style.display = 'flex';
+            var vertexDiv = document.getElementById('file_filter_vertex_shader')
+            vertexDiv.addEventListener('change', function() {
+                handleFileSelect(event, 'id_video_filter_vertex_shader');
+            }, false);
+            var fragDiv = document.getElementById('file_filter_frag_shader')
+            fragDiv.addEventListener('change', function() {
+                handleFileSelect('id_video_filter_fragment_shader');
+            }, false);
+
+            // FBO
+            if (!mYUVInited) {
+                let gl = mGLCanvas.getGL();
+                initYUVVideoDemo();
+                mYUVVideoPlaneBuffer = updateYUVVideoDemoBuffer(gl, mYUVVideoPlaneVertices);
+                mYUVVideoPlaneRot180Buffer = updateYUVVideoDemoBuffer(gl, mYUVVideoPlaneRot180Vertices);
+                // mYUVVideoPlaneUvRot90Buffer = updateYUVRot90VideoDemoUVBuffer(gl);
+                mVideo = setupVideo('./texture/f9.mp4')
+
+                mFrameBufferObject = new FrameBufferObject(gl, gl.TEXTURE1, 720, 1280);
+                // mFrameBufferObject1 = new FrameBufferObject(gl, gl.TEXTURE8, 720, 1280); // video's width and height
+                // mFrameBufferObject2 = new FrameBufferObject(gl, gl.TEXTURE9, 720, 1280);
+                // mFrameBufferObject3 = new FrameBufferObject(gl, gl.TEXTURE10, 720, 1280);
+                mYUVInited = true;
+            }
+            break;
+        default:
+            break;
+    }
 
     requestRender();
 }

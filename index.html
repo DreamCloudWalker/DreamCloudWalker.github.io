@@ -99,34 +99,34 @@
     
                         <li data-lang="rendering_tube">渲染管线</li>
                             <ul>
-                                <li><a href="#TOC0.1" onclick="demoShader()" data-lang="shader">着色器</a></li>
+                                <li><a href="#TOC0.1" onclick="switchDemo('Shader')" data-lang="shader">着色器</a></li>
                             </ul>
                         <li data-lang="transform_matrix">变换矩阵</li>
                             <ul>
-                                <li><a href="#TOC1.1" onclick="demoModelMatrix()" data-lang="model_matrix">模型矩阵</a></li>
-                                <li><a href="#TOC1.2" onclick="demoRotateMatrix()" data-lang="euler_angle">欧拉角、万向节</a></li>
-                                <li><a href="#TOC1.3" onclick="demoAxisAngle()" data-lang="axis_angle">轴-角</a></li>
-                                <li><a href="#TOC1.4" onclick="demoQuaternion()" data-lang="quaternion">四元数</a></li>
-                                <li><a href="#TOC1.5" onclick="demoViewMatrix()" data-lang="view_matrix">视图矩阵</a></li>
-                                <li><a href="#TOC1.6" onclick="demoProjMatrix()" data-lang="proj_matrix">投影矩阵</a></li>
-                                <li><a href="#TOC1.7" onclick="demoMvpMatrix()" data-lang="mvp_matrix">MVP</a></li>
-                                <li><a href="#TOC1.7" onclick="demoCobraManeuvre()" data-lang="rotation_demo">眼镜蛇+落叶飘动画</a></li>
+                                <li><a href="#TOC1.1" onclick="switchDemo('ModelMatrix')" data-lang="model_matrix">模型矩阵</a></li>
+                                <li><a href="#TOC1.2" onclick="switchDemo('EulerAngle')" data-lang="euler_angle">欧拉角、万向节</a></li>
+                                <li><a href="#TOC1.3" onclick="switchDemo('AxisAngle')" data-lang="axis_angle">轴-角</a></li>
+                                <li><a href="#TOC1.4" onclick="switchDemo('Quaternion')" data-lang="quaternion">四元数</a></li>
+                                <li><a href="#TOC1.5" onclick="switchDemo('ViewMatrix')" data-lang="view_matrix">视图矩阵</a></li>
+                                <li><a href="#TOC1.6" onclick="switchDemo('ProjectionMatrix')()" data-lang="proj_matrix">投影矩阵</a></li>
+                                <li><a href="#TOC1.7" onclick="switchDemo('MvpMatrix')" data-lang="mvp_matrix">MVP</a></li>
+                                <li><a href="#TOC1.7" onclick="switchDemo('CobraManeuvre')" data-lang="rotation_demo">眼镜蛇+落叶飘动画</a></li>
                             </ul>
                         <li data-lang="texture">纹理</li>
                             <ul>
-                                <li><a href="#TOC2.1" onclick="demoUV()" data-lang="uv_coord">UV坐标</a></li>
+                                <li><a href="#TOC2.1" onclick="switchDemo('UV')" data-lang="uv_coord">UV坐标</a></li>
                                 <li><a href="#TOC2.2" data-lang="blend_sort">混合与透明排序</a></li>
                                 <li><a href="#TOC2.3" data-lang="sample">采样器</a></li>
                                 <li><a href="#TOC2.4" data-lang="mipmap">Mipmap</a></li>
-                                <li><a href="#TOC2.4" onclick="demoYUVVideo()" data-lang="yuv_video">YUV视频渲染</a></li>
+                                <li><a href="#TOC2.4" onclick="switchDemo('YUVVideo')" data-lang="yuv_video">YUV视频渲染</a></li>
                             </ul>
                         </li>
                         <li data-lang="lighting">光照</li>
                             <ul>
-                                <li><a href="#TOC3.1" onclick="demoLight()" data-lang="basic_light">基本光照</a></li>
+                                <li><a href="#TOC3.1" onclick="switchDemo('Light')" data-lang="basic_light">基本光照</a></li>
                                 <li><a href="#TOC3.4" data-lang="light_model">光照模型</a></li>
                                 <li><a href="#TOC3.5" data-lang="phong_lighting">Phong光照</a></li>
-                                <li><a href="#TOC3.6" onclick="demoPerVertexOrFragLighting()" data-lang="per_vertex_frag_lighting">逐顶点&逐像素光照</a></li>
+                                <li><a href="#TOC3.6" onclick="switchDemo('PerVertexOrFragLighting')" data-lang="per_vertex_frag_lighting">逐顶点&逐像素光照</a></li>
                                 <li><a href="#TOC3.7" data-lang="fresnel_reflection">菲涅尔效果</a></li>
                                 <li><a href="#TOC3.8" data-lang="normal_mapping">法线贴图</a></li>
                                 <li><a href="#TOC3.9" data-lang="lens_flare">镜头光晕</a></li>
