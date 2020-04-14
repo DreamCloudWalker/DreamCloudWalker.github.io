@@ -1954,10 +1954,10 @@ function setupVideo(url) {
 function initYUVVideoDemo() {
     // init uv demo plane, hard coded, choose a 16:9 video
     const vertexCoords = [
-        [-1.41,  -2.5, 0.0],
-        [ 1.41,  -2.5, 0.0],
-        [-1.41,   2.5, 0.0],
-        [ 1.41,   2.5, 0.0],
+        [-1.0, -1.0, 3.0],
+        [ 1.0, -1.0, 3.0],
+        [-1.0,  1.0, 3.0],
+        [ 1.0,  1.0, 3.0],
     ];
     for (var j = 0; j < vertexCoords.length; ++j) {
         const v = vertexCoords[j];
@@ -1967,10 +1967,10 @@ function initYUVVideoDemo() {
     }
 
     const vertexCoordsRot180 = [
-        [-1.41,   2.5, 0.0],
-        [ 1.41,   2.5, 0.0],
-        [-1.41,  -2.5, 0.0],
-        [ 1.41,  -2.5, 0.0],
+        [-1.0,  1.0, 0.0],
+        [ 1.0,  1.0, 0.0],
+        [-1.0, -1.0, 0.0],
+        [ 1.0, -1.0, 0.0],
     ];
     for (var j = 0; j < vertexCoordsRot180.length; ++j) {
         const v = vertexCoordsRot180[j];
@@ -1980,10 +1980,10 @@ function initYUVVideoDemo() {
     }
 
     const uvCoords = [
-        0.0,    1.0,     // normal
-        1.0,    1.0, 
-        0.0,    0.0, 
-        1.0,    0.0
+        0.0,  1.0,     // normal
+        1.0,  1.0, 
+        0.0,  0.0, 
+        1.0,  0.0
     ];
     mYUVVideoPlaneUvs.splice(0, mYUVVideoPlaneUvs);
     for (var i = 0; i < uvCoords.length; i++) {
