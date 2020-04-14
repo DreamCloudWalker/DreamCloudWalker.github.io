@@ -107,6 +107,7 @@ var mVideo = null;
 var mYUVVideoProgram = null;
 // var mYUVVideoCurFrameProgram = null;mYUVNotFirstFrame
 var mCopyVideo = false;
+var mIntervalID = null;
 var mNeedDrawYUVVideo = false;
 var mYUVVideoPlaneBuffer = null;
 var mYUVVideoPlaneRot180Buffer = null;
@@ -1916,7 +1917,6 @@ function setupVideo(url) {
     const videoElement = document.createElement('video');
     var playing = false;
     var timeupdate = false;
-    var intervalID = null;
 
     videoElement.autoplay = true;
     videoElement.src = url;
@@ -1942,10 +1942,10 @@ function setupVideo(url) {
 
     function startVideo() {
         videoElement.play();
-        intervalID = setInterval(requestRender, 16);
+        // mIntervalID = setInterval(requestRender, 16);
     }
     function endVideo() {
-        clearInterval(intervalID);
+        // clearInterval(mIntervalID);
     }
 
     return videoElement;
@@ -2565,6 +2565,9 @@ function handleMouseMove(event) {
 }
 
 function switchDemo(demoId) {
+    if (mIntervalID) {
+        clearInterval(mIntervalID);
+    }
     mNeedDrawGimbal = false;
     mNeedDrawAngleAxis = false;
     mNeedDrawAssistObject = false;
@@ -2682,6 +2685,7 @@ function switchDemo(demoId) {
             fragDiv.addEventListener('change', function() {
                 handleFileSelect('id_video_filter_fragment_shader');
             }, false);
+            mIntervalID = setInterval(requestRender, 30);
 
             // FBO
             if (!mYUVInited) {
