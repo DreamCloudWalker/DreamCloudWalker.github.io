@@ -2471,7 +2471,7 @@ function initObjectBuffers(gl) {
     }
 
     var loader = new THREE.OBJLoader();
-    loader.load('./model/SU-27.obj', function(object) {
+    loader.load('./model/Su-27.obj', function(object) {
         for (var i = 0; i < object.children.length; i++) {
             var vertices = object.children[i].geometry.attributes.position;
             var normals = object.children[i].geometry.attributes.normal;
