@@ -325,7 +325,7 @@ var language_pack = {
                 for(var i in $.i18n.map){
                     $('[data-lang="'+i+'"]').text($.i18n.map[i]);
                 }
-                document.title = $.i18n.map['string_title'];
+                // document.title = $.i18n.map['string_title'];
             }
         });
         self.now_lang = new_lang;
