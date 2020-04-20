@@ -1942,13 +1942,26 @@ function setupVideo(url) {
 
     function startVideo() {
         videoElement.play();
-        // mIntervalID = setInterval(requestRender, 16);
     }
     function endVideo() {
-        // clearInterval(mIntervalID);
+        if (!videoElement.loop) {
+            clearInterval(mIntervalID);
+        }
     }
 
     return videoElement;
+}
+
+function resumeVideo(video) {
+    if (null != video) {
+        video.play();
+    }
+}
+
+function pauseVideo(video) {
+    if (null != video) {
+        video.pause();
+    }
 }
 
 function initYUVVideoDemo() {
@@ -2565,6 +2578,7 @@ function handleMouseMove(event) {
 }
 
 function switchDemo(demoId) {
+    pauseVideo(mVideo);
     if (mIntervalID) {
         clearInterval(mIntervalID);
     }
@@ -2694,7 +2708,7 @@ function switchDemo(demoId) {
                 mYUVVideoPlaneBuffer = updateYUVVideoDemoBuffer(gl, mYUVVideoPlaneVertices);
                 mYUVVideoPlaneRot180Buffer = updateYUVVideoDemoBuffer(gl, mYUVVideoPlaneRot180Vertices);
                 // mYUVVideoPlaneUvRot90Buffer = updateYUVRot90VideoDemoUVBuffer(gl);
-                mVideo = setupVideo('./texture/f9.mp4')
+                mVideo = setupVideo('./texture/The_Infernal_Battlefiel_720P.mp4')
 
                 mFrameBufferObject = new FrameBufferObject(gl, gl.TEXTURE1, 720, 1280);
                 // mFrameBufferObject1 = new FrameBufferObject(gl, gl.TEXTURE8, 720, 1280); // video's width and height
@@ -2702,6 +2716,7 @@ function switchDemo(demoId) {
                 // mFrameBufferObject3 = new FrameBufferObject(gl, gl.TEXTURE10, 720, 1280);
                 mYUVInited = true;
             }
+            resumeVideo(mVideo);
             break;
         default:
             break;
@@ -3231,7 +3246,7 @@ function drawYUVVideo(gl, program, buffers, buffersUvRot90, texture, drawCount, 
         gl.activeTexture(gl.TEXTURE1);
         gl.bindTexture(gl.TEXTURE_2D, mFrameBufferObject.getTextureId());
         gl.uniform1i(program.uniformLocations.uSouloutTexSamplerHandle, 1);
-        var progress = (now - mSouloutModifyTime) / 500.0
+        var progress = (now - mSouloutModifyTime) / 1000.0
         // console.log('progress = ' + progress + ', now = ' + now + ', mSouloutModifyTime = ' + mSouloutModifyTime);
         gl.uniform1f(program.uniformLocations.uProgressHandle, progress);
         gl.uniform1i(program.uniformLocations.uDrawFBOHandle, drawFBO ? 1 : 0)
@@ -3994,7 +4009,7 @@ function drawScene(gl, basicProgram, basicTexProgram, diffuseLightingProgram, no
         // mFrameBufferObject.bind();  // draw video to first FBO mFrameBufferObject1
         // drawYUVVideo(gl, mYUVVideoProgram, mYUVVideoPlaneRot180Buffer, null, mYUVVideoTexture, mYUVVideoPlaneRot180Buffer.drawCnt, now, deltaTime, true);
         // mFrameBufferObject.unbind();
-        if ((VideoFilter.SOUL_OUT == mVideoFilter) && (now - mSouloutModifyTime > 500)) {
+        if ((VideoFilter.SOUL_OUT == mVideoFilter) && (now - mSouloutModifyTime > 1000)) {
             mSouloutModifyTime = now;
             mFrameBufferObject.bind();
             drawYUVVideo(gl, mYUVVideoProgram, mYUVVideoPlaneRot180Buffer, null, mYUVVideoTexture, mYUVVideoPlaneRot180Buffer.drawCnt, now, deltaTime, true);
