@@ -80,8 +80,8 @@ var mBackgroundVertices = [];
 var mBackgroundUvs = [];
 var mIsMinGLNearest = false;
 var mIsMagGLNearest = false;
-var mIsWrapSRepeat = false;
-var mIsWrapTRepeat = false;
+var mIsWrapSRepeat = true;
+var mIsWrapTRepeat = true;
 // draw UV demo plane
 var mNeedDrawUVDemoPlane = false;
 var mUVDemoPlaneBuffer = null;

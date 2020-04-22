@@ -21,13 +21,13 @@
                 display: flex;
             }
             div#id_shader {
-                display: flex;
+                display: none;
             }
             div#id_mvpmatrix {
                 display: none;
             }
             div#id_modelmatrix {
-                display: none;
+                display: flex;
             }
             div#id_viewmatrix {
                 display: none;
@@ -97,10 +97,6 @@
                             <div id="FPS" style="margin: 5px">FPS: </div>
                         </div>
     
-                        <li data-lang="rendering_tube">渲染管线</li>
-                            <ul>
-                                <li><a href="#TOC0.1" onclick="switchDemo('Shader')" data-lang="shader">着色器</a></li>
-                            </ul>
                         <li data-lang="transform_matrix">变换矩阵</li>
                             <ul>
                                 <li><a href="#TOC1.1" onclick="switchDemo('ModelMatrix')" data-lang="model_matrix">模型矩阵</a></li>
@@ -111,6 +107,10 @@
                                 <li><a href="#TOC1.6" onclick="switchDemo('ProjectionMatrix')()" data-lang="proj_matrix">投影矩阵</a></li>
                                 <li><a href="#TOC1.7" onclick="switchDemo('MvpMatrix')" data-lang="mvp_matrix">MVP</a></li>
                                 <li><a href="#TOC1.7" onclick="switchDemo('CobraManeuvre')" data-lang="rotation_demo">眼镜蛇+落叶飘动画</a></li>
+                            </ul>
+                        <li data-lang="rendering_tube">渲染管线</li>
+                            <ul>
+                                <li><a href="#TOC0.1" onclick="switchDemo('Shader')" data-lang="shader">着色器</a></li>
                             </ul>
                         <li data-lang="texture">纹理</li>
                             <ul>
@@ -1001,7 +1001,7 @@ void main() {
         </div>
         <div id="id_yuv_video">
             <div>
-                <button style="display:block; width: 200px; height: 30px" onclick="updateSphereShader()">编译并运行</button>
+                <button style="display:block; width: 200px; height: 30px" onclick="updateYUVVideoShader()" data-lang="compile_and_run">编译并运行</button>
                 <h5 style="width: 230px; background: #ffffff">YUV Video Filter<br><br></h5>
                 <input type="radio" id="id_filter_normal_rb" name="video_filter" value="filter_normal" data-lang="video_filter_normal" checked onchange="updateYUVVideoFilterSwitch()"/>Normal<br>
                 <input type="radio" id="id_filter_inverse_rb" name="video_filter" value="filter_inverse" data-lang="video_filter_inverse" onchange="updateYUVVideoFilterSwitch()"/>Inverse<br>
