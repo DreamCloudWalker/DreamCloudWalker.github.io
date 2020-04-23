@@ -46,6 +46,7 @@ const VideoFilter = {
     LUT_ILLUSION: 3, 
     SOUL_OUT: 4,
 };
+const DEFAULT_RTT_RESOLUTION = 256;
 // basic
 var mGLCanvas = null;
 var mGLView = null;
@@ -71,6 +72,9 @@ var mSpecularShininess = 33.0;  // shinniness, the more smaller, the more smooth
 var mUseAmbientColor = true;
 var mUseDiffuseColor = true;
 var mUseSpecularColor = true;
+// shadow
+var mNeedDrawShadow = false;
+var mShadowProgram = null;
 // draw background
 var mNeedDrawBackground = true;
 var mBackgroundProgram = null;
@@ -122,7 +126,7 @@ var mSouloutModifyTime = 0
 // var mNotFirstFrame = false;
 var mIdentityMatrix = mat4.create();
 var mFrameBufferObject = null;
-var mFrameBufferObject1 = null;
+// var mFrameBufferObject1 = null;
 // var mFrameBufferObject2 = null;
 // var mFrameBufferObject3 = null;
 // draw cloud anim plane
@@ -794,9 +798,7 @@ function initBasicShader(gl) {
 }
 
 function updateBackgroundShader() {
-    const canvas = document.querySelector("#glcanvas");
-    // Initialize the GL context
-    const gl = canvas.getContext("webgl") || canvas.getContext('experimental-webgl');
+    let gl = mGLCanvas.getGL();
     // Vertex shader program
     var vsSource = document.getElementById('id_vertex_shader').value;
     // Fragment shader program
@@ -983,13 +985,23 @@ function updateAnimQuatHtmlValue() {
 }
 
 function updateLightShader() {
-    const canvas = document.querySelector("#glcanvas");
+    var vertTextArea = document.getElementById('id_light_vertex_shader')
+    var fragTextArea = document.getElementById('id_light_fragment_shader')
+    var vertReader = new XMLHttpRequest();
+    var fragReader = new XMLHttpRequest();
+    vertReader.open('get', './shader/base_lighting.vs', false);
+    fragReader.open('get', './shader/base_lighting.fs', false);
+    vertReader.send();
+    fragReader.send();
+    vertTextArea.innerHTML = vertReader.responseText;
+    fragTextArea.innerHTML = fragReader.responseText;
+    
     // Initialize the GL context
-    const gl = canvas.getContext("webgl") || canvas.getContext('experimental-webgl');
+    let gl = mGLCanvas.getGL();
     // Vertex shader program
-    var vsSource = document.getElementById('id_light_vertex_shader').value;
+    var vsSource = vertTextArea.value;
     // Fragment shader program
-    var fsSource = document.getElementById('id_light_fragment_shader').value;
+    var fsSource = fragTextArea.value;
 
     // Initialize a shader program
     var vertexShader = loadShader(gl, gl.VERTEX_SHADER, vsSource);
@@ -1471,9 +1483,7 @@ function updatePerVflSwitch() {
 }
 
 function updateSphereShader() {
-    const canvas = document.querySelector("#glcanvas");
-    // Initialize the GL context
-    const gl = canvas.getContext("webgl") || canvas.getContext('experimental-webgl');
+    let gl = mGLCanvas.getGL();
     var vsSource;
     var fsSource;
     if (mIsPerFrag) {
@@ -2068,22 +2078,22 @@ function updateYUVVideoFilterSwitch() {
 
     if (document.getElementById("id_filter_normal_rb").checked) {
         mVideoFilter = VideoFilter.NORMAL;
-        fragReader.open('get', './filter/normal.fs', false);
+        fragReader.open('get', './shader/filter/normal.fs', false);
     } else if (document.getElementById("id_filter_inverse_rb").checked) {
         mVideoFilter = VideoFilter.INVERSE;
-        fragReader.open('get', './filter/inverse.fs', false);
+        fragReader.open('get', './shader/filter/inverse.fs', false);
     } else if (document.getElementById("id_filter_reminiscence_rb").checked) {
         mVideoFilter = VideoFilter.SNOW_REMINISCENCE;
-        fragReader.open('get', './filter/reminiscence.fs', false);
+        fragReader.open('get', './shader/filter/reminiscence.fs', false);
     } else if (document.getElementById("id_filter_lut_illusion_rb").checked) {
         mVideoFilter = VideoFilter.LUT_ILLUSION;
-        fragReader.open('get', './filter/illusion.fs', false);
+        fragReader.open('get', './shader/filter/illusion.fs', false);
     } else if (document.getElementById("id_filter_soul_out_rb").checked) {
         mVideoFilter = VideoFilter.SOUL_OUT;
-        fragReader.open('get', './filter/soulout.fs', false);
+        fragReader.open('get', './shader/filter/soulout.fs', false);
     } else {
         mVideoFilter = VideoFilter.NORMAL;
-        fragReader.open('get', './filter/normal.fs', false);
+        fragReader.open('get', './shader/filter/normal.fs', false);
     }
 
     // vertReader.send();
@@ -2175,6 +2185,17 @@ function updateYUVVideoShader() {
     }
 
     requestRender();
+}
+
+function initShadowProgram() {
+    var vertReader = new XMLHttpRequest();
+    var fragReader = new XMLHttpRequest();
+    vertReader.open('get', './shader/base_lighting.vs', false);
+    fragReader.open('get', './shader/base_lighting.fs', false);
+    vertReader.send();
+    fragReader.send();
+
+
 }
 
 function initUVDemo() {
@@ -2295,8 +2316,7 @@ function updateUVData() {
     mUVDemoAssistCubeVertices[9] = mUVDemoAssistCubeX + mUVDemoPlaneUvs[4] * mUVDemoAssistCubeRate;
     mUVDemoAssistCubeVertices[10] = -mUVDemoAssistCubeX - mUVDemoPlaneUvs[5] * mUVDemoAssistCubeRate;
 
-    const canvas = document.querySelector("#glcanvas");
-    const gl = canvas.getContext("webgl") || canvas.getContext('experimental-webgl');
+    let gl = mGLCanvas.getGL();
     mUVDemoPlaneBuffer = updateUVDemoBuffer(gl);
     mUVDemoAssistCubeBuffer = updateUVDemoAssistCubeBuffer(gl);
 
@@ -2400,8 +2420,7 @@ function updateUVWrapST() {
 }
 
 function updateUVTexture() {
-    const canvas = document.querySelector("#glcanvas");
-    const gl = canvas.getContext("webgl") || canvas.getContext('experimental-webgl');
+    let gl = mGLCanvas.getGL();
     gl.deleteTexture(mUVDemoTexture);
     mUVDemoTexture = loadTextureByParams(gl, './texture/spider.png', false, 
         mIsMinGLNearest, mIsMagGLNearest, mIsWrapSRepeat, mIsWrapTRepeat);
