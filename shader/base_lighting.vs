@@ -9,11 +9,14 @@ uniform vec3 uLightDir;
 uniform mat4 uVIMatrix;
 uniform mat4 uMITMatrix;    // Inverse & Transpose of Model Matrix
 
+uniform mat4 uVpMatrixByLightCoord;   // Mvp based on light frustum
+
 varying vec4 vPosition;
 varying vec2 vTexCoord;
 varying vec3 vNormal;
 varying vec3 vLightDir;
 varying vec4 vViewDir;
+varying vec4 vPositionByLightCoord;
 
 void main() {
     vec4 pntPos = uProjectionMatrix * uViewMatrix * uModelMatrix * aPosition;
@@ -23,4 +26,5 @@ void main() {
     vLightDir = normalize(uLightDir);
     vViewDir = normalize(uVIMatrix * vec4(0.0, 0.0, 0.0, 1.0) - vPosition);
     vTexCoord = aTexCoord;
+    vPositionByLightCoord = uVpMatrixByLightCoord * uModelMatrix * aPosition;
 }

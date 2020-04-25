@@ -53,6 +53,9 @@
             div#id_per_vertex_or_frag_lighting {
                 display: none;
             }
+            div#id_shadowdemo {
+                display: none;
+            }
             div#id_per_vertex_shader {
                 display: flex;
             }
@@ -124,14 +127,12 @@
                         <li data-lang="lighting">光照</li>
                             <ul>
                                 <li><a href="#TOC3.1" onclick="switchDemo('Light')" data-lang="basic_light">基本光照</a></li>
-                                <li><a href="#TOC3.4" data-lang="light_model">光照模型</a></li>
-                                <li><a href="#TOC3.5" data-lang="phong_lighting">Phong光照</a></li>
-                                <li><a href="#TOC3.6" onclick="switchDemo('PerVertexOrFragLighting')" data-lang="per_vertex_frag_lighting">逐顶点&逐像素光照</a></li>
-                                <li><a href="#TOC3.7" data-lang="fresnel_reflection">菲涅尔效果</a></li>
-                                <li><a href="#TOC3.8" data-lang="normal_mapping">法线贴图</a></li>
-                                <li><a href="#TOC3.9" data-lang="lens_flare">镜头光晕</a></li>
-                                <li><a href="#TOC3.10" data-lang="fbo_shadow">FBO、RTT、阴影</a></li>
-                                <li><a href="#TOC3.11" data-lang="pbr_rending">PBR</a></li>
+                                <li><a href="#TOC3.2" onclick="switchDemo('PerVertexOrFragLighting')" data-lang="per_vertex_frag_lighting">逐顶点&逐像素光照</a></li>
+                                <li><a href="#TOC3.3" onclick="switchDemo('Shadow')" data-lang="fbo_shadow">FBO、RTT、阴影</a></li>
+                                <li><a href="#TOC3.4" data-lang="fresnel_reflection">菲涅尔效果</a></li>
+                                <li><a href="#TOC3.5" data-lang="normal_mapping">法线贴图</a></li>
+                                <li><a href="#TOC3.6" data-lang="lens_flare">镜头光晕</a></li>
+                                <li><a href="#TOC3.7" data-lang="pbr_rending">PBR</a></li>
                             </ul>
                         </li>
                         <li data-lang="scene_management">场景管理</li>
@@ -501,7 +502,7 @@ void main() {
                         <br/>fov<input id="id_fov" style="width: 3.5em;" type="number" value="50" step="1.0" oninput="updateProjMatrixByInput()"/>
                         <br/>, aspect<input id="id_aspect" style="width: 3.5em;" type="number" value="1.0" step="0.1" oninput="updateProjMatrixByInput()"/>
                         <br/>, zNear<input id="id_near" style="width: 3.5em;" type="number" value="1.0" step="0.1" oninput="updateProjMatrixByInput()"/>
-                        <br/>, zFar<input id="id_far" style="width: 3.5em;" type="number" value="10.0" step="0.1" oninput="updateProjMatrixByInput()"/>
+                        <br/>, zFar<input id="id_far" style="width: 3.5em;" type="number" value="15.0" step="0.1" oninput="updateProjMatrixByInput()"/>
                     </div>
                 </div>
                 <h4 data-lang="proj_matrix">投影矩阵</h4>
@@ -895,6 +896,9 @@ void main() {
                     </div>
                 </div>
             </div>
+        </div>
+        <div id="id_shadowdemo">
+            
         </div>
         <div id="id_uv_demo">
             <h4 style="width: 230px; background: #ffffff" data-lang="uv_coord">UV坐标</h4>

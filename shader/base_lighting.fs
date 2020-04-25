@@ -2,6 +2,7 @@ precision mediump float;
 
 uniform sampler2D uTexDiffuseSampler;
 uniform sampler2D uTexNormalSampler;
+uniform sampler2D uShadowSampler;   // shadow texture by RTT
 uniform int uUseNormalMapping;
 
 uniform int uUseAmbient;
@@ -17,8 +18,14 @@ varying vec2 vTexCoord;
 varying vec3 vNormal;
 varying vec3 vLightDir;
 varying vec4 vViewDir;
+varying vec4 vPositionByLightCoord;
 
 void main() {
+    vec3 shadowCoord = (vPositionByLightCoord.xyz / vPositionByLightCoord.w) / 2.0 + 0.5;
+    vec4 rgbaDepth = texture2D(uShadowSampler, shadowCoord.xy);
+    float depth = rgbaDepth.a;
+    float visibility = (shadowCoord.z > depth + 0.005) ? 0.5 : 1.0;
+
     vec4 color = texture2D(uTexDiffuseSampler, vTexCoord);
     vec4 defaultColor = vec4(0.0, 0.0, 0.0, 0.0);
 
@@ -31,6 +38,6 @@ void main() {
         normal = normalize(normal * 2.0 - 1.0); // (0.0~1.0) -> (-1.0~1.0)
         diffuseColor = diffuseColor * (max(0.0, dot(normal, vLightDir)));
     }
-    gl_FragColor = (ambientColor + diffuseColor + specularColor) * color;
+    gl_FragColor = (ambientColor + diffuseColor + specularColor) * color * visibility;
     gl_FragColor.a = 1.0;
 }

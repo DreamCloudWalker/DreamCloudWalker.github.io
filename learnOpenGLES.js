@@ -4,11 +4,11 @@ const RADIUS_TO_DEGREE = 180 / Math.PI;
 const AMBIENT_COLOR = vec4.fromValues(0.5, 0.5, 0.5, 1.0);
 const DIFFUSE_COLOR = vec4.fromValues(1.0, 1.0, 1.0, 1.0);
 const SPECULAR_COLOR = vec4.fromValues(1.0, 1.0, 1.0, 1.0);
-const LIGHT_POSITION = vec3.fromValues(1.0, -1.0, 1.0);
+const LIGHT_POSITION = vec3.fromValues(0.0, 2.0, 2.0);
 // proj
 const HALF_FOV = 25 * DEGREE_TO_RADIUS;
 const FRUSTOM_NEAR = 1.0;
-const FRUSTOM_FAR = 10.0;
+const FRUSTOM_FAR = 15.0;
 const GOD_FRUSTOM_NEAR = 0.1;
 const GOD_FRUSTOM_FAR = 100.0;
 // view
@@ -73,8 +73,15 @@ var mUseAmbientColor = true;
 var mUseDiffuseColor = true;
 var mUseSpecularColor = true;
 // shadow
-var mNeedDrawShadow = false;
+var mNeedDrawShadow = true;
 var mShadowProgram = null;
+var mShadowFBO = null;
+var mVpMatrixByLightCoord = mat4.create();
+var mMvpMatrixByLightCoord = mat4.create();
+// terrain
+var mNeedDrawTerrain = true;
+var mTerrainBuffer = null;
+var mTerrainTexture = null;
 // draw background
 var mNeedDrawBackground = true;
 var mBackgroundProgram = null;
@@ -89,7 +96,6 @@ var mIsWrapTRepeat = true;
 // draw UV demo plane
 var mNeedDrawUVDemoPlane = false;
 var mUVDemoPlaneBuffer = null;
-var mUVDemoTexture = null;
 var mUVDemoPlaneVertices = [];
 var mUVDemoPlaneUvs = [];
 var mUVDemoAssistPlaneBuffer = null;
@@ -376,18 +382,22 @@ class GLScene extends GLCanvas {
         updateSphereShader();
         updateYUVVideoShader();
         mBasicProgram = initBasicShader(gl);
+        mShadowProgram = initShadowProgram(gl);
         mBasicTexProgram = initBasicTexShader(gl);
         mDiffuseLightingProgram = initDiffuseLightingShader(gl);
 
         // Here's where we call the routine that builds all the objects we'll be drawing.
         initObjectBuffers(gl);
+        // init terrain
+        mTerrainBuffer = initTerrainBuffer(gl);
         // texture
         mObjectDiffuseTexture = loadTexture(gl, './texture/Su-27_diffuse.png');
         mObjectNormalTexture = loadTexture(gl, './texture/Su-27_normal.png');
         mBackgroundTexture = loadTexture(gl, './texture/bg_sky.jpg');
-        mUVDemoTexture = loadTextureByParams(gl, './texture/spider.png', false, false, false, true, true);
+        mTerrainTexture = loadTextureByParams(gl, './texture/terrain.jpg', false, false, false, true, true);
         mYUVVideoTexture = createTexture(gl);
         // mLutTexture = loadTexture(gl, './texture/lookup_vertigo.png');
+        mShadowFBO = new FrameBufferObject(gl, gl.TEXTURE2, DEFAULT_RTT_RESOLUTION, DEFAULT_RTT_RESOLUTION);
         updateViewFrustum();
         setViewFrustumColor();
         updateNearPlane();
@@ -447,13 +457,19 @@ class GLScene extends GLCanvas {
         // Create a perspective matrix
         mAspect = mViewportWidth / mViewportHeight; // gl.canvas.clientWidth / gl.canvas.clientHeight;
 
-        // note: glmatrix.js always has the first argument
-        // as the destination to receive the result.
+        // note: glmatrix.js always has the first argument as the destination to receive the result.
         mProjectionMatrix = mat4.create();
         mat4.perspective(mProjectionMatrix, 2 * mHalfFov, mAspect, mNear, mFar);
         updateProjMatrixHtml();
         // ortho
         // mat4.ortho(mProjectionMatrix, -mAspect, mAspect, -1, 1, mNear, mFar);
+
+        // matrix by ligth position
+        let viewMatrixByLight = mat4.create();
+        let projMatrixByLight = mat4.create();
+        mat4.perspective(projMatrixByLight, 70.0, DEFAULT_RTT_RESOLUTION / DEFAULT_RTT_RESOLUTION, 0.1, 1000.0);
+        mat4.lookAt(viewMatrixByLight, LIGHT_POSITION, mLookAtCenter, mCameraUp);
+        mat4.multiply(mVpMatrixByLightCoord, projMatrixByLight, viewMatrixByLight);
 
         // god view matrix
         mGodViewMatrix = mat4.create();
@@ -1032,12 +1048,14 @@ function updateLightShader() {
             uViewMatrixHandle: gl.getUniformLocation(shaderProgram, 'uViewMatrix'),
             uVIHandle: gl.getUniformLocation(shaderProgram, 'uVIMatrix'),
             uMITHandle: gl.getUniformLocation(shaderProgram, 'uMITMatrix'),
+            uVpMatrixByLightCoordHandle: gl.getUniformLocation(shaderProgram, 'uVpMatrixByLightCoord'),
             uSpecularHandle: gl.getUniformLocation(shaderProgram, 'uSpecular'),
             uKaHandle: gl.getUniformLocation(shaderProgram, 'uKa'),
             uKdHandle: gl.getUniformLocation(shaderProgram, 'uKd'),
             uKsHandle: gl.getUniformLocation(shaderProgram, 'uKs'),
             uLightDirHandle: gl.getUniformLocation(shaderProgram, 'uLightDir'),
             uTexDiffuseSampler: gl.getUniformLocation(shaderProgram, 'uTexDiffuseSampler'),
+            uShadowSampler: gl.getUniformLocation(shaderProgram, 'uShadowSampler'),
             uTexNormalSampler: gl.getUniformLocation(shaderProgram, 'uTexNormalSampler'),
             uUseNormalMapping: gl.getUniformLocation(shaderProgram, 'uUseNormalMapping'),
             uUseAmbient: gl.getUniformLocation(shaderProgram, 'uUseAmbient'),
@@ -2187,15 +2205,245 @@ function updateYUVVideoShader() {
     requestRender();
 }
 
-function initShadowProgram() {
+function initShadowProgram(gl) {
     var vertReader = new XMLHttpRequest();
     var fragReader = new XMLHttpRequest();
-    vertReader.open('get', './shader/base_lighting.vs', false);
-    fragReader.open('get', './shader/base_lighting.fs', false);
+    vertReader.open('get', './shader/shadow.vs', false);
+    fragReader.open('get', './shader/shadow.fs', false);
     vertReader.send();
     fragReader.send();
+    var vsSource = vertReader.responseText;
+    var fsSource = fragReader.responseText;
 
+    // Initialize a shader program
+    var vertexShader = loadShader(gl, gl.VERTEX_SHADER, vsSource);
+    var fragmentShader = loadShader(gl, gl.FRAGMENT_SHADER, fsSource);
+  
+    // Create the shader program
+    var shaderProgram = gl.createProgram();
+    gl.attachShader(shaderProgram, vertexShader);
+    gl.attachShader(shaderProgram, fragmentShader);
+    gl.linkProgram(shaderProgram);
 
+    // If creating the shader program failed, alert
+    if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
+        alert('Unable to initialize the shader program: ' + gl.getProgramInfoLog(shaderProgram));
+        return null;
+    }
+
+    // Collect all the info needed to use the shader program
+    const programInfo = {
+        program: shaderProgram,
+        attribLocations: {
+            vertexPosition: gl.getAttribLocation(shaderProgram, 'aPosition'),
+        },
+        uniformLocations: {
+            uMVPMatrixHandle: gl.getUniformLocation(shaderProgram, 'uMVPMatrix'),
+        },
+    };
+
+    return programInfo;
+}
+
+function initTerrainBuffer(gl) {
+    const vertexCoords = [
+        [-50.0,  -3.0, -50.0],
+        [ 50.0,  -3.0, -50.0],
+        [-50.0,  -3.0,  50.0],
+        [ 50.0,  -3.0,  50.0],
+    ];
+    let terrainPlaneVertices = [];
+    for (var j = 0; j < vertexCoords.length; ++j) {
+        const v = vertexCoords[j];
+    
+        // Repeat each color four times for the four vertices of the face
+        terrainPlaneVertices = terrainPlaneVertices.concat(v);  // merge arrays to one
+    }
+
+    const normalCoords = [
+        [0.0,  0.0, -1.0],
+        [0.0,  0.0, -1.0],
+        [0.0,  0.0, -1.0],
+        [0.0,  0.0, -1.0],
+    ];
+    let terrainPlaneNormals = [];
+    for (var j = 0; j < normalCoords.length; ++j) {
+        const v = normalCoords[j];
+    
+        // Repeat each color four times for the four vertices of the face
+        terrainPlaneNormals = terrainPlaneNormals.concat(v);  // merge arrays to one
+    }
+
+    const uvCoords = [
+        0.0,     10.0, 
+        10.0,    10.0, 
+        0.0,     0.0, 
+        10.0,    0.0
+    ];
+    let terrainPlaneUvs = [];
+    terrainPlaneUvs.splice(0, terrainPlaneUvs.length);  // clear
+    for (var i = 0; i < uvCoords.length; i++) {
+        terrainPlaneUvs.push(uvCoords[i]);
+    }
+
+    const positionBuffer = gl.createBuffer();
+    // Select the positionBuffer as the one to apply buffer operations to from here out.
+    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(terrainPlaneVertices), gl.STATIC_DRAW);
+
+    const normalBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(terrainPlaneNormals), gl.STATIC_DRAW);
+
+    // Create a buffer for the viewFrustum's color.
+    const uvBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, uvBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(terrainPlaneUvs), gl.STATIC_DRAW);
+
+    return {
+        position: positionBuffer,
+        normal: normalBuffer,
+        uv: uvBuffer,
+        drawCnt: terrainPlaneVertices.length / 3,
+    };
+}
+
+// share fighter object's mvp
+function drawTerrain(gl, lightingProgram, shadowProgram, buffers, diffuseTexture, drawCount, deltaTime, isDrawShadow, isGodView) {
+    if (isDrawShadow && null != shadowProgram) {
+        // Tell WebGL how to pull out the positions from the position buffer into the vertexPosition attribute.
+        {
+            const numComponents = 3;
+            const type = gl.FLOAT;
+            const normalize = false;
+            const stride = 0;
+            const offset = 0;
+            gl.bindBuffer(gl.ARRAY_BUFFER, buffers.position);
+            gl.vertexAttribPointer(
+                shadowProgram.attribLocations.vertexPosition,
+                numComponents,
+                type,
+                normalize,
+                stride,
+                offset);
+            gl.enableVertexAttribArray(
+                shadowProgram.attribLocations.vertexPosition);
+        }
+
+        gl.useProgram(shadowProgram.program);
+        mat4.multiply(mMvpMatrixByLightCoord, mVpMatrixByLightCoord, mModelMatrix);
+        
+        gl.uniformMatrix4fv(shadowProgram.uniformLocations.uMVPMatrixHandle, false, mMvpMatrixByLightCoord);
+    } else {
+        // Tell WebGL how to pull out the positions from the position buffer into the vertexPosition attribute.
+        {
+            const numComponents = 3;
+            const type = gl.FLOAT;
+            const normalize = false;
+            const stride = 0;
+            const offset = 0;
+            gl.bindBuffer(gl.ARRAY_BUFFER, buffers.position);
+            gl.vertexAttribPointer(
+                lightingProgram.attribLocations.vertexPosition,
+                numComponents,
+                type,
+                normalize,
+                stride,
+                offset);
+            gl.enableVertexAttribArray(
+                lightingProgram.attribLocations.vertexPosition);
+        }
+
+        // Tell WebGL how to pull out the normals from the normal
+        // buffer into the normal attribute.
+        {
+            const numComponents = 3;
+            const type = gl.FLOAT;
+            const normalize = false;
+            const stride = 0;
+            const offset = 0;
+            gl.bindBuffer(gl.ARRAY_BUFFER, buffers.normal);
+            gl.vertexAttribPointer(
+                lightingProgram.attribLocations.normalPosition,
+                numComponents,
+                type,
+                normalize,
+                stride,
+                offset);
+            gl.enableVertexAttribArray(
+                lightingProgram.attribLocations.normalPosition);
+        }
+
+        // Tell WebGL how to pull out the texture coordinates from
+        // the texture coordinate buffer into the textureCoord attribute.
+        {
+            const numComponents = 2;
+            const type = gl.FLOAT;
+            const normalize = false;
+            const stride = 0;
+            const offset = 0;
+            gl.bindBuffer(gl.ARRAY_BUFFER, buffers.uv);
+            gl.vertexAttribPointer(
+                lightingProgram.attribLocations.textureCoord,
+                numComponents,
+                type,
+                normalize,
+                stride,
+                offset);
+            gl.enableVertexAttribArray(
+                lightingProgram.attribLocations.textureCoord);
+        }
+
+        // Tell WebGL to use our lightingProgram when drawing
+        gl.useProgram(lightingProgram.program);
+
+        // Specify the diffuseTexture to map onto the faces.
+        // Tell WebGL we want to affect diffuseTexture unit 0
+        gl.activeTexture(gl.TEXTURE0);
+        // Bind the diffuseTexture to diffuseTexture unit 0
+        gl.bindTexture(gl.TEXTURE_2D, diffuseTexture);
+        // Tell the shader we bound the diffuseTexture to diffuseTexture unit 0
+        gl.uniform1i(lightingProgram.uniformLocations.uTexDiffuseSampler, 0);
+        gl.uniform1i(lightingProgram.uniformLocations.uUseNormalMapping, 0);
+
+        if (null != mShadowFBO) {
+            gl.activeTexture(gl.TEXTURE2);
+            gl.bindTexture(gl.TEXTURE_2D, mShadowFBO.getTextureId());
+            gl.uniform1i(lightingProgram.uniformLocations.uShadowSampler, 2);
+        }
+
+        // Set the shader uniforms
+        gl.uniformMatrix4fv(
+            lightingProgram.uniformLocations.uModelMatrixHandle,
+            false, mModelMatrix);
+        gl.uniformMatrix4fv(lightingProgram.uniformLocations.uMITHandle, false, mMITMatrix);
+        gl.uniformMatrix4fv(lightingProgram.uniformLocations.uVpMatrixByLightCoordHandle, false, mVpMatrixByLightCoord);
+
+        if (isGodView) {
+            gl.uniformMatrix4fv(lightingProgram.uniformLocations.uProjectionMatrixHandle, false, mGodProjectionMatrix);
+            gl.uniformMatrix4fv(lightingProgram.uniformLocations.uViewMatrixHandle, false, mGodViewMatrix);
+            gl.uniformMatrix4fv(lightingProgram.uniformLocations.uVIHandle, false, mGodVIMatrix); 
+        } else {
+            gl.uniformMatrix4fv(
+                lightingProgram.uniformLocations.uProjectionMatrixHandle,
+                false, mProjectionMatrix);
+            gl.uniformMatrix4fv(
+                lightingProgram.uniformLocations.uViewMatrixHandle,
+                false, mViewMatrix);
+            gl.uniformMatrix4fv(lightingProgram.uniformLocations.uVIHandle, false, mVIMatrix); 
+        }
+
+        gl.uniform1i(lightingProgram.uniformLocations.uUseAmbient, 1);
+        gl.uniform4fv(lightingProgram.uniformLocations.uKaHandle, mAmbientColor);
+        gl.uniform1i(lightingProgram.uniformLocations.uUseDiffuse, 1);
+        gl.uniform4fv(lightingProgram.uniformLocations.uKdHandle, mDiffuseColor);
+        gl.uniform1i(lightingProgram.uniformLocations.uUseSpecular, 1);
+        gl.uniform4fv(lightingProgram.uniformLocations.uKsHandle, mSpecularColor);
+        gl.uniform3fv(lightingProgram.uniformLocations.uLightDirHandle, LIGHT_POSITION);
+    }
+
+    const drawOffset = 0;
+    gl.drawArrays(gl.TRIANGLE_STRIP, drawOffset, drawCount);
 }
 
 function initUVDemo() {
@@ -2421,13 +2669,9 @@ function updateUVWrapST() {
 
 function updateUVTexture() {
     let gl = mGLCanvas.getGL();
-    gl.deleteTexture(mUVDemoTexture);
-    mUVDemoTexture = loadTextureByParams(gl, './texture/spider.png', false, 
+    gl.deleteTexture(mTerrainTexture);
+    mTerrainTexture = loadTextureByParams(gl, './texture/terrain.jpg', false, 
         mIsMinGLNearest, mIsMagGLNearest, mIsWrapSRepeat, mIsWrapTRepeat);
-}
-
-function initYUVVideoTexture() {
-
 }
 
 function initBackground() {
@@ -2607,9 +2851,11 @@ function switchDemo(demoId) {
     mNeedDrawCobraAnim = false;
     mNeedDrawSphere = false;
     mNeedDrawFighter = false;
-    mNeedDrawBackground = true;
+    mNeedDrawBackground = false;
     mNeedDrawUVDemoPlane = false;
     mNeedDrawYUVVideo = false;
+    mNeedDrawShadow = false;
+    mNeedDrawTerrain = false;
     document.getElementById("id_shader").style.display = 'none';
     document.getElementById("id_mvpmatrix").style.display = 'none';
     document.getElementById("id_modelmatrix").style.display = 'none';
@@ -2622,11 +2868,11 @@ function switchDemo(demoId) {
     document.getElementById("id_uv_demo").style.display = 'none';
     document.getElementById("id_lightdemo").style.display = 'none';
     document.getElementById("id_per_vertex_or_frag_lighting").style.display = 'none';
+    document.getElementById("id_shadowdemo").style.display = 'none';
     document.getElementById("id_yuv_video").style.display = 'none';
 
     switch (demoId) {
         case 'Shader':
-            mNeedDrawFighter = true;
             mNeedDrawBackground = true;
             document.getElementById("id_shader").style.display = 'flex';
             break;
@@ -2656,16 +2902,22 @@ function switchDemo(demoId) {
         case 'ModelMatrix':
             mNeedDrawFighter = true;
             mNeedDrawBackground = true;
+            mNeedDrawShadow = true;
+            mNeedDrawTerrain = true;
             document.getElementById("id_modelmatrix").style.display = 'flex';
             break;
         case 'ViewMatrix':
             mNeedDrawFighter = true;
             mNeedDrawBackground = true;
+            mNeedDrawShadow = true;
+            mNeedDrawTerrain = true;
             document.getElementById("id_viewmatrix").style.display = 'flex';
             break;
         case 'ProjectionMatrix':
             mNeedDrawFighter = true;
             mNeedDrawBackground = true;
+            mNeedDrawShadow = true;
+            mNeedDrawTerrain = true;
             document.getElementById("id_projmatrix").style.display = 'flex';
             break;
         case 'UV':
@@ -2674,12 +2926,19 @@ function switchDemo(demoId) {
             break;
         case 'PerVertexOrFragLighting':
             mNeedDrawSphere = true;
+            mNeedDrawBackground = true;
             document.getElementById("id_per_vertex_or_frag_lighting").style.display = 'flex';
             break;
         case 'Light':
             mNeedDrawFighter = true;
             mNeedDrawBackground = true;
             document.getElementById("id_lightdemo").style.display = 'flex';
+            break;
+        case 'Shadow':
+            mNeedDrawFighter = true;
+            mNeedDrawBackground = true;
+            mNeedDrawShadow = true;
+            document.getElementById("id_shadowdemo").style.display = 'flex';
             break;
         case 'CobraManeuvre':
             mNeedDrawCobraAnim = true;
@@ -3742,7 +4001,7 @@ function drawSphere(gl, lightingProgram, buffers, drawCount, deltaTime, isGodVie
     gl.drawArrays(gl.TRIANGLES, drawOffset, drawCount);
 }
 
-function drawObject(gl, lightingProgram, buffers, diffuseTexture, normalTexture, drawCount, deltaTime, isGodView) {
+function drawObject(gl, lightingProgram, shadowProgram, buffers, diffuseTexture, normalTexture, drawCount, deltaTime, isDrawShadow, isGodView) {
     // Set the drawing position to the "identity" point, which is the center of the scene.
     mModelMatrix = mat4.create();
     mat4.translate(mModelMatrix,     // destination matrix
@@ -3816,131 +4075,164 @@ function drawObject(gl, lightingProgram, buffers, diffuseTexture, normalTexture,
     mat4.invert(mMITMatrix, mMITMatrix);
     mat4.transpose(mMITMatrix, mMITMatrix);
 
-    // Tell WebGL how to pull out the positions from the position
-    // buffer into the vertexPosition attribute.
-    {
-        const numComponents = 3;
-        const type = gl.FLOAT;
-        const normalize = false;
-        const stride = 0;
-        const offset = 0;
-        gl.bindBuffer(gl.ARRAY_BUFFER, buffers.position);
-        gl.vertexAttribPointer(
-            lightingProgram.attribLocations.vertexPosition,
-            numComponents,
-            type,
-            normalize,
-            stride,
-            offset);
-        gl.enableVertexAttribArray(
-            lightingProgram.attribLocations.vertexPosition);
-    }
+    if (isDrawShadow && null != shadowProgram) {
+        // Tell WebGL how to pull out the positions from the position
+        // buffer into the vertexPosition attribute.
+        {
+            const numComponents = 3;
+            const type = gl.FLOAT;
+            const normalize = false;
+            const stride = 0;
+            const offset = 0;
+            gl.bindBuffer(gl.ARRAY_BUFFER, buffers.position);
+            gl.vertexAttribPointer(
+                shadowProgram.attribLocations.vertexPosition,
+                numComponents,
+                type,
+                normalize,
+                stride,
+                offset);
+            gl.enableVertexAttribArray(
+                shadowProgram.attribLocations.vertexPosition);
+        }
 
-    // Tell WebGL how to pull out the normals from the normal
-    // buffer into the normal attribute.
-    {
-        const numComponents = 3;
-        const type = gl.FLOAT;
-        const normalize = false;
-        const stride = 0;
-        const offset = 0;
-        gl.bindBuffer(gl.ARRAY_BUFFER, buffers.normal);
-        gl.vertexAttribPointer(
-            lightingProgram.attribLocations.normalPosition,
-            numComponents,
-            type,
-            normalize,
-            stride,
-            offset);
-        gl.enableVertexAttribArray(
-            lightingProgram.attribLocations.normalPosition);
-    }
+        gl.useProgram(shadowProgram.program);
+        mat4.multiply(mMvpMatrixByLightCoord, mVpMatrixByLightCoord, mModelMatrix);
+        
+        gl.uniformMatrix4fv(shadowProgram.uniformLocations.uMVPMatrixHandle, false, mMvpMatrixByLightCoord);
+    } else {
+        // Tell WebGL how to pull out the positions from the position
+        // buffer into the vertexPosition attribute.
+        {
+            const numComponents = 3;
+            const type = gl.FLOAT;
+            const normalize = false;
+            const stride = 0;
+            const offset = 0;
+            gl.bindBuffer(gl.ARRAY_BUFFER, buffers.position);
+            gl.vertexAttribPointer(
+                lightingProgram.attribLocations.vertexPosition,
+                numComponents,
+                type,
+                normalize,
+                stride,
+                offset);
+            gl.enableVertexAttribArray(
+                lightingProgram.attribLocations.vertexPosition);
+        }
 
-    // Tell WebGL how to pull out the texture coordinates from
-    // the texture coordinate buffer into the textureCoord attribute.
-    {
-        const numComponents = 2;
-        const type = gl.FLOAT;
-        const normalize = false;
-        const stride = 0;
-        const offset = 0;
-        gl.bindBuffer(gl.ARRAY_BUFFER, buffers.uv);
-        gl.vertexAttribPointer(
-            lightingProgram.attribLocations.textureCoord,
-            numComponents,
-            type,
-            normalize,
-            stride,
-            offset);
-        gl.enableVertexAttribArray(
-            lightingProgram.attribLocations.textureCoord);
-    }
+        // Tell WebGL how to pull out the normals from the normal
+        // buffer into the normal attribute.
+        {
+            const numComponents = 3;
+            const type = gl.FLOAT;
+            const normalize = false;
+            const stride = 0;
+            const offset = 0;
+            gl.bindBuffer(gl.ARRAY_BUFFER, buffers.normal);
+            gl.vertexAttribPointer(
+                lightingProgram.attribLocations.normalPosition,
+                numComponents,
+                type,
+                normalize,
+                stride,
+                offset);
+            gl.enableVertexAttribArray(
+                lightingProgram.attribLocations.normalPosition);
+        }
 
-    // Tell WebGL which indices to use to index the vertices
-    {
-        // gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffers.indices);
-    }
+        // Tell WebGL how to pull out the texture coordinates from
+        // the texture coordinate buffer into the textureCoord attribute.
+        {
+            const numComponents = 2;
+            const type = gl.FLOAT;
+            const normalize = false;
+            const stride = 0;
+            const offset = 0;
+            gl.bindBuffer(gl.ARRAY_BUFFER, buffers.uv);
+            gl.vertexAttribPointer(
+                lightingProgram.attribLocations.textureCoord,
+                numComponents,
+                type,
+                normalize,
+                stride,
+                offset);
+            gl.enableVertexAttribArray(
+                lightingProgram.attribLocations.textureCoord);
+        }
 
-    // Tell WebGL to use our lightingProgram when drawing
-    gl.useProgram(lightingProgram.program);
+        // Tell WebGL which indices to use to index the vertices
+        {
+            // gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffers.indices);
+        }
 
-    // Specify the diffuseTexture to map onto the faces.
-    // Tell WebGL we want to affect diffuseTexture unit 0
-    gl.activeTexture(gl.TEXTURE0);
-    // Bind the diffuseTexture to diffuseTexture unit 0
-    gl.bindTexture(gl.TEXTURE_2D, diffuseTexture);
-    // Tell the shader we bound the diffuseTexture to diffuseTexture unit 0
-    gl.uniform1i(lightingProgram.uniformLocations.uTexDiffuseSampler, 0);
+        // Tell WebGL to use our lightingProgram when drawing
+        gl.useProgram(lightingProgram.program);
 
-    // Tell the shader use normal mapping
-    if (null != normalTexture) {
-        gl.activeTexture(gl.TEXTURE1);
+        // Specify the diffuseTexture to map onto the faces.
+        // Tell WebGL we want to affect diffuseTexture unit 0
+        gl.activeTexture(gl.TEXTURE0);
         // Bind the diffuseTexture to diffuseTexture unit 0
-        gl.bindTexture(gl.TEXTURE_2D, normalTexture);
-        gl.uniform1i(lightingProgram.uniformLocations.uUseNormalMapping, 1);
-        gl.uniform1i(lightingProgram.uniformLocations.uTexNormalSampler, 1);
-    }
+        gl.bindTexture(gl.TEXTURE_2D, diffuseTexture);
+        // Tell the shader we bound the diffuseTexture to diffuseTexture unit 0
+        gl.uniform1i(lightingProgram.uniformLocations.uTexDiffuseSampler, 0);
 
-    // Set the shader uniforms
-    gl.uniformMatrix4fv(
-        lightingProgram.uniformLocations.uModelMatrixHandle,
-        false, mModelMatrix);
-    gl.uniformMatrix4fv(lightingProgram.uniformLocations.uMITHandle, false, mMITMatrix);
+        // Tell the shader use normal mapping
+        if (null != normalTexture) {
+            gl.activeTexture(gl.TEXTURE1);
+            // Bind the diffuseTexture to diffuseTexture unit 0
+            gl.bindTexture(gl.TEXTURE_2D, normalTexture);
+            gl.uniform1i(lightingProgram.uniformLocations.uUseNormalMapping, 1);
+            gl.uniform1i(lightingProgram.uniformLocations.uTexNormalSampler, 1);
+        }
 
-    if (isGodView) {
-        gl.uniformMatrix4fv(lightingProgram.uniformLocations.uProjectionMatrixHandle, false, mGodProjectionMatrix);
-        gl.uniformMatrix4fv(lightingProgram.uniformLocations.uViewMatrixHandle, false, mGodViewMatrix);
-        gl.uniformMatrix4fv(lightingProgram.uniformLocations.uVIHandle, false, mGodVIMatrix); 
-    } else {
+        if (null != mShadowFBO) {
+            gl.activeTexture(gl.TEXTURE2);
+            gl.bindTexture(gl.TEXTURE_2D, mShadowFBO.getTextureId());
+            gl.uniform1i(lightingProgram.uniformLocations.uShadowSampler, 2);
+        }
+
+        // Set the shader uniforms
         gl.uniformMatrix4fv(
-            lightingProgram.uniformLocations.uProjectionMatrixHandle,
-            false, mProjectionMatrix);
-        gl.uniformMatrix4fv(
-            lightingProgram.uniformLocations.uViewMatrixHandle,
-            false, mViewMatrix);
-        gl.uniformMatrix4fv(lightingProgram.uniformLocations.uVIHandle, false, mVIMatrix); 
-    }
+            lightingProgram.uniformLocations.uModelMatrixHandle,
+            false, mModelMatrix);
+        gl.uniformMatrix4fv(lightingProgram.uniformLocations.uMITHandle, false, mMITMatrix);
 
-    gl.uniform1f(lightingProgram.uniformLocations.uSpecularHandle, mSpecularShininess);
-    if (mUseAmbientColor) {
-        gl.uniform1i(lightingProgram.uniformLocations.uUseAmbient, 1);
-        gl.uniform4fv(lightingProgram.uniformLocations.uKaHandle, mAmbientColor);
-    } else {
-        gl.uniform1i(lightingProgram.uniformLocations.uUseAmbient, 0);
+        if (isGodView) {
+            gl.uniformMatrix4fv(lightingProgram.uniformLocations.uProjectionMatrixHandle, false, mGodProjectionMatrix);
+            gl.uniformMatrix4fv(lightingProgram.uniformLocations.uViewMatrixHandle, false, mGodViewMatrix);
+            gl.uniformMatrix4fv(lightingProgram.uniformLocations.uVIHandle, false, mGodVIMatrix); 
+        } else {
+            gl.uniformMatrix4fv(
+                lightingProgram.uniformLocations.uProjectionMatrixHandle,
+                false, mProjectionMatrix);
+            gl.uniformMatrix4fv(
+                lightingProgram.uniformLocations.uViewMatrixHandle,
+                false, mViewMatrix);
+            gl.uniformMatrix4fv(lightingProgram.uniformLocations.uVIHandle, false, mVIMatrix); 
+        }
+
+        gl.uniform1f(lightingProgram.uniformLocations.uSpecularHandle, mSpecularShininess);
+        if (mUseAmbientColor) {
+            gl.uniform1i(lightingProgram.uniformLocations.uUseAmbient, 1);
+            gl.uniform4fv(lightingProgram.uniformLocations.uKaHandle, mAmbientColor);
+        } else {
+            gl.uniform1i(lightingProgram.uniformLocations.uUseAmbient, 0);
+        }
+        if (mUseDiffuseColor) {
+            gl.uniform1i(lightingProgram.uniformLocations.uUseDiffuse, 1);
+            gl.uniform4fv(lightingProgram.uniformLocations.uKdHandle, mDiffuseColor);
+        } else {
+            gl.uniform1i(lightingProgram.uniformLocations.uUseDiffuse, 0);
+        }
+        if (mUseSpecularColor) {
+            gl.uniform1i(lightingProgram.uniformLocations.uUseSpecular, 1);
+            gl.uniform4fv(lightingProgram.uniformLocations.uKsHandle, mSpecularColor);
+        } else {
+            gl.uniform1i(lightingProgram.uniformLocations.uUseSpecular, 0);
+        }
+        gl.uniform3fv(lightingProgram.uniformLocations.uLightDirHandle, LIGHT_POSITION);
     }
-    if (mUseDiffuseColor) {
-        gl.uniform1i(lightingProgram.uniformLocations.uUseDiffuse, 1);
-        gl.uniform4fv(lightingProgram.uniformLocations.uKdHandle, mDiffuseColor);
-    } else {
-        gl.uniform1i(lightingProgram.uniformLocations.uUseDiffuse, 0);
-    }
-    if (mUseSpecularColor) {
-        gl.uniform1i(lightingProgram.uniformLocations.uUseSpecular, 1);
-        gl.uniform4fv(lightingProgram.uniformLocations.uKsHandle, mSpecularColor);
-    } else {
-        gl.uniform1i(lightingProgram.uniformLocations.uUseSpecular, 0);
-    }
-    gl.uniform3fv(lightingProgram.uniformLocations.uLightDirHandle, LIGHT_POSITION);
 
     const drawOffset = 0;
     // const vertexCount = mIndices.length;
@@ -3979,6 +4271,25 @@ function drawScene(gl, basicProgram, basicTexProgram, diffuseLightingProgram, no
     mat4.getRotation(mQuaternion, mRotateMatrix);
     updateHtmlRotateMatrixByRender();
 
+    if (null != mShadowFBO && mNeedDrawShadow) {
+        mShadowFBO.bind();
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        gl.viewport(0, 0, DEFAULT_RTT_RESOLUTION, DEFAULT_RTT_RESOLUTION);
+
+        if (mNeedDrawFighter && mObjectBuffer.length > 0) {
+            for (var i = 0; i < mObjectBuffer.length; i++) {
+                drawObject(gl, mLightProgram, mShadowProgram, mObjectBuffer[i], mObjectDiffuseTexture, mObjectNormalTexture,
+                    mObjectBuffer[i].drawCnt, deltaTime, true, false);
+            }
+        }
+        // // draw terrain
+        // if (mNeedDrawTerrain) {
+        //     drawTerrain(gl, mLightProgram, mShadowProgram, mTerrainBuffer, mTerrainTexture, mTerrainBuffer.drawCnt, deltaTime, true, false);
+        // }
+
+        mShadowFBO.unbind();
+    }
+
     // Clear the canvas before we start drawing on it.
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.viewport(0, 0, mViewportWidth, mViewportHeight);
@@ -3996,8 +4307,13 @@ function drawScene(gl, basicProgram, basicTexProgram, diffuseLightingProgram, no
 
     if (mNeedDrawFighter && mObjectBuffer.length > 0) {
         for (var i = 0; i < mObjectBuffer.length; i++) {
-            drawObject(gl, mLightProgram, mObjectBuffer[i], mObjectDiffuseTexture, mObjectNormalTexture, mObjectBuffer[i].drawCnt, deltaTime, false);
+            drawObject(gl, mLightProgram, mShadowProgram, mObjectBuffer[i], mObjectDiffuseTexture, mObjectNormalTexture, 
+                mObjectBuffer[i].drawCnt, deltaTime, false, false);
         }
+    }
+    // draw terrain
+    if (mNeedDrawTerrain) {
+        drawTerrain(gl, mLightProgram, mShadowProgram, mTerrainBuffer, mTerrainTexture, mTerrainBuffer.drawCnt, deltaTime, false, false);
     }
     if (mNeedDrawSphere) {
         drawSphere(gl, mSphereProgram, mSphereBuffer, mSphereBuffer.drawCnt, deltaTime, false);
@@ -4014,8 +4330,8 @@ function drawScene(gl, basicProgram, basicTexProgram, diffuseLightingProgram, no
 
     // draw uv demo
     if (mNeedDrawUVDemoPlane) {
-        drawUVDemo(gl, basicTexProgram, mUVDemoPlaneBuffer, mUVDemoTexture, mUVDemoPlaneBuffer.drawCnt, deltaTime);
-        drawUVDemo(gl, basicTexProgram, mUVDemoAssistPlaneBuffer, mUVDemoTexture, mUVDemoAssistPlaneBuffer.drawCnt, deltaTime);
+        drawUVDemo(gl, basicTexProgram, mUVDemoPlaneBuffer, mTerrainTexture, mUVDemoPlaneBuffer.drawCnt, deltaTime);
+        drawUVDemo(gl, basicTexProgram, mUVDemoAssistPlaneBuffer, mTerrainTexture, mUVDemoAssistPlaneBuffer.drawCnt, deltaTime);
         drawArrays(gl, basicProgram, mUVDemoAssistUVAxisBuffer, mUVDemoAssistUVAxisVertices.length / 3, mMvpMatrix, gl.LINES, deltaTime);
         drawArrays(gl, basicProgram, mUVDemoAssistCubeBuffer, mUVDemoAssistCubeVertices.length / 3, mMvpMatrix, gl.LINE_LOOP, deltaTime);
     }
@@ -4112,12 +4428,17 @@ function drawScene(gl, basicProgram, basicTexProgram, diffuseLightingProgram, no
     gl.viewport(mViewportWidth, 0, mViewportWidth, mViewportHeight);
     if (mNeedDrawFighter && mObjectBuffer.length > 0) {
         for (var i = 0; i < mObjectBuffer.length; i++) {
-            drawObject(gl, mLightProgram, mObjectBuffer[i], mObjectDiffuseTexture, mObjectNormalTexture, mObjectBuffer[i].drawCnt, deltaTime, true);
+            drawObject(gl, mLightProgram, mShadowProgram, mObjectBuffer[i], mObjectDiffuseTexture, mObjectNormalTexture, 
+                mObjectBuffer[i].drawCnt, deltaTime, false, true);
         }
+    }
+    // draw terrain
+    if (mNeedDrawTerrain) {
+        drawTerrain(gl, mLightProgram, mShadowProgram, mTerrainBuffer, mTerrainTexture, mTerrainBuffer.drawCnt, deltaTime, false, true);
     }
     // draw uv demo
     if (mNeedDrawUVDemoPlane) {
-        drawUVDemo(gl, basicTexProgram, mUVDemoPlaneBuffer, mUVDemoTexture, mUVDemoPlaneBuffer.drawCnt, deltaTime, true);
+        drawUVDemo(gl, basicTexProgram, mUVDemoPlaneBuffer, mTerrainTexture, mUVDemoPlaneBuffer.drawCnt, deltaTime, true);
     }
     // draw yuv video
     if (mNeedDrawYUVVideo) {
