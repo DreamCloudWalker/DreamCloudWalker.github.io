@@ -201,7 +201,7 @@ var mLastEyePosX = EYE_INIT_POS_X;
 var mLastEyePosY = EYE_INIT_POS_Y;
 var mLastEyePosZ = EYE_INIT_POS_Z;
 var mEyePosYawing = 0;
-var mEyePosPitching = 0;
+var mEyePosPitching = 0.2;
 var mEye = vec3.create();
 var mLastLookAtX = 0.0;
 var mLastLookAtY = 0.0;
@@ -480,6 +480,7 @@ class GLScene extends GLCanvas {
         mat4.perspective(mGodProjectionMatrix, HALF_FOV, mAspect, GOD_FRUSTOM_NEAR, GOD_FRUSTOM_FAR);
         mat4.multiply(mGodMvpMatrix, mGodProjectionMatrix, mGodViewMatrix);
         mat4.copy(mViewFrustumMvpMatrix, mGodMvpMatrix);
+        updateViewMatrixByMouse();
         
         requestRender();
     }
@@ -2938,6 +2939,7 @@ function switchDemo(demoId) {
             mNeedDrawFighter = true;
             mNeedDrawBackground = true;
             mNeedDrawShadow = true;
+            mNeedDrawTerrain = true;
             document.getElementById("id_shadowdemo").style.display = 'flex';
             break;
         case 'CobraManeuvre':
