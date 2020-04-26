@@ -73,13 +73,13 @@ var mUseAmbientColor = true;
 var mUseDiffuseColor = true;
 var mUseSpecularColor = true;
 // shadow
-var mNeedDrawShadow = true;
+var mNeedDrawShadow = false;
 var mShadowProgram = null;
 var mShadowFBO = null;
 var mVpMatrixByLightCoord = mat4.create();
 var mMvpMatrixByLightCoord = mat4.create();
 // terrain
-var mNeedDrawTerrain = true;
+var mNeedDrawTerrain = false;
 var mTerrainBuffer = null;
 var mTerrainTexture = null;
 // draw background
@@ -421,7 +421,7 @@ class GLScene extends GLCanvas {
         mCloudTexture = loadTexture(gl, './texture/cloud.png');
 
         // init sphere
-        mSphereBuffer = initSphereBuffers(gl, 1.0, 30, vec4.fromValues(1.0, 1.0, 1.0, 1.0));
+        mSphereBuffer = initSphereBuffers(gl, 1.0, 20, vec4.fromValues(1.0, 1.0, 1.0, 1.0));
         // background
         initBackground();
         initUVDemo();
@@ -438,8 +438,6 @@ class GLScene extends GLCanvas {
 
     onGLResize(width, height) {
         console.log("GLScene, onGLResize");
-        let gl = this.getGL();
-       
         mViewportWidth = width / 2;
         mViewportHeight = height;
 
@@ -2874,10 +2872,13 @@ function switchDemo(demoId) {
 
     switch (demoId) {
         case 'Shader':
+            resumeMVPMatrix(false);
+            mNeedDrawFighter = true;
             mNeedDrawBackground = true;
             document.getElementById("id_shader").style.display = 'flex';
             break;
         case 'EulerAngle':
+            resumeMVPMatrix(false);
             mNeedDrawGimbal = true;
             mNeedDrawFighter = true;
             mNeedDrawBackground = true;
@@ -2901,29 +2902,25 @@ function switchDemo(demoId) {
             document.getElementById("id_mvpmatrix").style.display = 'flex';
             break;
         case 'ModelMatrix':
+            resumeMVPMatrix(true);
             mNeedDrawFighter = true;
             mNeedDrawBackground = true;
-            mNeedDrawShadow = true;
-            mNeedDrawTerrain = true;
             document.getElementById("id_modelmatrix").style.display = 'flex';
             break;
         case 'ViewMatrix':
             mNeedDrawFighter = true;
             mNeedDrawBackground = true;
-            mNeedDrawShadow = true;
-            mNeedDrawTerrain = true;
             document.getElementById("id_viewmatrix").style.display = 'flex';
             break;
         case 'ProjectionMatrix':
             mNeedDrawFighter = true;
             mNeedDrawBackground = true;
-            mNeedDrawShadow = true;
-            mNeedDrawTerrain = true;
             document.getElementById("id_projmatrix").style.display = 'flex';
             break;
         case 'UV':
             mNeedDrawUVDemoPlane = true;
             document.getElementById("id_uv_demo").style.display = 'flex';
+            resumeMVPMatrix(false);
             break;
         case 'PerVertexOrFragLighting':
             mNeedDrawSphere = true;
@@ -2936,6 +2933,7 @@ function switchDemo(demoId) {
             document.getElementById("id_lightdemo").style.display = 'flex';
             break;
         case 'Shadow':
+            resumeMVPMatrix(true);
             mNeedDrawFighter = true;
             mNeedDrawBackground = true;
             mNeedDrawShadow = true;
@@ -2951,7 +2949,15 @@ function switchDemo(demoId) {
             mEye[0] = EYE_INIT_POS_Z;
             mEye[1] = 0;
             mEye[2] = 0;
-
+            mEyePosYawing = 0;
+            mEyePosPitching = 0;
+            mLastEyePosX = EYE_INIT_POS_X;
+            mLastEyePosY = EYE_INIT_POS_Y;
+            mLastEyePosZ = EYE_INIT_POS_Z;
+            mLastLookAtX = 0.0;
+            mLastLookAtY = 0.0;
+            mLastLookAtZ = 0.0;
+            mLookAtCenter = vec3.create();
             // update view matrix
             mat4.lookAt(mViewMatrix, mEye, mLookAtCenter, mCameraUp);
             mat4.copy(mVIMatrix, mViewMatrix);
@@ -2997,12 +3003,38 @@ function switchDemo(demoId) {
                 mYUVInited = true;
             }
             resumeVideo(mVideo);
+            resumeMVPMatrix(false);
             break;
         default:
             break;
     }
 
     requestRender();
+}
+
+function resumeMVPMatrix(isIncline) {
+    mModelMatrix = mat4.create();
+    mEyePosYawing = 0;
+    if (isIncline) {
+        mEyePosPitching = 0.2;
+    } else {
+        mEyePosPitching = 0;
+    }
+    mEye = vec3.fromValues(EYE_INIT_POS_X, EYE_INIT_POS_Y, EYE_INIT_POS_Z);
+    mPitching = 0.0
+    mYawing = 0.0;
+    mRolling = 0.0;
+    // projection
+    mHalfFov = HALF_FOV;
+    mNear = FRUSTOM_NEAR;
+    mFar = FRUSTOM_FAR;
+    mAspect = 1.0;
+    mCobraZOffset = 0.0;
+    mCobraYOffset = 0.0;
+    updateViewFrustumPose();
+    updateViewMatrixByMouse();
+    updateViewMatrixHtml();
+    updateProjMatrixHtml();
 }
 
 // Chrome addEventListener onmousewheel
@@ -3191,7 +3223,6 @@ function loadTexture(gl, url) {
          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
       }
-      requestRender();
     };
     image.src = url;
   

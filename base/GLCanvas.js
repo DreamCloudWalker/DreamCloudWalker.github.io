@@ -15,7 +15,7 @@ class GLCanvas {
         instance = this;
         let gl = null;
         try {
-            gl = glView.getContext('experimental-webgl');
+            gl = glView.getContext('webgl', {antialias:true});
             glView.glCanvas = this;
     
             this.mGL              = gl;
