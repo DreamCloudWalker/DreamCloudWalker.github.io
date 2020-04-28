@@ -1086,13 +1086,15 @@ function loadShader(gl, type, source) {
     return shader;
 }
 
-function updateViewFrustumPose() {
+function updateViewFrustumPose(byResume) {
     if (mEye[0] == mLookAtCenter[0] && mEye[1] == mLookAtCenter[1] && mEye[2] == mLookAtCenter[2]) {
         console.log('updateCameraPos err');
         return ;
     }
 
     // transform viewing frustum and Set the shader uniforms
+    let lastViewFrustumModelMatrix = mat4.create();
+    mat4.copy(lastViewFrustumModelMatrix, mViewFrustumModelMatrix);
     mViewFrustumModelMatrix = mat4.create();
     
     // calc rotate by axis-angle
@@ -1127,6 +1129,12 @@ function updateViewFrustumPose() {
     mLastLookAtY = mLookAtCenter[1];
     mLastLookAtZ = mLookAtCenter[2];
 
+    if (byResume) {
+        let tmpGodVpMatrix = mat4.create();
+        mat4.multiply(tmpGodVpMatrix, mGodProjectionMatrix, mGodViewMatrix);
+        mat4.copy(mViewFrustumMvpMatrix, tmpGodVpMatrix);
+        mat4.multiply(mViewFrustumModelMatrix, lastViewFrustumModelMatrix, mViewFrustumModelMatrix);
+    }
     mat4.multiply(mViewFrustumMvpMatrix, mViewFrustumMvpMatrix, mViewFrustumModelMatrix);
 }
 
@@ -1134,13 +1142,13 @@ function initAxisBuffers(gl) {
     mAxisVertices = [
         // x-axis
         0.0, 0.0, 0.0, 
-        1.0, 0.0, 0.0, 
+        2.0, 0.0, 0.0, 
         // y-axis
         0.0, 0.0, 0.0, 
-        0.0, 1.0, 0.0, 
+        0.0, 2.0, 0.0, 
         // z-axis
         0.0, 0.0, 0.0, 
-        0.0, 0.0, 1.0, 
+        0.0, 0.0, 2.0, 
     ];
     const axisVerticeColors = [
         // x-axis
@@ -1428,14 +1436,14 @@ function setViewFrustumColor() {
         [1.0,  0.2,  0.0,  1.0],
         [1.0,  0.2,  0.0,  1.0],
         // near to far 
-        [0.0,  1.0,  0.3,  1.0],
-        [0.0,  1.0,  0.3,  1.0],
-        [0.0,  1.0,  0.3,  1.0],
-        [0.0,  1.0,  0.3,  1.0],
-        [0.0,  1.0,  0.3,  1.0],
-        [0.0,  1.0,  0.3,  1.0],
-        [0.0,  1.0,  0.3,  1.0],
-        [0.0,  1.0,  0.3,  1.0],
+        [0.1,  0.5,  0.3,  1.0],
+        [0.1,  0.5,  0.3,  1.0],
+        [0.1,  0.5,  0.3,  1.0],
+        [0.1,  0.5,  0.3,  1.0],
+        [0.1,  0.5,  0.3,  1.0],
+        [0.1,  0.5,  0.3,  1.0],
+        [0.1,  0.5,  0.3,  1.0],
+        [0.1,  0.5,  0.3,  1.0],
         // near rect
         [1.0,  0.2,  0.0,  1.0],    
         [1.0,  0.2,  0.0,  1.0],
@@ -1446,14 +1454,14 @@ function setViewFrustumColor() {
         [1.0,  0.2,  0.0,  1.0],
         [1.0,  0.2,  0.0,  1.0],
         // far rect
-        [0.0,  1.0,  0.3,  1.0],
-        [0.0,  1.0,  0.3,  1.0],
-        [0.0,  1.0,  0.3,  1.0],
-        [0.0,  1.0,  0.3,  1.0],
-        [0.0,  1.0,  0.3,  1.0],
-        [0.0,  1.0,  0.3,  1.0],
-        [0.0,  1.0,  0.3,  1.0],
-        [0.0,  1.0,  0.3,  1.0],
+        [0.1,  0.5,  0.3,  1.0],
+        [0.1,  0.5,  0.3,  1.0],
+        [0.1,  0.5,  0.3,  1.0],
+        [0.1,  0.5,  0.3,  1.0],
+        [0.1,  0.5,  0.3,  1.0],
+        [0.1,  0.5,  0.3,  1.0],
+        [0.1,  0.5,  0.3,  1.0],
+        [0.1,  0.5,  0.3,  1.0],
     ];
 
     for (var j = 0; j < pntColors.length; ++j) {
@@ -2260,10 +2268,10 @@ function initTerrainBuffer(gl) {
     }
 
     const normalCoords = [
-        [0.0,  0.0, -1.0],
-        [0.0,  0.0, -1.0],
-        [0.0,  0.0, -1.0],
-        [0.0,  0.0, -1.0],
+        [0.0,  1.0, 0.0],
+        [0.0,  1.0, 0.0],
+        [0.0,  1.0, 0.0],
+        [0.0,  1.0, 0.0],
     ];
     let terrainPlaneNormals = [];
     for (var j = 0; j < normalCoords.length; ++j) {
@@ -3028,12 +3036,10 @@ function resumeMVPMatrix(isIncline) {
     mHalfFov = HALF_FOV;
     mNear = FRUSTOM_NEAR;
     mFar = FRUSTOM_FAR;
-    mAspect = 1.0;
+    mAspect = mViewportWidth / mViewportHeight;
     mCobraZOffset = 0.0;
     mCobraYOffset = 0.0;
-    updateViewFrustumPose();
-    updateViewMatrixByMouse();
-    updateViewMatrixHtml();
+    updateViewMatrixByMouse(true);
     updateProjMatrixHtml();
 }
 
@@ -4657,7 +4663,7 @@ function updateHtmlParamByRender() {
     document.getElementById("id_roll_eular").value = mRolling * RADIUS_TO_DEGREE;
 }
 
-function updateViewMatrixByMouse() {
+function updateViewMatrixByMouse(isResume) {
     // update mEye
     mEye[0] = EYE_INIT_POS_Z * Math.sin(mEyePosYawing) * Math.cos(mEyePosPitching);
     mEye[1] = EYE_INIT_POS_Z * Math.sin(mEyePosPitching);
@@ -4677,7 +4683,7 @@ function updateViewMatrixByMouse() {
     document.getElementById("id_cameraup_y").value = mCameraUp[1];
     document.getElementById("id_cameraup_z").value = mCameraUp[2];
     updateViewMatrixHtml();
-    updateViewFrustumPose();
+    updateViewFrustumPose(isResume);
     
     requestRender();
 }
