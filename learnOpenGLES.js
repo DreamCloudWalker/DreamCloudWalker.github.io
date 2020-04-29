@@ -382,7 +382,7 @@ class GLScene extends GLCanvas {
         updateSphereShader();
         updateYUVVideoShader();
         mBasicProgram = initBasicShader(gl);
-        mShadowProgram = initShadowProgram(gl);
+        mShadowProgram = updateShadowProgram();
         mBasicTexProgram = initBasicTexShader(gl);
         mDiffuseLightingProgram = initDiffuseLightingShader(gl);
 
@@ -999,9 +999,13 @@ function updateAnimQuatHtmlValue() {
         + mCobraAnimInterpolateQuat[2].toFixed(2) + ", " + mCobraAnimInterpolateQuat[3].toFixed(2) + "]";
 }
 
-function updateLightShader() {
+function updateLightShader(demoType) {
     var vertTextArea = document.getElementById('id_light_vertex_shader')
     var fragTextArea = document.getElementById('id_light_fragment_shader')
+    if (demoType == "shadowDemo") {
+        vertTextArea = document.getElementById('id_shadow_vertex_shader')
+        fragTextArea = document.getElementById('id_shadow_fragment_shader')
+    }
     var vertReader = new XMLHttpRequest();
     var fragReader = new XMLHttpRequest();
     vertReader.open('get', './shader/base_lighting.vs', false);
@@ -1955,7 +1959,7 @@ function setupVideo(url) {
 
     videoElement.autoplay = true;
     videoElement.src = url;
-    // videoElement.muted = true;
+    videoElement.muted = true;
     videoElement.loop = true;
 
     videoElement.addEventListener('playing', function() {
@@ -2212,13 +2216,18 @@ function updateYUVVideoShader() {
     requestRender();
 }
 
-function initShadowProgram(gl) {
+function updateShadowProgram() {
+    let gl = mGLCanvas.getGL();
+    var vertTextArea = document.getElementById('id_fbo_vertex_shader')
+    var fragTextArea = document.getElementById('id_fbo_fragment_shader')
     var vertReader = new XMLHttpRequest();
     var fragReader = new XMLHttpRequest();
     vertReader.open('get', './shader/shadow.vs', false);
     fragReader.open('get', './shader/shadow.fs', false);
     vertReader.send();
     fragReader.send();
+    vertTextArea.innerHTML = vertReader.responseText;
+    fragTextArea.innerHTML = fragReader.responseText;
     var vsSource = vertReader.responseText;
     var fsSource = fragReader.responseText;
 
@@ -2947,6 +2956,7 @@ function switchDemo(demoId) {
             mNeedDrawShadow = true;
             mNeedDrawTerrain = true;
             document.getElementById("id_shadowdemo").style.display = 'flex';
+            updateLightShader("shadowDemo");
             break;
         case 'CobraManeuvre':
             mNeedDrawCobraAnim = true;
@@ -4484,7 +4494,7 @@ function drawScene(gl, basicProgram, basicTexProgram, diffuseLightingProgram, no
         drawYUVVideo(gl, mYUVVideoProgram, mYUVVideoPlaneBuffer, null, mYUVVideoTexture, mYUVVideoPlaneBuffer.drawCnt, now, deltaTime, false, true)
     }
     if (mNeedDrawSphere) {
-        drawSphere(gl, mSphereProgram, mSphereBuffer, mSphereBuffer.drawCnt, deltaTime, false);
+        drawSphere(gl, mSphereProgram, mSphereBuffer, mSphereBuffer.drawCnt, deltaTime, true);
     }
     drawArrays(gl, basicProgram, mAxisBuffer, mAxisVertices.length / 3, mGodMvpMatrix, gl.LINES, deltaTime);
     if (null != mViewFrustumBuffer) {

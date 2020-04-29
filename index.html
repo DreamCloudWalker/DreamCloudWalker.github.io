@@ -724,7 +724,7 @@ void main() {
         </div>
         <div id="id_lightdemo">
             <div>
-            <button style="display:block; width: 200px; height: 30px" onclick="updateLightShader()" data-lang="compile_and_run">编译并运行</button>
+            <button style="display:block; width: 200px; height: 30px" onclick="updateLightShader('lightDemo')" data-lang="compile_and_run">编译并运行</button>
             <h5 style="width: 230px; background: #ffffff">基本光照:<br><br>
                 <input type="checkbox" id="ambientLightCheckBox" checked onchange="updateLightSwitch()" data-lang="ambient_light"/>环境光<br>
                 <input type="checkbox" id="diffuseLightCheckBox" checked onchange="updateLightSwitch()" data-lang="diffuse_light"/>漫射光<br>
@@ -771,8 +771,8 @@ void main() {
         </div>
         <div id="id_per_vertex_or_frag_lighting">
             <div>
-                <button style="display:block; width: 200px; height: 30px" onclick="updateSphereShader()">编译并运行</button>
-                <h5 style="width: 230px; background: #ffffff">逐顶点/逐像素光照<br><br></h5>
+                <button style="display:block; width: 200px; height: 30px" onclick="updateSphereShader()" data-lang="compile_and_run">编译并运行</button>
+                <h5 style="width: 230px; background: #ffffff" data-lang="per_vertex_frag_lighting_tip">逐顶点/逐像素光照<br><br></h5>
                 <input type="radio" id="id_per_vertex_rb" name="per_vertex_frag" value="per_vertex" checked onchange="updatePerVflSwitch()"/>逐顶点<br>
                 <input type="radio" id="id_per_frag_rb" name="per_vertex_frag" value="per_frag" onchange="updatePerVflSwitch()"/>逐像素<br>
             </div>
@@ -898,7 +898,36 @@ void main() {
             </div>
         </div>
         <div id="id_shadowdemo">
-            
+            <div>
+                <button style="display:block; width: 200px; height: 30px" onclick="updateLightShader('shadowDemo')" data-lang="compile_and_run">编译并运行</button>
+                <h5 style="width: 230px; background: #ffffff" data-lang="real_time_shadow">实时阴影<br><br></h5>
+            </div>
+            <div id="vertical">
+                <div id="horizontal" style="width: 90em;">
+                    <div id="vertical">
+                        <b>Step 1:   顶点着色器（VertexShader）</b>
+                        <textarea spellcheck="false" rows="7" cols="95" id="id_fbo_vertex_shader">
+                        </textarea>
+                    </div>
+                    <div id="vertical">
+                        <b>片元着色器（FragmentShader）</b>
+                        <textarea spellcheck="false" rows="7" cols="95" id="id_fbo_fragment_shader">
+                        </textarea>
+                    </div>
+                </div>
+                <div id="horizontal" style="width: 90em;">
+                    <div id="vertical">
+                        <b>Step 2:   顶点着色器（VertexShader）</b>
+                        <textarea spellcheck="false" rows="31" cols="95" id="id_shadow_vertex_shader">
+                        </textarea>
+                    </div>
+                    <div id="vertical">
+                        <b>片元着色器（FragmentShader）</b>
+                        <textarea spellcheck="false" rows="31" cols="95" id="id_shadow_fragment_shader">
+                        </textarea>
+                    </div>
+                </div>
+            </div>
         </div>
         <div id="id_uv_demo">
             <h4 style="width: 230px; background: #ffffff" data-lang="uv_coord">UV坐标</h4>
