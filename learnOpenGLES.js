@@ -387,12 +387,12 @@ class GLScene extends GLCanvas {
         mDiffuseLightingProgram = initDiffuseLightingShader(gl);
 
         // Here's where we call the routine that builds all the objects we'll be drawing.
-        initObjectBuffers(gl);
+        initFighterBuffers(gl);
         // init terrain
         mTerrainBuffer = initTerrainBuffer(gl);
         // texture
-        mObjectDiffuseTexture = loadTexture(gl, './texture/Su-27_diffuse.png');
-        mObjectNormalTexture = loadTexture(gl, './texture/Su-27_normal.png');
+        mObjectDiffuseTexture = loadTexture(gl, './texture/J-15_diffuse.jpg');
+        mObjectNormalTexture = loadTexture(gl, './texture/J-15_normal.jpg');
         mBackgroundTexture = loadTexture(gl, './texture/bg_sky.jpg');
         mTerrainTexture = loadTextureByParams(gl, './texture/terrain.jpg', false, false, false, true, true);
         mYUVVideoTexture = createTexture(gl);
@@ -2750,7 +2750,7 @@ function updateBackgroundBuffer(gl) {
     };
 }
 
-function initObjectBuffers(gl) {
+function initFighterBuffers(gl) {
     // read file
     function onProgress(xhr) {
         if (xhr.lengthComputable) {
@@ -2763,7 +2763,7 @@ function initObjectBuffers(gl) {
     }
 
     var loader = new THREE.OBJLoader();
-    loader.load('./model/Su-27.obj', function(object) {
+    loader.load('./model/J-15.obj', function(object) {
         for (var i = 0; i < object.children.length; i++) {
             var vertices = object.children[i].geometry.attributes.position;
             var normals = object.children[i].geometry.attributes.normal;
@@ -3209,7 +3209,9 @@ function loadTexture(gl, url) {
     const border = 0;
     const srcFormat = gl.RGBA;
     const srcType = gl.UNSIGNED_BYTE;
-    const pixel = new Uint8Array([255, 255, 255, 255]);  // opaque blue
+    const pixel = new Uint8Array([255, 255, 255, 255]);
+    // 1表示翻转，0表示不翻转，参考 https://juejin.im/post/5d4423c4f265da038f47ef87
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1); 
     gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
     gl.texImage2D(gl.TEXTURE_2D, level, internalFormat,
                   width, height, border, srcFormat, srcType,
