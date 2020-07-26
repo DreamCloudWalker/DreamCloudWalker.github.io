@@ -5,6 +5,12 @@ const AMBIENT_COLOR = vec4.fromValues(0.5, 0.5, 0.5, 1.0);
 const DIFFUSE_COLOR = vec4.fromValues(1.0, 1.0, 1.0, 1.0);
 const SPECULAR_COLOR = vec4.fromValues(1.0, 1.0, 1.0, 1.0);
 const LIGHT_POSITION = vec3.fromValues(0.0, 2.0, 2.0);
+const LIGHT_COLOR = vec3.fromValues(1.0, 1.0, 1.0);
+const DEFAULT_EMISSIVE_FACTOR = vec3.fromValues(0.0, 0.0, 0.0);
+const DEFAULT_BASECOLOR_FACTOR = vec4.fromValues(1.0, 1.0, 1.0, 1.0);
+const DEFAULT_SCALE_DIFF_BASE_MR = vec4.fromValues(0.0, 0.0, 0.0, 0.0);
+const DEFAULT_SCALE_FGD_SPEC = vec4.fromValues(0.0, 0.0, 0.0, 1.0);
+const DEFAULT_SCALE_IBL_AMBIENT = vec4.fromValues(1.0, 1.0, 0.0, 0.0);
 // proj
 const HALF_FOV = 25 * DEGREE_TO_RADIUS;
 const FRUSTOM_NEAR = 1.0;
@@ -63,6 +69,9 @@ var mRadius = 1.0;
 var mObjectBuffer = [];
 var mObjectDiffuseTexture = null;
 var mObjectNormalTexture = null;
+var mObjectMetalnessTexture = null;
+var mObjectEmissiveTexture = null;
+var mObjectRoughnessTexture = null;
 // lighting
 var mLightProgram = null;
 var mAmbientColor = vec4.fromValues(0.5, 0.5, 0.5, 1.0);
@@ -78,6 +87,9 @@ var mShadowProgram = null;
 var mShadowFBO = null;
 var mVpMatrixByLightCoord = mat4.create();
 var mMvpMatrixByLightCoord = mat4.create();
+// pbr lighting
+var mDefines = {'HAS_UV': 1};  // do not 'USE_IBL': 1
+var mPBRLightProgram = null;
 // terrain
 var mNeedDrawTerrain = false;
 var mTerrainBuffer = null;
@@ -353,38 +365,31 @@ class GLScene extends GLCanvas {
     onGLCreated() {
         console.log("GLScene, onGLCreated");
         let gl = this.getGL();
-         // init light value
-         updateLightSwitch();
-         updateAmbientColor();
-         updateDiffuseColor();
-         updateSpecularColor();
-         updateSpecularShininess();
- 
-         // initialize anim params
-         mCobraStep1Quat = quat.fromEuler(mCobraStep1Quat, 120, 0, 30);
-         mFallingLeaf1Quat = quat.fromEuler(mFallingLeaf1Quat, 100, -20, 90);
-         mFallingLeaf2Quat = quat.fromEuler(mFallingLeaf2Quat, 80, -40, 180);
-         mFallingLeaf3Quat = quat.fromEuler(mFallingLeaf3Quat, 60, -20, 270);
-         mFallingLeaf4Quat = quat.fromEuler(mFallingLeaf4Quat, 40, 0, 360);
-         mCobraStep2Quat = quat.fromEuler(mCobraStep2Quat, 0, 0, 0);
-         updateInitQuatHtmlValue();
- 
-         // mouse
-         mGLView.onmousedown = handleMouseDown;
-         mGLView.onmouseup = handleMouseUp;
-         mGLView.onmousemove = handleMouseMove;
-         mGLView.onmouseout = handleMouseOut;
-         // mouse wheel 
+        gl.getExtension('EXT_shader_texture_lod');
+        gl.getExtension('OES_standard_derivatives');
+        // init light value
+        updateLightSwitch();
+        updateAmbientColor();
+        updateDiffuseColor();
+        updateSpecularColor();
+        updateSpecularShininess();
 
-         // init shader
-        updateBackgroundShader();
-        updateLightShader();
-        updateSphereShader();
-        updateYUVVideoShader();
-        mBasicProgram = initBasicShader(gl);
-        mShadowProgram = updateShadowProgram();
-        mBasicTexProgram = initBasicTexShader(gl);
-        mDiffuseLightingProgram = initDiffuseLightingShader(gl);
+        // initialize anim params
+        mCobraStep1Quat = quat.fromEuler(mCobraStep1Quat, 120, 0, 30);
+        mFallingLeaf1Quat = quat.fromEuler(mFallingLeaf1Quat, 100, -20, 90);
+        mFallingLeaf2Quat = quat.fromEuler(mFallingLeaf2Quat, 80, -40, 180);
+        mFallingLeaf3Quat = quat.fromEuler(mFallingLeaf3Quat, 60, -20, 270);
+        mFallingLeaf4Quat = quat.fromEuler(mFallingLeaf4Quat, 40, 0, 360);
+        mCobraStep2Quat = quat.fromEuler(mCobraStep2Quat, 0, 0, 0);
+        updateInitQuatHtmlValue();
+
+        // mouse
+        mGLView.onmousedown = handleMouseDown;
+        mGLView.onmouseup = handleMouseUp;
+        mGLView.onmousemove = handleMouseMove;
+        mGLView.onmouseout = handleMouseOut;
+        // mouse wheel 
+
 
         // Here's where we call the routine that builds all the objects we'll be drawing.
         initFighterBuffers(gl);
@@ -392,11 +397,26 @@ class GLScene extends GLCanvas {
         mTerrainBuffer = initTerrainBuffer(gl);
         // texture
         mObjectDiffuseTexture = loadTexture(gl, './texture/J-15_diffuse.jpg');
-        mObjectNormalTexture = loadTexture(gl, './texture/J-15_normal.jpg');
+        // mObjectNormalTexture = loadTexture(gl, './texture/J-15_normal.jpg'); // FixMe
+        // mObjectMetalnessTexture = loadTexture(gl, './texture/J-15_metalness.jpg');
+        // mObjectEmissiveTexture = loadTexture(gl, './texture/J-15_emissive.jpg');
+        // mObjectRoughnessTexture = loadTexture(gl, './texture/J-15_roughness.jpg');
         mBackgroundTexture = loadTexture(gl, './texture/bg_sky.jpg');
         mTerrainTexture = loadTextureByParams(gl, './texture/terrain.jpg', false, false, false, true, true);
         mYUVVideoTexture = createTexture(gl);
         // mLutTexture = loadTexture(gl, './texture/lookup_vertigo.png');
+
+        // init shader
+        updateBackgroundShader();
+        updateLightShader();
+        updateSphereShader();
+        updateYUVVideoShader();
+        initPBRLightingShader();
+        mBasicProgram = initBasicShader(gl);
+        mShadowProgram = updateShadowProgram();
+        mBasicTexProgram = initBasicTexShader(gl);
+        mDiffuseLightingProgram = initDiffuseLightingShader(gl);
+
         mShadowFBO = new FrameBufferObject(gl, gl.TEXTURE2, DEFAULT_RTT_RESOLUTION, DEFAULT_RTT_RESOLUTION);
         updateViewFrustum();
         setViewFrustumColor();
@@ -997,6 +1017,114 @@ function updateInitQuatHtmlValue() {
 function updateAnimQuatHtmlValue() {
     document.getElementById("id_cobra_interpolate_quat").innerHTML = "[" + mCobraAnimInterpolateQuat[0].toFixed(2) + ", " + mCobraAnimInterpolateQuat[1].toFixed(2) + ", " 
         + mCobraAnimInterpolateQuat[2].toFixed(2) + ", " + mCobraAnimInterpolateQuat[3].toFixed(2) + "]";
+}
+
+function initPBRLightingShader(demoType) {
+    var vertTextArea = document.getElementById('id_light_vertex_shader')
+    var fragTextArea = document.getElementById('id_light_fragment_shader')
+    if (demoType == "shadowDemo") {
+        vertTextArea = document.getElementById('id_shadow_vertex_shader')
+        fragTextArea = document.getElementById('id_shadow_fragment_shader')
+    }
+    var vertReader = new XMLHttpRequest();
+    var fragReader = new XMLHttpRequest();
+    vertReader.open('get', './shader/pbr_lighting.vs', false);
+    fragReader.open('get', './shader/pbr_lighting.fs', false);
+    vertReader.send();
+    fragReader.send();
+    vertTextArea.innerHTML = vertReader.responseText;
+    fragTextArea.innerHTML = fragReader.responseText;
+
+    mDefines.HAS_NORMALS = 1;
+    if (null != mObjectDiffuseTexture) {
+        mDefines.HAS_BASECOLORMAP = 1;
+    }
+    if (null != mObjectNormalTexture) {
+        mDefines.HAS_NORMALMAP = 1;
+    }
+    if (null != mObjectEmissiveTexture) {
+        mDefines.HAS_EMISSIVEMAP = 1;
+    }
+    if (null != mObjectMetalnessTexture) {
+        mDefines.HAS_METALMAP = 1;
+    }
+    if (null != mObjectRoughnessTexture) {
+        mDefines.HAS_ROUGHNESSMAP = 1;
+    }
+
+    var definesToString = function(defines) {
+        var outStr = '';
+        for (var def in defines) {
+            outStr += '#define ' + def + ' ' + defines[def] + '\n';
+        }
+        return outStr;
+    };
+    var shaderDefines = definesToString(mDefines);
+    if (false) {
+        shaderDefines += '#define USE_TEX_LOD 1\n';
+    }
+
+    // Initialize the GL context
+    let gl = mGLCanvas.getGL();
+    // Vertex shader program
+    var vsSource = shaderDefines + vertTextArea.value;
+    // Fragment shader program
+    var fsSource = shaderDefines + fragTextArea.value;
+
+    // Initialize a shader program
+    var vertexShader = loadShader(gl, gl.VERTEX_SHADER, vsSource);
+    var fragmentShader = loadShader(gl, gl.FRAGMENT_SHADER, fsSource);
+
+    // Create the shader program
+    var shaderProgram = gl.createProgram();
+    gl.attachShader(shaderProgram, vertexShader);
+    gl.attachShader(shaderProgram, fragmentShader);
+    gl.linkProgram(shaderProgram);
+
+    // If creating the shader program failed, alert
+    if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
+        alert('Unable to initialize the shader program: ' + gl.getProgramInfoLog(shaderProgram));
+        return null;
+    }
+
+    mPBRLightProgram = {
+        program: shaderProgram,
+        attribLocations: {
+            vertexPosition: gl.getAttribLocation(shaderProgram, 'aPosition'),
+            textureCoord: gl.getAttribLocation(shaderProgram, 'aUV'),
+            normalPosition: gl.getAttribLocation(shaderProgram, 'aNormal'),
+            tangentVector: gl.getAttribLocation(shaderProgram, 'aTangent'),
+        },
+        uniformLocations: {
+            uMITHandle: gl.getUniformLocation(shaderProgram, 'uMITMatrix'),
+            uMVPMatrixHandle: gl.getUniformLocation(shaderProgram, 'uMVPMatrix'),
+            uModelMatrixHandle: gl.getUniformLocation(shaderProgram, 'uModelMatrix'),
+            uVIMatrixHandle: gl.getUniformLocation(shaderProgram, 'uVIMatrix'),
+            uLightDirHandle: gl.getUniformLocation(shaderProgram, 'uLightDirection'),
+            uLightColorHandle: gl.getUniformLocation(shaderProgram, 'uLightColor'),
+            uDiffuseEnvHandle: gl.getUniformLocation(shaderProgram, 'uDiffuseEnvSampler'),
+            uSpecularEnvHandle: gl.getUniformLocation(shaderProgram, 'uSpecularEnvSampler'),
+            uBrdfLUTHandle: gl.getUniformLocation(shaderProgram, 'uBrdfLUT'),
+            uBaseColorSamplerHandle: gl.getUniformLocation(shaderProgram, 'uBaseColorSampler'),
+            uNormalSamplerHandle: gl.getUniformLocation(shaderProgram, 'uNormalSampler'),
+            uNormalScaleHandle: gl.getUniformLocation(shaderProgram, 'uNormalScale'),
+            uEmissiveSamplerHandle: gl.getUniformLocation(shaderProgram, 'uEmissiveSampler'),
+            uEmissiveFactorHandle: gl.getUniformLocation(shaderProgram, 'uEmissiveFactor'),
+            uMetallicSamplerHandle: gl.getUniformLocation(shaderProgram, 'uMetallicSampler'),
+            uRoughnessSamplerHandle: gl.getUniformLocation(shaderProgram, 'uRoughnessSampler'),
+            uOcclusionSamplerHandle: gl.getUniformLocation(shaderProgram, 'uOcclusionSampler'),
+            uOcclusionStrengthHandle: gl.getUniformLocation(shaderProgram, 'uOcclusionStrength'),
+            uMetallicValuesHandle: gl.getUniformLocation(shaderProgram, 'uMetallicValues'),
+            uRoughnessValuesHandle: gl.getUniformLocation(shaderProgram, 'uRoughnessValues'),
+            uBaseColorFactorHandle: gl.getUniformLocation(shaderProgram, 'uBaseColorFactor'),
+            uScaleDiffBaseMRHandle: gl.getUniformLocation(shaderProgram, 'uScaleDiffBaseMR'),
+            uScaleFGDSpecHandle: gl.getUniformLocation(shaderProgram, 'uScaleFGDSpec'),
+            uScaleIBLAmbientHandle: gl.getUniformLocation(shaderProgram, 'uScaleIBLAmbient'),
+            uCameraHandle: gl.getUniformLocation(shaderProgram, 'uCamera'),
+        },
+    }
+
+    requestRender();
 }
 
 function updateLightShader(demoType) {
@@ -4052,7 +4180,13 @@ function drawSphere(gl, lightingProgram, buffers, drawCount, deltaTime, isGodVie
     gl.drawArrays(gl.TRIANGLES, drawOffset, drawCount);
 }
 
-function drawObject(gl, lightingProgram, shadowProgram, buffers, diffuseTexture, normalTexture, drawCount, deltaTime, isDrawShadow, isGodView) {
+function drawObject(gl, pbrLightingProgram, shadowProgram, buffers, 
+    diffuseTexture, 
+    normalTexture, 
+    metalnessTexture, 
+    roughnessTexture,
+    emissiveTexture,
+    drawCount, deltaTime, isDrawShadow, isGodView) {
     // Set the drawing position to the "identity" point, which is the center of the scene.
     mModelMatrix = mat4.create();
     mat4.translate(mModelMatrix,     // destination matrix
@@ -4126,7 +4260,7 @@ function drawObject(gl, lightingProgram, shadowProgram, buffers, diffuseTexture,
     mat4.invert(mMITMatrix, mMITMatrix);
     mat4.transpose(mMITMatrix, mMITMatrix);
 
-    if (isDrawShadow && null != shadowProgram) {
+    if (isDrawShadow && null != shadowProgram) {    // draw shadow to texture
         // Tell WebGL how to pull out the positions from the position
         // buffer into the vertexPosition attribute.
         {
@@ -4162,14 +4296,14 @@ function drawObject(gl, lightingProgram, shadowProgram, buffers, diffuseTexture,
             const offset = 0;
             gl.bindBuffer(gl.ARRAY_BUFFER, buffers.position);
             gl.vertexAttribPointer(
-                lightingProgram.attribLocations.vertexPosition,
+                pbrLightingProgram.attribLocations.vertexPosition,
                 numComponents,
                 type,
                 normalize,
                 stride,
                 offset);
             gl.enableVertexAttribArray(
-                lightingProgram.attribLocations.vertexPosition);
+                pbrLightingProgram.attribLocations.vertexPosition);
         }
 
         // Tell WebGL how to pull out the normals from the normal
@@ -4182,14 +4316,14 @@ function drawObject(gl, lightingProgram, shadowProgram, buffers, diffuseTexture,
             const offset = 0;
             gl.bindBuffer(gl.ARRAY_BUFFER, buffers.normal);
             gl.vertexAttribPointer(
-                lightingProgram.attribLocations.normalPosition,
+                pbrLightingProgram.attribLocations.normalPosition,
                 numComponents,
                 type,
                 normalize,
                 stride,
                 offset);
             gl.enableVertexAttribArray(
-                lightingProgram.attribLocations.normalPosition);
+                pbrLightingProgram.attribLocations.normalPosition);
         }
 
         // Tell WebGL how to pull out the texture coordinates from
@@ -4202,14 +4336,14 @@ function drawObject(gl, lightingProgram, shadowProgram, buffers, diffuseTexture,
             const offset = 0;
             gl.bindBuffer(gl.ARRAY_BUFFER, buffers.uv);
             gl.vertexAttribPointer(
-                lightingProgram.attribLocations.textureCoord,
+                pbrLightingProgram.attribLocations.textureCoord,
                 numComponents,
                 type,
                 normalize,
                 stride,
                 offset);
             gl.enableVertexAttribArray(
-                lightingProgram.attribLocations.textureCoord);
+                pbrLightingProgram.attribLocations.textureCoord);
         }
 
         // Tell WebGL which indices to use to index the vertices
@@ -4217,8 +4351,8 @@ function drawObject(gl, lightingProgram, shadowProgram, buffers, diffuseTexture,
             // gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffers.indices);
         }
 
-        // Tell WebGL to use our lightingProgram when drawing
-        gl.useProgram(lightingProgram.program);
+        // Tell WebGL to use our pbrLightingProgram when drawing
+        gl.useProgram(pbrLightingProgram.program);
 
         // Specify the diffuseTexture to map onto the faces.
         // Tell WebGL we want to affect diffuseTexture unit 0
@@ -4226,63 +4360,62 @@ function drawObject(gl, lightingProgram, shadowProgram, buffers, diffuseTexture,
         // Bind the diffuseTexture to diffuseTexture unit 0
         gl.bindTexture(gl.TEXTURE_2D, diffuseTexture);
         // Tell the shader we bound the diffuseTexture to diffuseTexture unit 0
-        gl.uniform1i(lightingProgram.uniformLocations.uTexDiffuseSampler, 0);
+        gl.uniform1i(pbrLightingProgram.uniformLocations.uBaseColorSamplerHandle, 0);
 
         // Tell the shader use normal mapping
         if (null != normalTexture) {
             gl.activeTexture(gl.TEXTURE1);
-            // Bind the diffuseTexture to diffuseTexture unit 0
             gl.bindTexture(gl.TEXTURE_2D, normalTexture);
-            gl.uniform1i(lightingProgram.uniformLocations.uUseNormalMapping, 1);
-            gl.uniform1i(lightingProgram.uniformLocations.uTexNormalSampler, 1);
+            gl.uniform1i(pbrLightingProgram.uniformLocations.uNormalSamplerHandle, 1);
+            gl.uniform1f(pbrLightingProgram.uniformLocations.uNormalScaleHandle, 1.0);
         }
 
-        if (null != mShadowFBO) {
-            gl.activeTexture(gl.TEXTURE2);
-            gl.bindTexture(gl.TEXTURE_2D, mShadowFBO.getTextureId());
-            gl.uniform1i(lightingProgram.uniformLocations.uShadowSampler, 2);
+        // if (null != mShadowFBO) {   // bind shadow texture
+        //     gl.activeTexture(gl.TEXTURE2);
+        //     gl.bindTexture(gl.TEXTURE_2D, mShadowFBO.getTextureId());
+        //     gl.uniform1i(pbrLightingProgram.uniformLocations.uShadowSampler, 2);
+        // }
+
+        if (null != metalnessTexture) {
+            gl.activeTexture(gl.TEXTURE3);
+            gl.bindTexture(gl.TEXTURE_2D, metalnessTexture);
+            gl.uniform1i(pbrLightingProgram.uniformLocations.uMetallicSamplerHandle, 3);
+            gl.uniform1f(pbrLightingProgram.uniformLocations.uMetallicValuesHandle, 0.8);
+        }
+
+        if (null != roughnessTexture) {
+            gl.activeTexture(gl.TEXTURE4);
+            gl.bindTexture(gl.TEXTURE_2D, roughnessTexture);
+            gl.uniform1i(pbrLightingProgram.uniformLocations.uRoughnessSamplerHandle, 4);
+            gl.uniform1f(pbrLightingProgram.uniformLocations.uRoughnessValuesHandle, 0.2);
+        }
+
+        if (null != emissiveTexture) {
+            gl.activeTexture(gl.TEXTURE5);
+            gl.bindTexture(gl.TEXTURE_2D, emissiveTexture);
+            gl.uniform1i(pbrLightingProgram.uniformLocations.uEmissiveSamplerHandle, 5);
+            gl.uniform3fv(pbrLightingProgram.uniformLocations.uEmissiveFactorHandle, DEFAULT_EMISSIVE_FACTOR); // vec3
         }
 
         // Set the shader uniforms
-        gl.uniformMatrix4fv(
-            lightingProgram.uniformLocations.uModelMatrixHandle,
-            false, mModelMatrix);
-        gl.uniformMatrix4fv(lightingProgram.uniformLocations.uMITHandle, false, mMITMatrix);
+        gl.uniformMatrix4fv(pbrLightingProgram.uniformLocations.uModelMatrixHandle, false, mModelMatrix);
+        gl.uniformMatrix4fv(pbrLightingProgram.uniformLocations.uMITHandle, false, mMITMatrix);
 
         if (isGodView) {
-            gl.uniformMatrix4fv(lightingProgram.uniformLocations.uProjectionMatrixHandle, false, mGodProjectionMatrix);
-            gl.uniformMatrix4fv(lightingProgram.uniformLocations.uViewMatrixHandle, false, mGodViewMatrix);
-            gl.uniformMatrix4fv(lightingProgram.uniformLocations.uVIHandle, false, mGodVIMatrix); 
+            gl.uniformMatrix4fv(pbrLightingProgram.uniformLocations.uMVPMatrixHandle, false, mGodMvpMatrix);
+            gl.uniformMatrix4fv(pbrLightingProgram.uniformLocations.uVIMatrixHandle, false, mGodVIMatrix); 
         } else {
-            gl.uniformMatrix4fv(
-                lightingProgram.uniformLocations.uProjectionMatrixHandle,
-                false, mProjectionMatrix);
-            gl.uniformMatrix4fv(
-                lightingProgram.uniformLocations.uViewMatrixHandle,
-                false, mViewMatrix);
-            gl.uniformMatrix4fv(lightingProgram.uniformLocations.uVIHandle, false, mVIMatrix); 
+            gl.uniformMatrix4fv(pbrLightingProgram.uniformLocations.uMVPMatrixHandle, false, mMvpMatrix);
+            gl.uniformMatrix4fv(pbrLightingProgram.uniformLocations.uVIMatrixHandle, false, mVIMatrix); 
         }
 
-        gl.uniform1f(lightingProgram.uniformLocations.uSpecularHandle, mSpecularShininess);
-        if (mUseAmbientColor) {
-            gl.uniform1i(lightingProgram.uniformLocations.uUseAmbient, 1);
-            gl.uniform4fv(lightingProgram.uniformLocations.uKaHandle, mAmbientColor);
-        } else {
-            gl.uniform1i(lightingProgram.uniformLocations.uUseAmbient, 0);
-        }
-        if (mUseDiffuseColor) {
-            gl.uniform1i(lightingProgram.uniformLocations.uUseDiffuse, 1);
-            gl.uniform4fv(lightingProgram.uniformLocations.uKdHandle, mDiffuseColor);
-        } else {
-            gl.uniform1i(lightingProgram.uniformLocations.uUseDiffuse, 0);
-        }
-        if (mUseSpecularColor) {
-            gl.uniform1i(lightingProgram.uniformLocations.uUseSpecular, 1);
-            gl.uniform4fv(lightingProgram.uniformLocations.uKsHandle, mSpecularColor);
-        } else {
-            gl.uniform1i(lightingProgram.uniformLocations.uUseSpecular, 0);
-        }
-        gl.uniform3fv(lightingProgram.uniformLocations.uLightDirHandle, LIGHT_POSITION);
+        gl.uniform3fv(pbrLightingProgram.uniformLocations.uLightDirHandle, LIGHT_POSITION);    // TODO 
+        gl.uniform3fv(pbrLightingProgram.uniformLocations.uLightColorHandle, LIGHT_COLOR);
+        gl.uniform4fv(pbrLightingProgram.uniformLocations.uBaseColorFactorHandle, DEFAULT_BASECOLOR_FACTOR);
+        gl.uniform4fv(pbrLightingProgram.uniformLocations.uScaleDiffBaseMRHandle, DEFAULT_SCALE_DIFF_BASE_MR);
+        gl.uniform4fv(pbrLightingProgram.uniformLocations.uScaleFGDSpecHandle, DEFAULT_SCALE_FGD_SPEC);
+        gl.uniform4fv(pbrLightingProgram.uniformLocations.uScaleIBLAmbientHandle, DEFAULT_SCALE_IBL_AMBIENT);
+        gl.uniform4fv(pbrLightingProgram.uniformLocations.uCameraHandle, vec3.fromValues(0.0, 0.0, -5.0));
     }
 
     const drawOffset = 0;
@@ -4329,8 +4462,8 @@ function drawScene(gl, basicProgram, basicTexProgram, diffuseLightingProgram, no
 
         if (mNeedDrawFighter && mObjectBuffer.length > 0) {
             for (var i = 0; i < mObjectBuffer.length; i++) {
-                drawObject(gl, mLightProgram, mShadowProgram, mObjectBuffer[i], mObjectDiffuseTexture, mObjectNormalTexture,
-                    mObjectBuffer[i].drawCnt, deltaTime, true, false);
+                drawObject(gl, mPBRLightProgram, mShadowProgram, mObjectBuffer[i], mObjectDiffuseTexture, mObjectNormalTexture,
+                    mObjectMetalnessTexture, mObjectRoughnessTexture, mObjectEmissiveTexture, mObjectBuffer[i].drawCnt, deltaTime, true, false);
             }
         }
         // // draw terrain
@@ -4358,8 +4491,8 @@ function drawScene(gl, basicProgram, basicTexProgram, diffuseLightingProgram, no
 
     if (mNeedDrawFighter && mObjectBuffer.length > 0) {
         for (var i = 0; i < mObjectBuffer.length; i++) {
-            drawObject(gl, mLightProgram, mShadowProgram, mObjectBuffer[i], mObjectDiffuseTexture, mObjectNormalTexture, 
-                mObjectBuffer[i].drawCnt, deltaTime, false, false);
+            drawObject(gl, mPBRLightProgram, mShadowProgram, mObjectBuffer[i], mObjectDiffuseTexture, mObjectNormalTexture, 
+                mObjectMetalnessTexture, mObjectRoughnessTexture, mObjectEmissiveTexture, mObjectBuffer[i].drawCnt, deltaTime, false, false);
         }
     }
     // draw terrain
@@ -4479,8 +4612,8 @@ function drawScene(gl, basicProgram, basicTexProgram, diffuseLightingProgram, no
     gl.viewport(mViewportWidth, 0, mViewportWidth, mViewportHeight);
     if (mNeedDrawFighter && mObjectBuffer.length > 0) {
         for (var i = 0; i < mObjectBuffer.length; i++) {
-            drawObject(gl, mLightProgram, mShadowProgram, mObjectBuffer[i], mObjectDiffuseTexture, mObjectNormalTexture, 
-                mObjectBuffer[i].drawCnt, deltaTime, false, true);
+            drawObject(gl, mPBRLightProgram, mShadowProgram, mObjectBuffer[i], mObjectDiffuseTexture, mObjectNormalTexture, 
+                mObjectMetalnessTexture, mObjectRoughnessTexture, mObjectEmissiveTexture, mObjectBuffer[i].drawCnt, deltaTime, false, true);
         }
     }
     // draw terrain
