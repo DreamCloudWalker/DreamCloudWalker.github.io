@@ -11,15 +11,15 @@ const BASE_COLOR = vec3.fromValues(0.5, 0.5, 0.5);
 const LIGHT_POSITION = vec3.fromValues(0.0, 2.0, 2.0);
 const LIGHT_COLOR = vec3.fromValues(1.0, 1.0, 1.0);
 const LIGHT_RADIUS = 10.0
-const CAMERA_POSITION = vec3.fromValues(0.0, 0.0, 5.0)
+const CAMERA_POSITION = vec3.fromValues(0.0, 0.0, 10.0)
 var mVertices = [];
+var mNormals = [];
 var mIndices = [];
 var mViewportWidth = 0;
 var mViewportHeight = 0;
 var mPitching = 0.0;
 var mYawing = 0.0;
 var mScale = 1.0;
-var mTimeElapse = 0.0;
 var mIcosahedronShort = ICOSAHEDRON_SHORT;
 var mIcosahedronLong = ICOSAHEDRON_LONG;
 var mEnterAnimFrameCnt = 0;
@@ -55,6 +55,7 @@ function main() {
     const aspect = gl.canvas.clientWidth / gl.canvas.clientHeight;
     const zNear = 0.1;
     const zFar = 1000.0;
+
     // note: glmatrix.js always has the first argument
     // as the destination to receive the result.
     mProjectionMatrix = mat4.create();
@@ -151,28 +152,22 @@ function loadShader(gl, type, source) {
 function initBuffers(gl) {
     /* create data */
     // Now create an array of positions for the geoSphere
-    mVertices = createSphereBySubdivideIcosahedron(8);
-    var normals = mVertices;
+    createSphereBySubdivideIcosahedron(8);
 
     /* create buffer */
     // Create a buffer for the sphere's positions.
     const positionBuffer = gl.createBuffer();
     // Select the positionBuffer as the one to apply buffer operations to from here out.
     gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(mVertices), gl.STATIC_DRAW);
 
     // normal
     const normalBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(mNormals), gl.STATIC_DRAW);
 
     const indexBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
-
-    /* bind buffer */
-    // Now pass the list of positions into WebGL to build the
-    // shape. We do this by creating a Float32Array from the
-    // JavaScript array, then use it to fill the current buffer.
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(mVertices), gl.STATIC_DRAW);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(normals), gl.STATIC_DRAW);
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(mIndices), gl.STATIC_DRAW);
 
     return {
@@ -242,6 +237,7 @@ function createSphereBySubdivideIcosahedron(subdivideLevel) {
 
     // 坐标数据初始化
     var alVertices = []; // 原顶点列表（未卷绕）
+    var alNormals = [];
     var alIndices = [];  // 组织成面的顶点的索引值列表（按逆时针卷绕）
     var vertexCnt = 0;
     for (var k = 0; k < vertices20.length; k += 9) {  // 对正20面体每个大三角形循环
@@ -261,6 +257,9 @@ function createSphereBySubdivideIcosahedron(subdivideLevel) {
                 alVertices.push(vi[0]);
                 alVertices.push(vi[1]);
                 alVertices.push(vi[2]);
+                alNormals.push(vi[0]);
+                alNormals.push(vi[1]);
+                alNormals.push(vi[2]);
             }
         }
         // index
@@ -310,11 +309,7 @@ function createSphereBySubdivideIcosahedron(subdivideLevel) {
     // 计算卷绕顶点
     mVertices = alVertices;     // cullVertex(alVertices, alIndices);   // 只计算顶点
     mIndices = alIndices;
-
-    // mVertices = icosahedronVertices;
-    // mIndices = icosahedronIndices;
-
-    return mVertices;
+    mNormals = alNormals;
 }
 
 /**
@@ -445,8 +440,6 @@ function onKeyPress(event) {
 }
 
 function drawScene(gl, programInfo, buffers, deltaTime) {
-    mTimeElapse += deltaTime;
-
     // Update the rotation for the next draw
     if (mEnterAnimFrameCnt >= ENTER_ANIM_FRAME_CNT) {
         mYawing -= deltaTime * 0.38;
@@ -531,10 +524,6 @@ function drawScene(gl, programInfo, buffers, deltaTime) {
 
     // Tell WebGL to use our program when drawing
     gl.useProgram(programInfo.program);
-
-    // var mvp = mat4.create();
-    // mat4.multiply(mvp, mViewMatrix, mModelMatrix);
-    // mat4.multiply(mvp, mProjectionMatrix, mvp);
 
     // Set the shader uniforms
     gl.uniformMatrix4fv(
