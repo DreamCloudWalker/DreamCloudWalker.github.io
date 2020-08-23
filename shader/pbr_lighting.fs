@@ -150,7 +150,7 @@ vec3 getIBLContribution(PBRInfo pbrInputs, vec3 n, vec3 reflection)
 {
     float mipCount = 9.0; // resolution of 512x512
     float lod = (pbrInputs.perceptualRoughness * mipCount);
-    // retrieve a scale and bias to F0. See [1], Figure 3
+    // retrieve a scale and bias to F0. See [1], Figure 3. 迪士尼原则的BRDF
     vec3 brdf = SRGBtoLINEAR(texture2D(uBrdfLUT, vec2(pbrInputs.NdotV, 1.0 - pbrInputs.perceptualRoughness))).rgb;
     vec3 diffuseLight = SRGBtoLINEAR(textureCube(uDiffuseEnvSampler, n)).rgb;
 
@@ -216,8 +216,8 @@ void main()
     // Metallic and Roughness material properties are packed together
     // In glTF, these factors can be specified by fixed scalar values
     // or from a metallic-roughness map
-    float perceptualRoughness = uRoughnessValues;
-    float metallic = uMetallicValues;
+    float perceptualRoughness = uRoughnessValues;   // 粗糙度
+    float metallic = uMetallicValues;               // 金属度
 #ifdef HAS_METALMAP
     vec4 metalSample = texture2D(uMetallicSampler, vUV);
     metallic = metalSample.b * metallic;
@@ -239,7 +239,8 @@ void main()
     vec4 baseColor = uBaseColorFactor;
 #endif
 
-    vec3 f0 = vec3(0.04);
+    // Step1 根据金属度计算漫反射和高光颜色
+    vec3 f0 = vec3(0.04);   // 0度角入射的菲涅尔反射值(大多数非金属的F0范围是0.02~0.04，大多数金属的F0范围是0.7~1.0)
     vec3 diffuseColor = baseColor.rgb * (vec3(1.0) - f0);
     diffuseColor *= (1.0 - metallic);
     vec3 specularColor = mix(f0, baseColor.rgb, metallic);

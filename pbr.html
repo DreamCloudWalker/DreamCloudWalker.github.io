@@ -1,0 +1,149 @@
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Learn3D</title>
+    <link rel="stylesheet" href="public/webgl.css" type="text/css">
+  </head>
+  <script src="public/gl-matrix.js"></script>
+  <script src="pbr.js"></script>
+  <style type="text/css">
+      div#canvas-frame {
+          border: none;
+          cursor: pointer;
+          width: 512px;
+          height: 512px;
+          background-color: rgb(238, 238, 238);
+      }
+      div#horizontal {
+          display: flex;
+      }
+  </style>
+
+  <body onload="main();" ondblclick="end();" onkeypress="onKeyPress(event)" >
+    <canvas id="glcanvas" width="512" height="512"></canvas>
+    <button style="display:block; margin:0; width: 200px; height: 30px" onclick="updateShader()">编译并运行下面着色程序</button>
+    <div id="vertical">
+        <div id="horizontal" style="width: 90em;">
+            <div id="vertical">
+                <b>VertexShader</b>
+                <textarea spellcheck="false" rows="33" cols="95" id="id_vertex_shader">
+attribute vec4 aPosition;
+attribute vec4 aNormal;
+
+uniform mat4 uModelMatrix;
+uniform mat4 uViewMatrix;
+uniform mat4 uProjectionMatrix;
+
+varying vec3 vNormal;
+varying vec3 vPosition;
+
+void main() {
+    vPosition = vec3(aPosition.xyz) / aPosition.w;
+    vNormal = normalize(vec3(uModelMatrix * vec4(aNormal.xyz, 0.0)));
+
+    vec4 pntPos = uProjectionMatrix * uViewMatrix * uModelMatrix * aPosition;
+    gl_Position = pntPos;
+}
+                </textarea>
+            </div>
+            <div id="vertical">
+                <b>FragmentShader</b>
+                <textarea spellcheck="false" rows="33" cols="95" id="id_fragment_shader">
+precision mediump float;
+
+varying vec3        vNormal;                // 法线
+varying vec3        vPosition;              // 位置
+
+uniform vec3        uLightPosition;         // 点灯光位置
+uniform vec3        uLightColor;            // 点灯光颜色
+uniform float       uLightRadius;           // 点灯光半径
+uniform vec3        uCamPosition;           // 摄像机位置
+
+uniform vec3        uBaseColor;             // 基础色
+uniform float       uRoughness;             // 粗糙度
+uniform float       uMetallic;              // 金属
+uniform float       uSpecular;              // 高光
+
+#define PI          3.14159265359
+#define invPI       0.3183098861837697
+#define invTWO_PI   0.15915494309
+#define saturate(x) clamp(x, 0.0, 1.0)
+
+vec3 Diffuse_Lambert(vec3 DiffuseColor)
+{
+    return DiffuseColor * (1.0 / PI);
+}
+
+float D_GGX( float Roughness, float NoH )
+{
+    float m = Roughness * Roughness;
+    float m2 = m * m;
+    float d = ( NoH * m2 - NoH ) * NoH + 1.0;    // 2 mad
+    return m2 / ( PI*d*d );                     // 4 mul, 1 rcp
+}
+
+float Vis_Smith( float Roughness, float NoV, float NoL )
+{
+    float a = Roughness * Roughness ;
+    float a2 = a*a;
+
+    float Vis_SmithV = NoV + sqrt( NoV * (NoV - NoV * a2) + a2 );
+    float Vis_SmithL = NoL + sqrt( NoL * (NoL - NoL * a2) + a2 );
+    return 1.0 / ( Vis_SmithV * Vis_SmithL );
+}
+
+vec3 F_Schlick( vec3 SpecularColor, float VoH )
+{
+    float Fc = pow( 1.0 - VoH, 5.0 );
+    return Fc + (1.0 - Fc) * SpecularColor;
+}
+
+float getAttenuation( vec3 lightPosition, vec3 vertexPosition, float lightRadius )
+{
+    float r                = lightRadius;
+    vec3 L                 = lightPosition - vertexPosition;
+    float dist             = length(L);
+    float d                = max( dist - r, 0.0 );
+    L                      /= dist;
+    float denom            = d / r + 1.0;
+    float attenuation      = 1.0 / (denom*denom);
+    float cutoff           = 0.0052;
+    attenuation            = (attenuation - cutoff) / (1.0 - cutoff);
+    attenuation            = max(attenuation, 0.0);
+    
+    return attenuation;
+}
+
+void main() {
+    vec3 N               = normalize( vNormal );
+    vec3 V               = normalize( uCamPosition - vPosition );
+    vec3 L               = normalize( uLightPosition - vPosition );
+    vec3 H               = normalize(V + L);
+
+    float NoL            = saturate( dot( N, L ) );
+    float NoV            = saturate( dot( N, V ) );
+    float VoH            = saturate( dot( V, H ) );
+    float NoH            = saturate( dot( N, H ) );
+
+    vec3 diffuseColor    = uBaseColor - uBaseColor * uMetallic;
+    vec3 specularColor   = mix( vec3( 0.08 * uSpecular ), uBaseColor, uMetallic );
+
+    float attenuation    = getAttenuation( uLightPosition, vPosition, uLightRadius );
+    float D              = D_GGX(uRoughness,NoH);
+    float Vis            = Vis_Smith(uRoughness,NoV,NoL); 
+    vec3  F              = F_Schlick(specularColor,VoH);
+
+    vec3 diffusePoint   = Diffuse_Lambert(diffuseColor);
+    vec3 specularPoint  = D * Vis * F;
+    vec3 colorPoint     = uLightColor * ( diffusePoint + specularPoint ) * NoL * attenuation;
+
+    vec4 infoUv = vec4(colorPoint * 1.0 ,1.0);
+    gl_FragColor = vec4(0.5, 0.5, 0.5, 1.0); // infoUv;
+}
+                </textarea>
+            </div>
+        </div><br>
+    </div>
+  </body>
+
+</html>
