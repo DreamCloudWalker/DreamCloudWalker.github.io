@@ -138,7 +138,7 @@ void main() {
     vec3 colorPoint     = uLightColor * ( diffusePoint + specularPoint ) * NoL * attenuation;
 
     vec4 infoUv = vec4(colorPoint * 1.0 ,1.0);
-    gl_FragColor = vec4(0.5, 0.5, 0.5, 1.0); // infoUv;
+    gl_FragColor = infoUv;
 }
                 </textarea>
             </div>

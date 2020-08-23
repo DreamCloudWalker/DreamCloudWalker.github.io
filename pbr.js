@@ -7,10 +7,10 @@ const GOLDEN_SECTION = 0.618034;
 const ENTER_ANIM_FRAME_CNT = 81;
 const ENTER_YAWING_RADIUS = Math.PI / 4;
 const ENTER_PITCHING_RADIUS = Math.PI / 18;
-const BASE_COLOR = vec3.fromValues(0.5, 0.5, 0.5);
-const LIGHT_POSITION = vec3.fromValues(0.0, 2.0, 2.0);
+const BASE_COLOR = vec3.fromValues(0.7, 0.7, 0.7);
+const LIGHT_POSITION = vec3.fromValues(5.0, 5.0, 5.0);
 const LIGHT_COLOR = vec3.fromValues(1.0, 1.0, 1.0);
-const LIGHT_RADIUS = 10.0
+const LIGHT_RADIUS = 15.0
 const CAMERA_POSITION = vec3.fromValues(0.0, 0.0, 10.0)
 var mVertices = [];
 var mNormals = [];
@@ -27,9 +27,9 @@ var mProjectionMatrix = mat4.create();
 var mModelMatrix = mat4.create();
 var mViewMatrix = mat4.create();
 var mProgram = null;
-var mRoughness = 1.0;
-var mMetallic = 1.0;
-var mSpecular = 1.0;
+var mRoughness = 0.2;
+var mMetallic = 0.5;
+var mSpecular = 0.5;
 
 function main() {
     const canvas = document.querySelector("#glcanvas");
@@ -446,7 +446,7 @@ function drawScene(gl, programInfo, buffers, deltaTime) {
         mPitching += deltaTime * 0.1;
     }
 
-    gl.clearColor(0.0, 0.0, 0.0, 1.0);  // Clear to black, fully opaque
+    gl.clearColor(1.0, 1.0, 1.0, 1.0);  // Clear to black, fully opaque
     gl.clearDepth(1.0);                 // Clear everything
     gl.enable(gl.DEPTH_TEST);           // Enable depth testing
     gl.depthFunc(gl.LEQUAL);            // Near things obscure far things
