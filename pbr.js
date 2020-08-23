@@ -25,11 +25,13 @@ var mIcosahedronLong = ICOSAHEDRON_LONG;
 var mEnterAnimFrameCnt = 0;
 var mProjectionMatrix = mat4.create();
 var mModelMatrix = mat4.create();
+var mMITMatrix = mat4.create(); // model invert transpose matrix
 var mViewMatrix = mat4.create();
 var mProgram = null;
-var mRoughness = 0.2;
-var mMetallic = 0.5;
-var mSpecular = 0.5;
+var mRoughness = 0.3;
+var mMetallic = 0.9;
+var mAlbedo = vec3.fromValues(1.0, 1.0, 1.0);   // 反射颜色？反射率？
+var mAmbientComponent = 0.3;
 
 function main() {
     const canvas = document.querySelector("#glcanvas");
@@ -116,6 +118,7 @@ function updateShader() {
         uniformLocations: {
             uProjectionMatrixHandle: gl.getUniformLocation(shaderProgram, 'uProjectionMatrix'),
             uModelMatrixHandle: gl.getUniformLocation(shaderProgram, 'uModelMatrix'),
+            uMITMatrixHandle: gl.getUniformLocation(shaderProgram, 'uMITMatrix'),
             uViewMatrixHandle: gl.getUniformLocation(shaderProgram, 'uViewMatrix'),
             uLightPosHandle: gl.getUniformLocation(shaderProgram, 'uLightPosition'),
             uLightColorHandle: gl.getUniformLocation(shaderProgram, 'uLightColor'),
@@ -124,7 +127,8 @@ function updateShader() {
             uBaseColorHandle: gl.getUniformLocation(shaderProgram, 'uBaseColor'),
             uRoughnessHandle: gl.getUniformLocation(shaderProgram, 'uRoughness'),
             uMetallicHandle: gl.getUniformLocation(shaderProgram, 'uMetallic'),
-            uSpecularHandle: gl.getUniformLocation(shaderProgram, 'uSpecular'),
+            uAlbedoHandle: gl.getUniformLocation(shaderProgram, 'uAlbedo'),
+            uAmbientComponentHandle: gl.getUniformLocation(shaderProgram, 'uAmbientComponent'),
         },
     };
 }
@@ -477,6 +481,9 @@ function drawScene(gl, programInfo, buffers, deltaTime) {
                 [0, 0, 1]);       // axis to rotate around
     mat4.scale(mModelMatrix, mModelMatrix, [mScale, mScale, mScale]);
 
+    mat4.invert(mMITMatrix, mModelMatrix);
+    mat4.transpose(mMITMatrix, mMITMatrix);
+
     // Tell WebGL how to pull out the positions from the position
     // buffer into the vertexPosition attribute.
     {
@@ -535,6 +542,9 @@ function drawScene(gl, programInfo, buffers, deltaTime) {
     gl.uniformMatrix4fv(
         programInfo.uniformLocations.uModelMatrixHandle,
         false, mModelMatrix);
+    gl.uniformMatrix4fv(
+        programInfo.uniformLocations.uMITMatrixHandle,
+        false, mMITMatrix);
     gl.uniform3fv(programInfo.uniformLocations.uLightPosHandle, LIGHT_POSITION);
     gl.uniform3fv(programInfo.uniformLocations.uLightColorHandle, LIGHT_COLOR);
     gl.uniform1f(programInfo.uniformLocations.uLightRadiusHandle, LIGHT_RADIUS);
@@ -542,7 +552,8 @@ function drawScene(gl, programInfo, buffers, deltaTime) {
     gl.uniform3fv(programInfo.uniformLocations.uBaseColorHandle, BASE_COLOR);
     gl.uniform1f(programInfo.uniformLocations.uRoughnessHandle, mRoughness);
     gl.uniform1f(programInfo.uniformLocations.uMetallicHandle, mMetallic);
-    gl.uniform1f(programInfo.uniformLocations.uSpecularHandle, mSpecular);
+    gl.uniform3fv(programInfo.uniformLocations.uAlbedoHandle, mAlbedo);
+    gl.uniform1f(programInfo.uniformLocations.uAmbientComponentHandle, mAmbientComponent);
 
     const offset = 0;
     const vertexCount = mIndices.length;
