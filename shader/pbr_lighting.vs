@@ -42,8 +42,8 @@ void main()
     vec3 tangentW = normalize(vec3(uModelMatrix * vec4(aTangent.xyz, 0.0)));
     vec3 bitangentW = cross(normalW, tangentW) * aTangent.w;
     vTBN = mat3(tangentW, bitangentW, normalW);
-    #else // HAS_TANGENTS != 1
-    vNormal = normalize(vec3(uModelMatrix * vec4(aNormal.xyz, 0.0)));
+    #else // HAS_TANGENTS != 1 (undefined)
+    vNormal = normalize(vec3(uMITMatrix * vec4(aNormal.xyz, 0.0)));
     #endif
     #endif
 

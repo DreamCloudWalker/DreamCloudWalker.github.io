@@ -72,6 +72,7 @@ var mObjectNormalTexture = null;
 var mObjectMetalnessTexture = null;
 var mObjectEmissiveTexture = null;
 var mObjectRoughnessTexture = null;
+var mBrdfLutTexture = null;
 // lighting
 var mLightProgram = null;
 var mAmbientColor = vec4.fromValues(0.5, 0.5, 0.5, 1.0);
@@ -88,7 +89,7 @@ var mShadowFBO = null;
 var mVpMatrixByLightCoord = mat4.create();
 var mMvpMatrixByLightCoord = mat4.create();
 // pbr lighting
-var mDefines = {'HAS_UV': 1};  // do not 'USE_IBL': 1
+var mDefines = {'HAS_UV': 1, 'USE_IBL': 1}; 
 var mPBRLightProgram = null;
 // terrain
 var mNeedDrawTerrain = false;
@@ -397,10 +398,11 @@ class GLScene extends GLCanvas {
         mTerrainBuffer = initTerrainBuffer(gl);
         // texture
         mObjectDiffuseTexture = loadTexture(gl, './texture/J-15_diffuse.jpg');
-        // mObjectNormalTexture = loadTexture(gl, './texture/J-15_normal.jpg'); // FixMe
-        // mObjectMetalnessTexture = loadTexture(gl, './texture/J-15_metalness.jpg');
-        // mObjectEmissiveTexture = loadTexture(gl, './texture/J-15_emissive.jpg');
-        // mObjectRoughnessTexture = loadTexture(gl, './texture/J-15_roughness.jpg');
+        mObjectNormalTexture = loadTexture(gl, './texture/J-15_normal.jpg'); // FixMe
+        mObjectMetalnessTexture = loadTexture(gl, './texture/J-15_metalness.jpg');
+        mObjectEmissiveTexture = loadTexture(gl, './texture/J-15_emissive.jpg');
+        mObjectRoughnessTexture = loadTexture(gl, './texture/J-15_roughness.jpg');
+        mBrdfLutTexture = loadTexture(gl, './texture/brdfLUT.png');
         mBackgroundTexture = loadTexture(gl, './texture/bg_sky.jpg');
         mTerrainTexture = loadTextureByParams(gl, './texture/terrain.jpg', false, false, false, true, true);
         mYUVVideoTexture = createTexture(gl);
@@ -4186,6 +4188,8 @@ function drawObject(gl, pbrLightingProgram, shadowProgram, buffers,
     metalnessTexture, 
     roughnessTexture,
     emissiveTexture,
+    brdfLutTexture,
+    diffuseEnvTexture,
     drawCount, deltaTime, isDrawShadow, isGodView) {
     // Set the drawing position to the "identity" point, which is the center of the scene.
     mModelMatrix = mat4.create();
@@ -4397,6 +4401,18 @@ function drawObject(gl, pbrLightingProgram, shadowProgram, buffers,
             gl.uniform3fv(pbrLightingProgram.uniformLocations.uEmissiveFactorHandle, DEFAULT_EMISSIVE_FACTOR); // vec3
         }
 
+        if (null != brdfLutTexture) {
+            gl.activeTexture(gl.TEXTURE6);
+            gl.bindTexture(gl.TEXTURE_2D, brdfLutTexture);
+            gl.uniform1i(pbrLightingProgram.uniformLocations.uBrdfLUTHandle, 6);
+        }
+
+        if (null != diffuseEnvTexture) {
+            gl.activeTexture(gl.TEXTURE7);
+            gl.bindTexture(gl.TEXTURE_2D, diffuseEnvTexture);
+            gl.uniform1i(pbrLightingProgram.uniformLocations.uDiffuseEnvHandle, 7);
+        }
+
         // Set the shader uniforms
         gl.uniformMatrix4fv(pbrLightingProgram.uniformLocations.uModelMatrixHandle, false, mModelMatrix);
         gl.uniformMatrix4fv(pbrLightingProgram.uniformLocations.uMITHandle, false, mMITMatrix);
@@ -4462,8 +4478,9 @@ function drawScene(gl, basicProgram, basicTexProgram, diffuseLightingProgram, no
 
         if (mNeedDrawFighter && mObjectBuffer.length > 0) {
             for (var i = 0; i < mObjectBuffer.length; i++) {
-                drawObject(gl, mPBRLightProgram, mShadowProgram, mObjectBuffer[i], mObjectDiffuseTexture, mObjectNormalTexture,
-                    mObjectMetalnessTexture, mObjectRoughnessTexture, mObjectEmissiveTexture, mObjectBuffer[i].drawCnt, deltaTime, true, false);
+                drawObject(gl, mPBRLightProgram, mShadowProgram, mObjectBuffer[i], mObjectDiffuseTexture, 
+                    mObjectNormalTexture, mObjectMetalnessTexture, mObjectRoughnessTexture, mObjectEmissiveTexture, 
+                    mBrdfLutTexture, mBackgroundTexture, mObjectBuffer[i].drawCnt, deltaTime, true, false);
             }
         }
         // // draw terrain
@@ -4491,8 +4508,9 @@ function drawScene(gl, basicProgram, basicTexProgram, diffuseLightingProgram, no
 
     if (mNeedDrawFighter && mObjectBuffer.length > 0) {
         for (var i = 0; i < mObjectBuffer.length; i++) {
-            drawObject(gl, mPBRLightProgram, mShadowProgram, mObjectBuffer[i], mObjectDiffuseTexture, mObjectNormalTexture, 
-                mObjectMetalnessTexture, mObjectRoughnessTexture, mObjectEmissiveTexture, mObjectBuffer[i].drawCnt, deltaTime, false, false);
+            drawObject(gl, mPBRLightProgram, mShadowProgram, mObjectBuffer[i], mObjectDiffuseTexture, 
+                mObjectNormalTexture, mObjectMetalnessTexture, mObjectRoughnessTexture, mObjectEmissiveTexture, 
+                mBrdfLutTexture, mBackgroundTexture, mObjectBuffer[i].drawCnt, deltaTime, false, false);
         }
     }
     // draw terrain
@@ -4612,8 +4630,9 @@ function drawScene(gl, basicProgram, basicTexProgram, diffuseLightingProgram, no
     gl.viewport(mViewportWidth, 0, mViewportWidth, mViewportHeight);
     if (mNeedDrawFighter && mObjectBuffer.length > 0) {
         for (var i = 0; i < mObjectBuffer.length; i++) {
-            drawObject(gl, mPBRLightProgram, mShadowProgram, mObjectBuffer[i], mObjectDiffuseTexture, mObjectNormalTexture, 
-                mObjectMetalnessTexture, mObjectRoughnessTexture, mObjectEmissiveTexture, mObjectBuffer[i].drawCnt, deltaTime, false, true);
+            drawObject(gl, mPBRLightProgram, mShadowProgram, mObjectBuffer[i], mObjectDiffuseTexture, 
+                mObjectNormalTexture, mObjectMetalnessTexture, mObjectRoughnessTexture, mObjectEmissiveTexture, 
+                mBrdfLutTexture, mBackgroundTexture, mObjectBuffer[i].drawCnt, deltaTime, false, true);
         }
     }
     // draw terrain

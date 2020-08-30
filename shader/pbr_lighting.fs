@@ -19,8 +19,9 @@ uniform vec3 uLightDirection;
 uniform vec3 uLightColor;
 
 #ifdef USE_IBL
-uniform samplerCube uDiffuseEnvSampler;
-uniform samplerCube uSpecularEnvSampler;
+// uniform samplerCube uDiffuseEnvSampler;
+// uniform samplerCube uSpecularEnvSampler;
+uniform sampler2D uDiffuseEnvSampler;
 uniform sampler2D uBrdfLUT;
 #endif
 
@@ -91,6 +92,7 @@ struct PBRInfo
 const float PI = 3.141592653589793;
 const float MIN_ROUGHNESS = 0.04;
 
+// 通过贴图的RGB值得到对应值，比如金属度、粗糙度等
 vec4 SRGBtoLINEAR(vec4 srgbIn)
 {
     #ifdef MANUAL_SRGB
@@ -131,7 +133,7 @@ vec3 getNormal()
     mat3 tbn = vTBN;
 #endif
 
-#ifdef HAS_NORMALMAP
+#ifdef HAS_NORMALMAP    // 法线贴图
     vec3 n = texture2D(uNormalSampler, vUV).rgb;
     n = normalize(tbn * ((2.0 * n - 1.0) * vec3(uNormalScale, uNormalScale, 1.0)));
 #else
@@ -152,12 +154,13 @@ vec3 getIBLContribution(PBRInfo pbrInputs, vec3 n, vec3 reflection)
     float lod = (pbrInputs.perceptualRoughness * mipCount);
     // retrieve a scale and bias to F0. See [1], Figure 3. 迪士尼原则的BRDF
     vec3 brdf = SRGBtoLINEAR(texture2D(uBrdfLUT, vec2(pbrInputs.NdotV, 1.0 - pbrInputs.perceptualRoughness))).rgb;
-    vec3 diffuseLight = SRGBtoLINEAR(textureCube(uDiffuseEnvSampler, n)).rgb;
+    vec3 diffuseLight = SRGBtoLINEAR(texture2D(uDiffuseEnvSampler, n.xy)).rgb;
 
 #ifdef USE_TEX_LOD
     vec3 specularLight = SRGBtoLINEAR(textureCubeLodEXT(uSpecularEnvSampler, reflection, lod)).rgb;
 #else
-    vec3 specularLight = SRGBtoLINEAR(textureCube(uSpecularEnvSampler, reflection)).rgb;
+    // vec3 specularLight = SRGBtoLINEAR(textureCube(uSpecularEnvSampler, reflection)).rgb;
+    vec3 specularLight = SRGBtoLINEAR(texture2D(uBaseColorSampler, vUV)).rgb;
 #endif
 
     vec3 diffuse = diffuseLight * pbrInputs.diffuseColor;
@@ -220,11 +223,11 @@ void main()
     float metallic = uMetallicValues;               // 金属度
 #ifdef HAS_METALMAP
     vec4 metalSample = texture2D(uMetallicSampler, vUV);
-    metallic = metalSample.b * metallic;
+    metallic = metalSample.b * metallic;    // FixMe .b
 #endif
 #ifdef HAS_ROUGHNESSMAP
     vec4 roughnessSample = texture2D(uRoughnessSampler, vUV);
-    perceptualRoughness = roughnessSample.g * perceptualRoughness;
+    perceptualRoughness = roughnessSample.g * perceptualRoughness;  // FixMe .g
 #endif
     perceptualRoughness = clamp(perceptualRoughness, MIN_ROUGHNESS, 1.0);
     metallic = clamp(metallic, 0.0, 1.0);
