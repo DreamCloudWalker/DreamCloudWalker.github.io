@@ -201,6 +201,7 @@ var mGodViewMatrix = mat4.create();
 var mGodVIMatrix = mat4.create();
 var mGodProjectionMatrix = mat4.create();
 var mGodMvpMatrix = mat4.create();
+var mGodViewProjectMatrix = mat4.create();
 // draw assist object use mMvpMatrix
 var mNeedDrawAssistObject = false;
 var mCurrentViewport = [0, 0, 0, 0];
@@ -499,6 +500,7 @@ class GLScene extends GLCanvas {
         mGodProjectionMatrix = mat4.create();
         mat4.perspective(mGodProjectionMatrix, HALF_FOV, mAspect, GOD_FRUSTOM_NEAR, GOD_FRUSTOM_FAR);
         mat4.multiply(mGodMvpMatrix, mGodProjectionMatrix, mGodViewMatrix);
+        mat4.copy(mGodViewProjectMatrix, mGodMvpMatrix);
         mat4.copy(mViewFrustumMvpMatrix, mGodMvpMatrix);
         updateViewMatrixByMouse();
         
@@ -2134,12 +2136,12 @@ function pauseVideo(video) {
 }
 
 function initYUVVideoDemo() {
-    // init uv demo plane, hard coded, choose a 16:9 video
+    // init uv demo plane, hard coded, choose a 16:9 video, rotate 180
     const vertexCoords = [
-        [-1.0, -1.0, 3.0],
-        [ 1.0, -1.0, 3.0],
         [-1.0,  1.0, 3.0],
         [ 1.0,  1.0, 3.0],
+        [-1.0, -1.0, 3.0],
+        [ 1.0, -1.0, 3.0],
     ];
     for (var j = 0; j < vertexCoords.length; ++j) {
         const v = vertexCoords[j];
@@ -2148,14 +2150,14 @@ function initYUVVideoDemo() {
         mYUVVideoPlaneVertices = mYUVVideoPlaneVertices.concat(v);  // merge arrays to one
     }
 
-    const vertexCoordsRot180 = [
+    const vertexCoordsRot180ForFBO = [
         [-1.0,  1.0, 0.0],
         [ 1.0,  1.0, 0.0],
         [-1.0, -1.0, 0.0],
         [ 1.0, -1.0, 0.0],
     ];
-    for (var j = 0; j < vertexCoordsRot180.length; ++j) {
-        const v = vertexCoordsRot180[j];
+    for (var j = 0; j < vertexCoordsRot180ForFBO.length; ++j) {
+        const v = vertexCoordsRot180ForFBO[j];
     
         // Repeat each color four times for the four vertices of the face
         mYUVVideoPlaneRot180Vertices = mYUVVideoPlaneRot180Vertices.concat(v);  // merge arrays to one
@@ -4530,6 +4532,11 @@ function drawScene(gl, basicProgram, basicTexProgram, diffuseLightingProgram, no
     mat4.multiply(mMvpMatrix, mViewMatrix, mMvpMatrix);
     mat4.multiply(mMvpMatrix, mProjectionMatrix, mMvpMatrix);
 
+    mGodMvpMatrix = mat4.create();
+    mat4.multiply(mGodMvpMatrix, mModelMatrix, mGodMvpMatrix);
+    mat4.multiply(mGodMvpMatrix, mGodViewMatrix, mGodMvpMatrix);
+    mat4.multiply(mGodMvpMatrix, mGodProjectionMatrix, mGodMvpMatrix);
+
     // draw uv demo
     if (mNeedDrawUVDemoPlane) {
         drawUVDemo(gl, basicTexProgram, mUVDemoPlaneBuffer, mTerrainTexture, mUVDemoPlaneBuffer.drawCnt, deltaTime);
@@ -4650,7 +4657,7 @@ function drawScene(gl, basicProgram, basicTexProgram, diffuseLightingProgram, no
     if (mNeedDrawSphere) {
         drawSphere(gl, mSphereProgram, mSphereBuffer, mSphereBuffer.drawCnt, deltaTime, true);
     }
-    drawArrays(gl, basicProgram, mAxisBuffer, mAxisVertices.length / 3, mGodMvpMatrix, gl.LINES, deltaTime);
+    drawArrays(gl, basicProgram, mAxisBuffer, mAxisVertices.length / 3, mGodViewProjectMatrix, gl.LINES, deltaTime);
     if (null != mViewFrustumBuffer) {
         drawArrays(gl, basicProgram, mViewFrustumBuffer, mViewFrustumVertices.length / 3, mViewFrustumMvpMatrix, gl.LINES, deltaTime);
     }
