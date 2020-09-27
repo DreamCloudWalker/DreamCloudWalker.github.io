@@ -1,0 +1,70 @@
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Learn3D</title>
+    <link rel="stylesheet" href="public/webgl.css" type="text/css">
+  </head>
+  <script src="public/gl-matrix.js"></script>
+  <script src="vertexAnim.js"></script>
+  <style type="text/css">
+      div#canvas-frame {
+          border: none;
+          cursor: pointer;
+          width: 512px;
+          height: 512px;
+          background-color: rgb(238, 238, 238);
+      }
+      div#horizontal {
+          display: flex;
+      }
+  </style>
+
+  <body onload="main();" ondblclick="end();" onkeypress="onKeyPress(event)" >
+    <canvas id="glcanvas" width="512" height="512"></canvas>
+
+    <div id="horizontal">
+        <button style="display:block; margin:5; width: 200px; height: 30px" onclick="updateShader()">编译并运行下面着色程序</button>
+        <button style="display:block; margin:5; width: 60px; height: 30px" onclick="resume()">继续</button>
+        <button style="display:block; margin:5; width: 60px; height: 30px" onclick="pause()">暂停</button>
+    </div>
+
+    <div id="vertical">
+        <div id="horizontal" style="width: 90em;">
+            <div id="vertical">
+                <b>VertexShader</b>
+                <textarea spellcheck="false" rows="33" cols="95" id="id_vertex_shader">
+attribute vec4 aPosition;
+
+uniform mat4 uModelMatrix;
+uniform mat4 uViewMatrix;
+uniform mat4 uProjectionMatrix;
+
+varying vec3 vPosition;
+
+void main() {
+    vPosition = vec3(aPosition.xyz) / aPosition.w;
+
+    vec4 pntPos = uProjectionMatrix * uViewMatrix * uModelMatrix * aPosition;
+    gl_Position = pntPos;
+}
+                </textarea>
+            </div>
+            <div id="vertical">
+                <b>FragmentShader</b>
+                <textarea spellcheck="false" rows="33" cols="95" id="id_fragment_shader">
+precision mediump float;
+
+varying vec3        vPosition;              // 位置
+
+#define PI          3.14159265359
+
+void main() {
+    gl_FragColor = vec4(0.0, 0.0, 1.0, 1.0);
+}
+                </textarea>
+            </div>
+        </div><br>
+    </div>
+  </body>
+
+</html>

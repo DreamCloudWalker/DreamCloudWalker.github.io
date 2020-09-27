@@ -1,0 +1,27 @@
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>TestShadow</title>
+    <link rel="stylesheet" href="public/webgl.css" type="text/css">
+  </head>
+  <script src="public/gl-matrix.js"></script>
+  <script src="base/FrameBufferObject.js"></script>
+  <script src="testShadow.js"></script>
+  <style type="text/css">
+      div#canvas-frame {
+          border: none;
+          cursor: pointer;
+          width: 1000px;
+          height: 1000px;
+          background-color: rgb(238, 238, 238);
+      }
+      div#horizontal {
+          display: flex;
+      }
+  </style>
+
+  <body onload="main();" onkeypress="onKeyPress(event)" >
+    <canvas id="glcanvas" width="1000" height="1000"></canvas>
+  </body>
+
+</html>
