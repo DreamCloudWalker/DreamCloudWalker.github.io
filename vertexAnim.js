@@ -1,10 +1,13 @@
 const DEGREE_TO_RADIUS = Math.PI / 180;
-const CAMERA_POSITION = vec3.fromValues(0.0, 0.0, 10.0)
+const CAMERA_POSITION = vec3.fromValues(0.0, 0.0, 10.0);
+const PLANE_WIDTH = 3;
+const PLANE_HEIGHT = 3;
 var mVertices = [];
 var mViewportWidth = 0;
 var mViewportHeight = 0;
 var mPitching = 0.0;
 var mYawing = 0.0;
+var mAngle = 0.0;
 var mScale = 1.0;
 var mProjectionMatrix = mat4.create();
 var mModelMatrix = mat4.create();
@@ -97,6 +100,9 @@ function updateShader() {
             uProjectionMatrixHandle: mGl.getUniformLocation(shaderProgram, 'uProjectionMatrix'),
             uModelMatrixHandle: mGl.getUniformLocation(shaderProgram, 'uModelMatrix'),
             uViewMatrixHandle: mGl.getUniformLocation(shaderProgram, 'uViewMatrix'),
+            uWidthSpanHandle: mGl.getUniformLocation(shaderProgram, 'uWidthSpan'),
+            uHeightSpanHandle: mGl.getUniformLocation(shaderProgram, 'uHeightSpan'),
+            uAngleHandle: mGl.getUniformLocation(shaderProgram, 'uAngle')
         },
     };
 }
@@ -123,7 +129,7 @@ function loadShader(mGl, type, source) {
 
 function initBuffers(gl) {
     // Now create an array of positions for the plane
-    mVertices = createPlane(3, 3, 1, 1);
+    mVertices = createPlane(3, 3, 8, 8);
 
     // Create a buffer for the sphere's positions.
     const positionBuffer = gl.createBuffer();
@@ -203,8 +209,9 @@ function resume() {
 
 function drawScene(gl, programInfo, buffers, deltaTime) {
     // Update the rotation for the next draw
-    mYawing -= deltaTime * 0.38;
-    mPitching += deltaTime * 0.1;
+    // mYawing -= deltaTime * 0.38;
+    // mPitching += deltaTime * 0.1;
+    mAngle += 0.3 * (Math.PI / 16);
 
     gl.clearColor(1.0, 1.0, 1.0, 1.0);  // Clear to black, fully opaque
     gl.clearDepth(1.0);                 // Clear everything
@@ -263,6 +270,9 @@ function drawScene(gl, programInfo, buffers, deltaTime) {
     gl.uniformMatrix4fv(
         programInfo.uniformLocations.uModelMatrixHandle,
         false, mModelMatrix);
+    gl.uniform1f(programInfo.uniformLocations.uWidthSpanHandle, PLANE_WIDTH);
+    gl.uniform1f(programInfo.uniformLocations.uHeightSpanHandle, PLANE_HEIGHT);
+    gl.uniform1f(programInfo.uniformLocations.uAngleHandle, mAngle);
 
     const offset = 0;
     gl.drawArrays(gl.TRIANGLES, offset, mVertices.length / 3);
