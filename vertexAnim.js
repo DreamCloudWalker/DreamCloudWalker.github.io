@@ -8,7 +8,7 @@ var mTexCoods = [];
 var mViewportWidth = 0;
 var mViewportHeight = 0;
 var mPitching = 0.0;
-var mYawing = 0.0;
+var mYawing = 0.5;
 var mAngle = 0.0;
 var mScale = 1.0;
 var mProjectionMatrix = mat4.create();
@@ -135,8 +135,8 @@ function loadShader(mGl, type, source) {
 
 function initBuffers(gl) {
     // Now create an array of positions for the plane
-    const rows = 8;
-    const cols = 8;
+    const rows = 12;
+    const cols = 12;
     mVertices = createPlaneVertices(4, 3, rows, cols);
     mTexCoods = generateTexCoord(rows, cols);
 
