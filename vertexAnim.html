@@ -34,18 +34,19 @@
                 <b>VertexShader</b>
                 <textarea spellcheck="false" rows="33" cols="95" id="id_vertex_shader">
 attribute vec4 aPosition;
+attribute vec2 aTexCoord;
 
-uniform mat4 uModelMatrix;
-uniform mat4 uViewMatrix;
-uniform mat4 uProjectionMatrix;
+uniform mat4   uModelMatrix;
+uniform mat4   uViewMatrix;
+uniform mat4   uProjectionMatrix;
 
-uniform float uAngle;
-uniform float uWidthSpan;
-uniform float uHeightSpan;
+uniform float  uAngle;
+uniform float  uWidthSpan;
+uniform float  uHeightSpan;
 
-varying vec3 vPosition;
+varying vec2   vTexCoord;
 
-#define PI          3.14159265359
+#define PI     3.14159265359
 
 void main() {
     float angleSpanH = 4.0 * PI;
@@ -58,10 +59,10 @@ void main() {
     float curAngleZ = uAngle + PI / 3.0 + ((aPosition.y - startY) / uHeightSpan) * angleSpanZ;
     float tzZ = sin(curAngleZ) * 0.1;
 
-    vPosition = vec3(aPosition.xyz) / aPosition.w;
-
     vec4 pntPos = uProjectionMatrix * uViewMatrix * uModelMatrix * vec4(aPosition.x, aPosition.y, tzH + tzZ, 1);
     gl_Position = pntPos;
+
+    vTexCoord = aTexCoord;
 }
                 </textarea>
             </div>
@@ -70,10 +71,11 @@ void main() {
                 <textarea spellcheck="false" rows="33" cols="95" id="id_fragment_shader">
 precision mediump float;
 
-varying vec3        vPosition;              // 位置
+uniform sampler2D uTexSampler;
+varying vec2 vTexCoord;
 
 void main() {
-    gl_FragColor = vec4(0.0, 0.0, 1.0, 1.0);
+    gl_FragColor = texture2D(uTexSampler, vTexCoord);
 }
                 </textarea>
             </div>
