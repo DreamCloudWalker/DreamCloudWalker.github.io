@@ -59,7 +59,7 @@ void main() {
     float curAngleZ = uAngle + PI / 3.0 + ((aPosition.y - startY) / uHeightSpan) * angleSpanZ;
     float tzZ = sin(curAngleZ) * 0.1;
 
-    vec4 pntPos = uProjectionMatrix * uViewMatrix * uModelMatrix * vec4(aPosition.x, aPosition.y, tzH + tzZ, 1);
+    vec4 pntPos = uProjectionMatrix * uViewMatrix * uModelMatrix * vec4(aPosition.x, aPosition.y, tzH, 1);  //  + tzZ
     gl_Position = pntPos;
 
     vTexCoord = aTexCoord;

@@ -50,7 +50,7 @@ function main() {
     mProjectionMatrix = mat4.create();
     mat4.perspective(mProjectionMatrix, fov, aspect, zNear, zFar);
 
-    mPlaneTexture = loadTexture(mGl, './texture/bg_sky.jpg');
+    mPlaneTexture = loadTexture(mGl, './texture/ming.jpg');
 
     // init shader
     updateShader();
@@ -177,7 +177,7 @@ function loadTexture(gl, url) {
     const srcType = gl.UNSIGNED_BYTE;
     const pixel = new Uint8Array([255, 255, 255, 255]);
     // 1表示翻转，0表示不翻转，参考 https://juejin.im/post/5d4423c4f265da038f47ef87
-    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1); 
+    // gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1); 
     gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
     gl.texImage2D(gl.TEXTURE_2D, level, internalFormat,
                   width, height, border, srcFormat, srcType,
