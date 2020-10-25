@@ -2353,6 +2353,8 @@ function updateUVWrapST() {
     mIsWrapSRepeat = (uvWrapSRepeatChecked && !uvWrapSClampChecked);
     mIsWrapTRepeat = (uvWrapTRepeatChecked && !uvWrapTClampChecked);
     updateUVTexture();
+
+    requestRender();
 }
 
 function updateUVTexture() {
