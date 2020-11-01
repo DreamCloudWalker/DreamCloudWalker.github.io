@@ -345,16 +345,16 @@ class GLScene extends GLCanvas {
         // init terrain
         mTerrainBuffer = initTerrainBuffer(gl);
         // texture
-        mObjectDiffuseTexture = loadTexture(gl, './texture/J-15_diffuse.jpg');
-        mObjectNormalTexture = loadTexture(gl, './texture/J-15_normal.jpg'); // FixMe
-        mObjectMetalnessTexture = loadTexture(gl, './texture/J-15_metalness.jpg');
-        mObjectEmissiveTexture = loadTexture(gl, './texture/J-15_emissive.jpg');
-        mObjectRoughnessTexture = loadTexture(gl, './texture/J-15_roughness.jpg');
-        mBrdfLutTexture = loadTexture(gl, './texture/brdfLUT.png');
-        mBackgroundTexture = loadTexture(gl, './texture/bg_sky.jpg');
-        mTerrainTexture = loadTextureByParams(gl, './texture/terrain.jpg', false, false, false, true, true);
+        mObjectDiffuseTexture = loadTexture(gl, './texture/J-15_diffuse.jpg', requestRender);
+        mObjectNormalTexture = loadTexture(gl, './texture/J-15_normal.jpg', requestRender); // FixMe
+        mObjectMetalnessTexture = loadTexture(gl, './texture/J-15_metalness.jpg', requestRender);
+        mObjectEmissiveTexture = loadTexture(gl, './texture/J-15_emissive.jpg', requestRender);
+        mObjectRoughnessTexture = loadTexture(gl, './texture/J-15_roughness.jpg', requestRender);
+        mBrdfLutTexture = loadTexture(gl, './texture/brdfLUT.png', requestRender);
+        mBackgroundTexture = loadTexture(gl, './texture/bg_sky.jpg', requestRender);
+        mTerrainTexture = loadTextureByParams(gl, './texture/terrain.jpg', false, false, false, true, true, requestRender);
         mYUVVideoTexture = createTexture(gl);
-        // mLutTexture = loadTexture(gl, './texture/lookup_vertigo.png');
+        // mLutTexture = loadTexture(gl, './texture/lookup_vertigo.png', requestRender);
 
         // init shader
         updateBackgroundShader();
@@ -388,7 +388,7 @@ class GLScene extends GLCanvas {
         // init cloud
         mCloudPlaneBuffer = initCloudBuffer(gl);
         mCloudProgram = initCloudAnimShader(gl);
-        mCloudTexture = loadTexture(gl, './texture/cloud.png');
+        mCloudTexture = loadTexture(gl, './texture/cloud.png', requestRender);
 
         // init sphere
         mSphereBuffer = initSphereBuffers(gl, 1.0, 20, vec4.fromValues(1.0, 1.0, 1.0, 1.0));
@@ -2353,15 +2353,13 @@ function updateUVWrapST() {
     mIsWrapSRepeat = (uvWrapSRepeatChecked && !uvWrapSClampChecked);
     mIsWrapTRepeat = (uvWrapTRepeatChecked && !uvWrapTClampChecked);
     updateUVTexture();
-
-    requestRender();
 }
 
 function updateUVTexture() {
     let gl = mGLCanvas.getGL();
     gl.deleteTexture(mTerrainTexture);
     mTerrainTexture = loadTextureByParams(gl, './texture/terrain.jpg', false, 
-        mIsMinGLNearest, mIsMagGLNearest, mIsWrapSRepeat, mIsWrapTRepeat);
+        mIsMinGLNearest, mIsMagGLNearest, mIsWrapSRepeat, mIsWrapTRepeat, requestRender);
 }
 
 function initBackground() {

@@ -30,7 +30,7 @@ function createTexture(gl) {
 
 // Initialize a texture and load an image.
 // When the image finished loading copy it into the texture.
-function loadTexture(gl, url) {
+function loadTexture(gl, url, callback) {
     const texture = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, texture);
   
@@ -78,13 +78,14 @@ function loadTexture(gl, url) {
          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
       }
+      callback();
     };
     image.src = url;
   
     return texture;
 }
 
-function loadTextureByParams(gl, url, isMipmap, minNearest, magNearest, sRepeat, tRepeat) {
+function loadTextureByParams(gl, url, isMipmap, minNearest, magNearest, sRepeat, tRepeat, callback) {
     const texture = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, texture);
   
@@ -141,6 +142,7 @@ function loadTextureByParams(gl, url, isMipmap, minNearest, magNearest, sRepeat,
         else
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
       }
+      callback();
     };
     image.src = url;
   
