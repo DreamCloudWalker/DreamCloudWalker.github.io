@@ -14,6 +14,7 @@
         <script src="public/three/OBJLoader.js"></script>
         <script src="https://libs.baidu.com/jquery/1.9.0/jquery.js"></script>
         <script src="public/jquery/jquery.i18n.properties-1.0.9.js"></script>
+        <script src="https://cdn.bootcss.com/showdown/1.3.0/showdown.min.js"></script>
         <style type="text/css">
             div#canvas-frame {
                 border: none;
@@ -79,6 +80,16 @@
             div#id_video_filter {
                 display: flex;
             }
+            div#id_conclusion {
+                display: none;
+                padding-left: 20px;
+                padding-right: 20px;
+            }
+            div#id_normal_mapping {
+                display: none;
+                padding-left: 20px;
+                padding-right: 20px;
+            }
         </style>
         <script src="base/GLCanvas.js"></script>
         <script src="learnOpenGLES.js"></script>
@@ -135,7 +146,8 @@
                                 <li><a href="#TOC3.2" onclick="switchDemo('PerVertexOrFragLighting')" data-lang="per_vertex_frag_lighting">逐顶点&逐像素光照</a></li>
                                 <li><a href="#TOC3.3" onclick="switchDemo('Shadow')" data-lang="fbo_shadow">FBO、RTT、阴影</a></li>
                                 <li><a href="#TOC3.4" data-lang="fresnel_reflection">菲涅尔效果</a></li>
-                                <li><a href="#TOC3.5" data-lang="normal_mapping">法线贴图</a></li>
+                                <li><a href="#TOC3.5" onclick="switchDemo('NormalMapping')" data-lang="normal_mapping">法线贴图</a></li>
+                                <li><a href="#TOC3.5"></a>分形着色器</a></li>
                                 <li><a href="#TOC3.6" data-lang="lens_flare">镜头光晕</a></li>
                                 <li><a href="#TOC3.7" data-lang="pbr_rending">PBR</a></li>
                             </ul>
@@ -153,6 +165,10 @@
                                 <li><a href="https://bugbydaylight.github.io/" data-lang="dance_anim">福利</a></li>
                             </ul>
                         </li>
+                        <li data-lang="conclusion">总结</li>
+                        <ul>
+                            <li><a onclick="switchDemo('Conclusion')" data-lang="experience">心得</a></li>
+                        </ul>
                     </ul> 
                 </div>
 
@@ -1023,5 +1039,7 @@ void main() {
                 </div>
             </div>
         </div>
+        <div id="id_normal_mapping"></div>
+        <div id="id_conclusion"></div>
     </body>
 </html>
