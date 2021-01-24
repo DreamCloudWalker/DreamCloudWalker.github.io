@@ -273,6 +273,9 @@ var mCobraStep2Quat = quat.create();    // quat.fromEuler(COBRA_STEP2_QUAT, 0, 0
 var mCobraZOffset = 0.0;
 var mCobraYOffset = 0.0;
 
+// UI
+var mUIConclusion = null;
+var mUINormalMapping = null;
 // language
 var language_pack = {
     now_lang : 0, // 0:ch,1:en
@@ -2558,8 +2561,42 @@ function switchDemo(demoId) {
     document.getElementById("id_per_vertex_or_frag_lighting").style.display = 'none';
     document.getElementById("id_shadowdemo").style.display = 'none';
     document.getElementById("id_yuv_video").style.display = 'none';
+    document.getElementById("id_conclusion").style.display = 'none';
 
     switch (demoId) {
+        case 'Conclusion':
+            resumeMVPMatrix(true);
+            mNeedDrawFighter = true;
+            mNeedDrawBackground = true;
+            if (null == mUIConclusion) {
+                mUIConclusion = document.getElementById("id_conclusion");
+
+                var markdownReader = new XMLHttpRequest();
+                markdownReader.open('get', './blog/conclusion.md', false);
+                markdownReader.send();
+
+                let convertor = new showdown.Converter();
+                let htmlContent = convertor.makeHtml(markdownReader.responseText);
+                mUIConclusion.innerHTML = htmlContent;
+            }
+            mUIConclusion.style.display = 'block';
+            break;
+        case 'NormalMapping':
+            resumeMVPMatrix(true);
+            mNeedDrawFighter = true;
+            mNeedDrawBackground = true;
+            if (null == mUINormalMapping) {
+                mUINormalMapping = document.getElementById("id_normal_mapping");
+                var markdownReader = new XMLHttpRequest();
+                markdownReader.open('get', './blog/normalMapping.md', false);
+                markdownReader.send();
+
+                let convertor = new showdown.Converter();
+                let htmlContent = convertor.makeHtml(markdownReader.responseText);
+                mUINormalMapping.innerHTML = htmlContent;
+            }
+            mUINormalMapping.style.display = 'block';
+            break;
         case 'Shader':
             resumeMVPMatrix(false);
             mNeedDrawFighter = true;
