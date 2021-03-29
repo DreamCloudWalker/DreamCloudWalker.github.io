@@ -2561,6 +2561,7 @@ function switchDemo(demoId) {
     document.getElementById("id_per_vertex_or_frag_lighting").style.display = 'none';
     document.getElementById("id_shadowdemo").style.display = 'none';
     document.getElementById("id_yuv_video").style.display = 'none';
+    document.getElementById("id_normal_mapping").style.display = 'none';
     document.getElementById("id_conclusion").style.display = 'none';
 
     switch (demoId) {
