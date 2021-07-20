@@ -275,6 +275,7 @@ var mCobraYOffset = 0.0;
 
 // UI
 var mUIConclusion = null;
+var mUIUVMapping = null;
 var mUINormalMapping = null;
 // language
 var language_pack = {
@@ -2557,6 +2558,9 @@ function switchDemo(demoId) {
     document.getElementById("id_quaternion").style.display = 'none';
     document.getElementById("id_cobramaneuvre").style.display = 'none';
     document.getElementById("id_uv_demo").style.display = 'none';
+    if (null != mUIUVMapping) {
+        mUIUVMapping.style.display = 'none';
+    }
     document.getElementById("id_lightdemo").style.display = 'none';
     document.getElementById("id_per_vertex_or_frag_lighting").style.display = 'none';
     document.getElementById("id_shadowdemo").style.display = 'none';
@@ -2646,8 +2650,19 @@ function switchDemo(demoId) {
             break;
         case 'UV':
             mNeedDrawUVDemoPlane = true;
-            document.getElementById("id_uv_demo").style.display = 'flex';
             resumeMVPMatrix(false);
+            document.getElementById("id_uv_demo").style.display = 'flex';
+            if (null == mUIUVMapping) {
+                mUIUVMapping = document.getElementById("id_uv_mapping_blog");
+                var markdownReader = new XMLHttpRequest();
+                markdownReader.open('get', './blog/uvMapping.md', false);
+                markdownReader.send();
+
+                let convertor = new showdown.Converter();
+                let htmlContent = convertor.makeHtml(markdownReader.responseText);
+                mUIUVMapping.innerHTML = htmlContent;
+            }
+            mUIUVMapping.style.display = 'block';
             break;
         case 'PerVertexOrFragLighting':
             mNeedDrawSphere = true;
