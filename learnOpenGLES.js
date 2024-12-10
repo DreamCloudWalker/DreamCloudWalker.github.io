@@ -274,6 +274,14 @@ var mCobraZOffset = 0.0;
 var mCobraYOffset = 0.0;
 
 // UI
+var mUIModelMatrix = null;
+var mUIEulerAngle = null;
+var mUIAxisAngle = null;
+var mUIQuternion = null;
+var mUIViewMatrix = null;
+var mUIProjectionMatrix = null;
+var mUIMvpMatrix = null;
+var mUIFighterAnim = null;
 var mUIConclusion = null;
 var mUIUVMapping = null;
 var mUINormalMapping = null;
@@ -404,6 +412,8 @@ class GLScene extends GLCanvas {
         mUVDemoAssistPlaneBuffer = updateUVDemoAssistBuffer(gl);
         mUVDemoAssistUVAxisBuffer = updateUVDemoAssistAxisBuffer(gl);
         mUVDemoAssistCubeBuffer = updateUVDemoAssistCubeBuffer(gl);
+
+        initEntraceBlog();
     }
 
     onGLResourcesLoading() {
@@ -481,6 +491,20 @@ class GLScene extends GLCanvas {
         // TODO gl delete?
 
     }
+}
+
+function initEntraceBlog() {
+    if (null == mUIModelMatrix) {
+        mUIModelMatrix = document.getElementById("id_modelmatrix_blog");
+        var markdownReader = new XMLHttpRequest();
+        markdownReader.open('get', './blog/modelMatrix.md', false);
+        markdownReader.send();
+
+        let convertor = new showdown.Converter();
+        let htmlContent = convertor.makeHtml(markdownReader.responseText);
+        mUIModelMatrix.innerHTML = htmlContent;
+    }
+    mUIModelMatrix.style.display = 'block';
 }
 
 function requestRender() {
@@ -2561,6 +2585,9 @@ function switchDemo(demoId) {
     if (null != mUIUVMapping) {
         mUIUVMapping.style.display = 'none';
     }
+    if (null != mUIModelMatrix) {
+        mUIModelMatrix.style.display = 'none';
+    }
     document.getElementById("id_lightdemo").style.display = 'none';
     document.getElementById("id_per_vertex_or_frag_lighting").style.display = 'none';
     document.getElementById("id_shadowdemo").style.display = 'none';
@@ -2637,6 +2664,7 @@ function switchDemo(demoId) {
             mNeedDrawFighter = true;
             mNeedDrawBackground = true;
             document.getElementById("id_modelmatrix").style.display = 'flex';
+            mUIModelMatrix.style.display = 'block';
             break;
         case 'ViewMatrix':
             mNeedDrawFighter = true;
