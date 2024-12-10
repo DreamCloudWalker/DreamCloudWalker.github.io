@@ -4,30 +4,98 @@ OpenGL一般它被认为是一个API(Application Programming Interface, 应用�
 ## 模型矩阵
 
 OpenGL 的模型矩阵（Model Matrix）是用于描述物体在三维空间中位置、方向和缩放的变换矩阵。它是一种通过线性变换（平移、旋转和缩放）来控制场景中物体的姿态以及相对于世界坐标系的位置的工具。
-**定义**：
    - 在 OpenGL 中，模型矩阵通常用于将模型空间中的顶点坐标转换为世界空间坐标。模型矩阵的组成通常包括三个部分：
      - **平移（Translation）**：物体在世界空间中的位置。
      - **旋转（Rotation）**：物体在世界空间中的方向。
      - **缩放（Scaling）**：物体的大小。
 
-**推导**：
    - 模型矩阵是通过相应的旋转、平移和缩放矩阵相乘而得到的。
 
    - 具体推导过程如下（假设我们有一个物体应用了平移、旋转和缩放）：
 
-       - 平移矩阵 T
-$$
- \left[
- \begin{matrix}
-   1 & 0 & 0 & tx \\
-   0 & 1 & 0 & ty \\
-   0 & 0 & 1 & tz \\
-   0 & 0 & 0 & 1
-  \end{matrix}
-  \right] \tag{3}
-$$
-       - 旋转矩阵 R
-       - 缩放矩阵 S
+       - 平移矩阵 T = 
+                <table>
+                <tr>
+                    <td>1</td>
+                    <td>0</td>
+                    <td>0</td>
+                    <td>tx</td>
+                </tr>
+                <tr>
+                    <td>0</td>
+                    <td>1</td>
+                    <td>0</td>
+                    <td>ty</td>
+                </tr>
+                <tr>
+                    <td>0</td>
+                    <td>0</td>
+                    <td>1</td>
+                    <td>tz</td>
+                </tr>
+                <tr>
+                    <td>0</td>
+                    <td>0</td>
+                    <td>0</td>
+                    <td>1</td>
+                </tr>
+                </table>
+
+       - 旋转矩阵 R = 
+                <table>
+                <tr>
+                    <td>cos(θ)</td>
+                    <td>−sin(θ)</td>
+                    <td>0</td>
+                    <td>0</td>
+                </tr>
+                <tr>
+                    <td>sin(θ)</td>
+                    <td>cos(θ)</td>
+                    <td>0</td>
+                    <td>0</td>
+                </tr>
+                <tr>
+                    <td>0</td>
+                    <td>0</td>
+                    <td>1</td>
+                    <td>0</td>
+                </tr>
+                <tr>
+                    <td>0</td>
+                    <td>0</td>
+                    <td>0</td>
+                    <td>1</td>
+                </tr>
+                </table>
+
+       - 缩放矩阵 S = 
+                <table>
+                <tr>
+                    <td>sx</td>
+                    <td>0</td>
+                    <td>0</td>
+                    <td>0</td>
+                </tr>
+                <tr>
+                    <td>0</td>
+                    <td>sy</td>
+                    <td>0</td>
+                    <td>0</td>
+                </tr>
+                <tr>
+                    <td>0</td>
+                    <td>0</td>
+                    <td>sz</td>
+                    <td>0</td>
+                </tr>
+                <tr>
+                    <td>0</td>
+                    <td>0</td>
+                    <td>0</td>
+                    <td>1</td>
+                </tr>
+                </table>
 
 组合这些变换矩阵，通常顺序为先缩放，后旋转，最后平移，由于OpenGL是左乘，得到模型矩阵 M：
 
