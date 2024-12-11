@@ -277,7 +277,7 @@ var mCobraYOffset = 0.0;
 var mUIModelMatrix = null;
 var mUIEulerAngle = null;
 var mUIAxisAngle = null;
-var mUIQuternion = null;
+var mUIQuaternion = null;
 var mUIViewMatrix = null;
 var mUIProjectionMatrix = null;
 var mUIMvpMatrix = null;
@@ -2588,6 +2588,15 @@ function switchDemo(demoId) {
     if (null != mUIModelMatrix) {
         mUIModelMatrix.style.display = 'none';
     }
+    if (null != mUIEulerAngle) {
+        mUIEulerAngle.style.display = 'none';
+    }
+    if (null != mUIAxisAngle) {
+        mUIAxisAngle.style.display = 'none';
+    }
+    if (null != mUIQuaternion) {
+        mUIQuaternion.style.display = 'none';
+    }
     document.getElementById("id_lightdemo").style.display = 'none';
     document.getElementById("id_per_vertex_or_frag_lighting").style.display = 'none';
     document.getElementById("id_shadowdemo").style.display = 'none';
@@ -2641,17 +2650,50 @@ function switchDemo(demoId) {
             mNeedDrawFighter = true;
             mNeedDrawBackground = true;
             document.getElementById("id_rotatematrix").style.display = 'flex';
+            if (null == mUIEulerAngle) {
+                mUIEulerAngle = document.getElementById("id_euler_angle_blog");
+                var markdownReader = new XMLHttpRequest();
+                markdownReader.open('get', './blog/eulerAngle.md', false);
+                markdownReader.send();
+
+                let convertor = new showdown.Converter();
+                let htmlContent = convertor.makeHtml(markdownReader.responseText);
+                mUIEulerAngle.innerHTML = htmlContent;
+            }
+            mUIEulerAngle.style.display = 'block';
             break;
         case 'AxisAngle':
             mNeedDrawAngleAxis = true;
             mNeedDrawFighter = true;
             mNeedDrawBackground = true;
             document.getElementById("id_axisangle").style.display = 'flex';
+            if (null == mUIAxisAngle) {
+                mUIAxisAngle = document.getElementById("id_axis_angle_blog");
+                var markdownReader = new XMLHttpRequest();
+                markdownReader.open('get', './blog/axisAngle.md', false);
+                markdownReader.send();
+
+                let convertor = new showdown.Converter();
+                let htmlContent = convertor.makeHtml(markdownReader.responseText);
+                mUIAxisAngle.innerHTML = htmlContent;
+            }
+            mUIAxisAngle.style.display = 'block';
             break;
         case 'Quaternion':
             mNeedDrawFighter = true;
             mNeedDrawBackground = true;
             document.getElementById("id_quaternion").style.display = 'flex';
+            if (null == mUIQuaternion) {
+                mUIQuaternion = document.getElementById("id_quaternion_blog");
+                var markdownReader = new XMLHttpRequest();
+                markdownReader.open('get', './blog/quaternion.md', false);
+                markdownReader.send();
+
+                let convertor = new showdown.Converter();
+                let htmlContent = convertor.makeHtml(markdownReader.responseText);
+                mUIQuaternion.innerHTML = htmlContent;
+            }
+            mUIQuaternion.style.display = 'block';
             break;
         case 'MvpMatrix':
             mNeedDrawAssistObject = true;

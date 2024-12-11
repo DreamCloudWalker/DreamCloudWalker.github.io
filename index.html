@@ -14,7 +14,7 @@
         <script src="public/three/OBJLoader.js"></script>
         <script src="public/jquery/1.9.0/jquery.js"></script>
         <script src="public/jquery/jquery.i18n.properties-1.0.9.js"></script>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/showdown/2.1.0/showdown.min.js"></script>
+        <script src="public/showdown_2_1_0.min.js"></script>
         <style type="text/css">
             div#canvas-frame {
                 border: none;
@@ -525,6 +525,7 @@ void main() {
                     </div>
                 </div>
             </div>
+            <div id="id_view_matrix"></div>
             <div id="id_projmatrix">
                 <h4 style="width: 230px; background: #ffffff" data-lang="pers_proj_matrix">透视投影变换</h4>
                 <div style="border: 1px solid #cccccc; width: 30em;">
@@ -570,6 +571,7 @@ void main() {
                     </div>
                 </div>
             </div>
+            <div id="id_projection_matrix"></div>
             <div id="id_rotatematrix">
                 <h4 style="width: 230px; background: #ffffff" data-lang="euler_angle_rotation">欧拉角旋转</h4>
                 <div style="border: 1px solid #cccccc; width: 30em;">
@@ -664,6 +666,7 @@ void main() {
                     </div>
                 </div>
             </div>
+            <div id="id_euler_angle_blog"></div>
         </div>
         <div id="id_axisangle">
             <h4 style="width: 230px; background: #ffffff" data-lang="axis_angle_rot">轴角旋转</h4>
@@ -702,6 +705,7 @@ void main() {
                 </div>
             </div>
         </div>
+        <div id="id_axis_angle_blog"></div>
         <div id="id_quaternion">
             <h4 style="width: 230px; background: #ffffff" data-lang="quaternion_rot">四元数旋转</h4>
             <div style="border: 1px solid #cccccc; width: 30em;">
@@ -738,6 +742,7 @@ void main() {
             </div>
             <img src="./texture/quaternion.png" width="400px">
         </div>
+        <div id="id_quaternion_blog"></div>
         <div id="id_cobramaneuvre">
             <h4 style="width: 230px; background: #ffffff" data-lang="prototype">原型图：</h4>
 
