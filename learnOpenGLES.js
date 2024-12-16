@@ -2597,6 +2597,12 @@ function switchDemo(demoId) {
     if (null != mUIQuaternion) {
         mUIQuaternion.style.display = 'none';
     }
+    if (null != mUIViewMatrix) {
+        mUIViewMatrix.style.display = 'none';
+    }
+    if (null != mUIProjectionMatrix) {
+        mUIProjectionMatrix.style.display = 'none';
+    }
     document.getElementById("id_lightdemo").style.display = 'none';
     document.getElementById("id_per_vertex_or_frag_lighting").style.display = 'none';
     document.getElementById("id_shadowdemo").style.display = 'none';
@@ -2712,11 +2718,33 @@ function switchDemo(demoId) {
             mNeedDrawFighter = true;
             mNeedDrawBackground = true;
             document.getElementById("id_viewmatrix").style.display = 'flex';
+            if (null == mUIViewMatrix) {
+                mUIViewMatrix = document.getElementById("id_view_matrix_blog");
+                var markdownReader = new XMLHttpRequest();
+                markdownReader.open('get', './blog/viewMatrix.md', false);
+                markdownReader.send();
+
+                let convertor = new showdown.Converter();
+                let htmlContent = convertor.makeHtml(markdownReader.responseText);
+                mUIViewMatrix.innerHTML = htmlContent;
+            }
+            mUIViewMatrix.style.display = 'block';
             break;
         case 'ProjectionMatrix':
             mNeedDrawFighter = true;
             mNeedDrawBackground = true;
             document.getElementById("id_projmatrix").style.display = 'flex';
+            if (null == mUIProjectionMatrix) {
+                mUIProjectionMatrix = document.getElementById("id_projection_matrix_blog");
+                var markdownReader = new XMLHttpRequest();
+                markdownReader.open('get', './blog/projectionMatrix.md', false);
+                markdownReader.send();
+
+                let convertor = new showdown.Converter();
+                let htmlContent = convertor.makeHtml(markdownReader.responseText);
+                mUIProjectionMatrix.innerHTML = htmlContent;
+            }
+            mUIProjectionMatrix.style.display = 'block';
             break;
         case 'UV':
             mNeedDrawUVDemoPlane = true;
