@@ -1,12 +1,23 @@
 const DEGREE_TO_RADIUS = Math.PI / 180;
 const CAMERA_POSITION = vec3.fromValues(0.0, 0.0, 10.0);
-var mPlaneTexture = null;
+// 定义渲染模式常量
+const RenderMode = {
+    FULL:        1 << 0,  // 二进制: 00000001 (默认全屏模式)
+    FIT:         1 << 1,  // 二进制: 00000010 (填充模式)
+    FILL:        1 << 2,  // 二进制: 00000100 (适应模式)
+    KEEP_SCALE:  1 << 3,  // 二进制: 00001000 (保持原始比例)
+    WIDTH_FILL:  1 << 4,  // 二进制: 00010000 (宽度填充)
+    HEIGHT_FILL: 1 << 5   // 二进制: 00100000 (高度填充)
+  };
+
+var mPlaneTextureInfo = null;
 var mVertices = [];
 var mTexCoods = [];
 var mViewportWidth = 0;
 var mViewportHeight = 0;
 var mPitching = 0.0;
 var mYawing = 0.0;
+var mRolling = 0.0;
 var mScale = 1.0;
 var mProjectionMatrix = mat4.create();
 var mModelMatrix = mat4.create();
@@ -47,7 +58,7 @@ function main() {
     mProjectionMatrix = mat4.create();
     // mat4.perspective(mProjectionMatrix, fov, aspect, zNear, zFar);
 
-    mPlaneTexture = loadTexture(mGl, './texture/ming.jpg');
+    mPlaneTextureInfo = loadTexture(mGl, './texture/image_edit.jpg');
 
     // init shader
     updateShader();
@@ -174,40 +185,51 @@ function loadTexture(gl, url) {
     const srcType = gl.UNSIGNED_BYTE;
     const pixel = new Uint8Array([255, 255, 255, 255]);
     // 1表示翻转，0表示不翻转，参考 https://juejin.im/post/5d4423c4f265da038f47ef87
-    // gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1); 
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1); 
     gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
     gl.texImage2D(gl.TEXTURE_2D, level, internalFormat,
                   width, height, border, srcFormat, srcType,
                   pixel);
   
     const image = new Image();
+    // 存储宽高的对象
+    const textureInfo = {
+        texture: texture,
+        width: 0,  // 将在onload中更新
+        height: 0,
+        aspectRatio: 0
+    };
     image.onload = function() {
+      // 记录原始宽高
+      textureInfo.width = image.width;
+      textureInfo.height = image.height;
+      textureInfo.aspectRatio = image.width / image.height;
       gl.bindTexture(gl.TEXTURE_2D, texture);
       gl.texImage2D(gl.TEXTURE_2D, level, internalFormat,
                     srcFormat, srcType, image);
   
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
       // WebGL1 has different requirements for power of 2 images
       // vs non power of 2 images so check if the image is a
       // power of 2 in both dimensions.
       if (isPowerOf2(image.width) && isPowerOf2(image.height)) {
          // Yes, it's a power of 2. Generate mips.
-         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.MIRRORED_REPEAT);
-         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.MIRRORED_REPEAT);
-         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
-         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
          gl.generateMipmap(gl.TEXTURE_2D);
-      } else {
-         // No, it's not a power of 2. Turn off mips and set
-         // wrapping to clamp to edge
-         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.MIRRORED_REPEAT);
-         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.MIRRORED_REPEAT);
-         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
       }
     };
+
+    // 错误处理
+    image.onerror = function() {
+        console.error(`Failed to load texture: ${url}`);
+    };
+
     image.src = url;
   
-    return texture;
+    return textureInfo;
 }
 
 function isPowerOf2(value) {
@@ -250,6 +272,50 @@ function resume() {
     requestAnimationFrame(render);
 }
 
+function calcScaleWithRenderMode(srcWidth, srcHeight, dstWidth, dstHeight, renderMode) {
+    if (srcWidth == 0 || srcHeight == 0 || dstWidth == 0 || dstHeight == 0) {
+        console.error("calcScaleWithRenderMode: invalid size");
+        return { width: 0, height: 0 };
+    }
+
+    const srcRatio = srcWidth / srcHeight;
+    const dstRatio = dstWidth / dstHeight;
+    const sdwRatio = srcWidth / dstWidth;
+    const sdhRatio = srcHeight / dstHeight;
+    const srcHwRatio = srcHeight / srcWidth;
+    const dstHwRatio = dstHeight / dstWidth;
+
+    if ((renderMode & RenderMode.FULL) == RenderMode.FULL) {
+        if ((renderMode & RenderMode.FILL) == RenderMode.FILL) {
+            if (sdwRatio < sdhRatio) {
+                return { width: 1, height: dstRatio / srcRatio };
+            } else {
+                return { width: srcRatio / dstRatio, height: 1 };
+            }
+        } else if ((renderMode & RenderMode.FIT) == RenderMode.FIT) {
+            if ((renderMode & RenderMode.KEEP_SCALE) == RenderMode.KEEP_SCALE) {
+                return { width: srcWidth / dstWidth, height: srcHeight / dstHeight };
+            } else {
+                if (sdwRatio > sdhRatio) {
+                    return { width: 1, height: dstRatio / srcRatio };
+                } else {
+                    return { width: srcRatio / dstRatio, height: 1 };
+                }
+            }
+        } else {
+            console.error("wrong render mode 1");
+            return { width: 1, height: 1 };
+        }
+    } else if ((renderMode & RenderMode.WIDTH_FILL) == RenderMode.WIDTH_FILL) {
+        return { width: 1, height: srcHwRatio / dstHwRatio };
+    } else if ((renderMode & RenderMode.HEIGHT_FILL) == RenderMode.HEIGHT_FILL) {
+        return { width: dstHwRatio / srcHwRatio, height: 1 };
+    } else {
+        console.error("wrong render mode 2");
+        return { width: 1, height: 1 };
+    }
+}
+
 function drawScene(gl, programInfo, buffers, deltaTime) {
     gl.clearColor(1.0, 1.0, 1.0, 1.0);  // Clear to black, fully opaque
     gl.clearDepth(1.0);                 // Clear everything
@@ -273,7 +339,15 @@ function drawScene(gl, programInfo, buffers, deltaTime) {
                 mModelMatrix,  // matrix to rotate
                 mYawing,       // amount to rotate in radians
                 [0, 1, 0]);    // axis to rotate around
-    mat4.scale(mModelMatrix, mModelMatrix, [mScale, mScale, mScale]);
+    mat4.rotate(mModelMatrix, 
+                mModelMatrix,
+                mRolling,
+                [0, 0, 1]);
+
+    const scaleType = calcScaleWithRenderMode(mPlaneTextureInfo.width, mPlaneTextureInfo.height, 
+        mViewportWidth, mViewportHeight, 
+        RenderMode.FULL | RenderMode.FIT);
+    mat4.scale(mModelMatrix, mModelMatrix, [mScale * scaleType.width, mScale * scaleType.height, mScale]);
 
     // Tell WebGL how to pull out the positions from the position
     // buffer into the vertexPosition attribute.
@@ -322,7 +396,7 @@ function drawScene(gl, programInfo, buffers, deltaTime) {
     // Tell WebGL we want to affect diffuseTexture unit 0
     gl.activeTexture(gl.TEXTURE0);
     // Bind the diffuseTexture to diffuseTexture unit 0
-    gl.bindTexture(gl.TEXTURE_2D, mPlaneTexture);
+    gl.bindTexture(gl.TEXTURE_2D, mPlaneTextureInfo.texture);
     // Tell the shader we bound the diffuseTexture to diffuseTexture unit 0
     gl.uniform1i(programInfo.uniformLocations.uTexSamplerHandle, 0);
 
