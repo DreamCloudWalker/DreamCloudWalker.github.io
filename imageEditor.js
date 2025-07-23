@@ -272,6 +272,10 @@ function resume() {
     requestAnimationFrame(render);
 }
 
+function rotate() {
+    mRolling = (mRolling + 90.0) % 360.0;
+}
+
 function calcScaleWithRenderMode(srcWidth, srcHeight, dstWidth, dstHeight, renderMode) {
     if (srcWidth == 0 || srcHeight == 0 || dstWidth == 0 || dstHeight == 0) {
         console.error("calcScaleWithRenderMode: invalid size");
@@ -339,15 +343,25 @@ function drawScene(gl, programInfo, buffers, deltaTime) {
                 mModelMatrix,  // matrix to rotate
                 mYawing,       // amount to rotate in radians
                 [0, 1, 0]);    // axis to rotate around
+
+    const ratio = mViewportWidth / mViewportHeight;
+    const rollRotation = mRolling * DEGREE_TO_RADIUS;
+    const orthogonalRotation = (mRolling % 180.0 != 0.0)
+    // mat4.scale(mModelMatrix, mModelMatrix, [1, ratio, 1]);   // 预补偿
     mat4.rotate(mModelMatrix, 
                 mModelMatrix,
-                mRolling,
+                rollRotation,
                 [0, 0, 1]);
+    // mat4.scale(mModelMatrix, mModelMatrix, [1, 1 / ratio, 1]);// 恢复
 
-    const scaleType = calcScaleWithRenderMode(mPlaneTextureInfo.width, mPlaneTextureInfo.height, 
+    const texWidth = orthogonalRotation ? mPlaneTextureInfo.height : mPlaneTextureInfo.width;
+    const texHeight = orthogonalRotation ? mPlaneTextureInfo.width : mPlaneTextureInfo.height;
+    const scaleType = calcScaleWithRenderMode(texWidth, texHeight, 
         mViewportWidth, mViewportHeight, 
         RenderMode.FULL | RenderMode.FIT);
-    mat4.scale(mModelMatrix, mModelMatrix, [mScale * scaleType.width, mScale * scaleType.height, mScale]);
+    const scaleWidth = orthogonalRotation ? scaleType.height * mScale : scaleType.width * mScale;
+    const scaleHeight = orthogonalRotation ? scaleType.width * mScale : scaleType.height * mScale;
+    mat4.scale(mModelMatrix, mModelMatrix, [scaleWidth, scaleHeight, mScale]);
 
     // Tell WebGL how to pull out the positions from the position
     // buffer into the vertexPosition attribute.
