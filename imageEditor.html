@@ -24,19 +24,55 @@
     <canvas id="glcanvas" width="1024" height="610"></canvas>
 
     <div id="horizontal">
-        <button style="display:block; margin:5; width: 200px; height: 30px" onclick="updateShader()">编译并运行下面着色程序</button>
         <button style="display:block; margin:5; width: 60px; height: 30px" onclick="resume()">继续</button>
         <button style="display:block; margin:5; width: 60px; height: 30px" onclick="pause()">暂停</button>
         <button style="display:block; margin:5; width: 60px; height: 30px" onclick="rotate()">旋转</button>
         <button style="display:block; margin:5; width: 70px; height: 30px" onclick="mirrorX()">水平镜像</button>
         <button style="display:block; margin:5; width: 70px; height: 30px" onclick="mirrorY()">垂直镜像</button>
+        <button style="display:block; margin:5; width: 60px; height: 30px" onclick="save()">保存</button>
+        <button style="display:block; margin:5; width: 120px; height: 30px" onclick="document.getElementById('fileInput').click()">加载图片</button>
+        <input type="file" id="fileInput" accept="image/*" style="display:none" onchange="loadImage(event)">    
     </div>
 
+    <div style="border: 1px solid #cccccc; width: 200px; padding: 5px">
+        MVP矩阵 = 
+        <div id="horizontal" style="margin: 5px">
+            <img src="./texture/matrixL.png">
+            <div id="matrix" style="margin: 5px;">
+                     <label id="id_image_edit_mvpmatrix_m00">1.00</label><br/>
+                <br/><label id="id_image_edit_mvpmatrix_m10">0.00</label><br/>
+                <br/><label id="id_image_edit_mvpmatrix_m20">0.00</label><br/>
+                <br/><label id="id_image_edit_mvpmatrix_m30">0.00</label>
+            </div>
+            <div id="matrix" style="margin: 5px">
+                     <label id="id_image_edit_mvpmatrix_m01">0.00</label><br/>
+                <br/><label id="id_image_edit_mvpmatrix_m11">1.00</label><br/>
+                <br/><label id="id_image_edit_mvpmatrix_m21">0.00</label><br/>
+                <br/><label id="id_image_edit_mvpmatrix_m31">0.00</label>
+            </div>
+            <div id="matrix" style="margin: 5px">
+                     <label id="id_image_edit_mvpmatrix_m02">0.00</label><br/>
+                <br/><label id="id_image_edit_mvpmatrix_m12">0.00</label><br/>
+                <br/><label id="id_image_edit_mvpmatrix_m22">1.00</label><br/>
+                <br/><label id="id_image_edit_mvpmatrix_m32">0.00</label>
+            </div>
+            <div id="matrix" style="margin: 5px">
+                     <label id="id_image_edit_mvpmatrix_m03">0.00</label><br/>
+                <br/><label id="id_image_edit_mvpmatrix_m13">0.00</label><br/>
+                <br/><label id="id_image_edit_mvpmatrix_m23">0.00</label><br/>
+                <br/><label id="id_image_edit_mvpmatrix_m33">1.00</label>
+            </div>
+
+            <img src="./texture/matrixR.png">
+        </div>
+    </div>
+
+    <button style="display:block; margin:5; width: 200px; height: 30px" onclick="updateShader()">编译并运行下面着色程序</button>
     <div id="vertical">
-        <div id="horizontal" style="width: 90em;">
+        <div id="horizontal" style="width: 1024px;">
             <div id="vertical">
                 <b>VertexShader</b>
-                <textarea spellcheck="false" rows="33" cols="95" id="id_vertex_shader">
+                <textarea spellcheck="false" rows="33" cols="70" id="id_vertex_shader">
 attribute vec4 aPosition;
 attribute vec2 aTexCoord;
 
@@ -56,7 +92,7 @@ void main() {
             </div>
             <div id="vertical">
                 <b>FragmentShader</b>
-                <textarea spellcheck="false" rows="33" cols="95" id="id_fragment_shader">
+                <textarea spellcheck="false" rows="33" cols="70" id="id_fragment_shader">
 precision mediump float;
 
 uniform sampler2D uTexSampler;

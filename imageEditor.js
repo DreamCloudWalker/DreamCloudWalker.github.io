@@ -24,11 +24,15 @@ var mMirrorY = 1.0; // Y镜像翻转(scaleY)
 var mProjectionMatrix = mat4.create();
 var mModelMatrix = mat4.create();
 var mViewMatrix = mat4.create();
+var mMvpMatrix = mat4.create();
 var mProgram = null;
 var mContinuous = true;
 var mThen = 0;
 var mBuffers = null;
 var mGl = null;
+
+var mDumpFBO = null;
+var mDumpOneFrame = false;
 
 function main() {
     const canvas = document.querySelector("#glcanvas");
@@ -60,7 +64,7 @@ function main() {
     mProjectionMatrix = mat4.create();
     // mat4.perspective(mProjectionMatrix, fov, aspect, zNear, zFar);
 
-    mPlaneTextureInfo = loadTexture(mGl, './texture/image_edit.jpg');
+    mPlaneTextureInfo = loadTextureByUrl(mGl, './texture/image_edit.jpg');
 
     // init shader
     updateShader();
@@ -167,9 +171,33 @@ function initBuffers(gl) {
     };
 }
 
+function loadTextureByImage(gl, image) {
+    const texture = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+
+    // 加载图片到纹理
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+
+    // 设置纹理参数
+    if (isPowerOf2(image.width) && isPowerOf2(image.height)) {
+        gl.generateMipmap(gl.TEXTURE_2D);
+    } else {
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    }
+
+    return {
+        texture: texture,
+        width: image.width,
+        height: image.height,
+        aspectRatio: image.width / image.height
+    };
+}
+
 // Initialize a texture and load an image.
 // When the image finished loading copy it into the texture.
-function loadTexture(gl, url) {
+function loadTextureByUrl(gl, url) {
     const texture = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, texture);
   
@@ -290,6 +318,28 @@ function doubleClick() {
 
 }
 
+function save() {
+    mDumpOneFrame = true;
+}
+
+function loadImage(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const img = new Image();
+        img.onload = function() {
+            // 创建纹理并加载图片
+            const textureInfo = loadTextureByImage(mGl, img);
+            mPlaneTextureInfo = textureInfo; // 更新全局纹理信息
+            console.log("Image loaded successfully");
+        };
+        img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+}
+
 function calcScaleWithRenderMode(srcWidth, srcHeight, dstWidth, dstHeight, renderMode) {
     if (srcWidth == 0 || srcHeight == 0 || dstWidth == 0 || dstHeight == 0) {
         console.error("calcScaleWithRenderMode: invalid size");
@@ -335,6 +385,27 @@ function calcScaleWithRenderMode(srcWidth, srcHeight, dstWidth, dstHeight, rende
 }
 
 function drawScene(gl, programInfo, buffers, deltaTime) {
+    const orthogonalRotation = (mRolling % 180.0 != 0.0)
+    const texWidth = orthogonalRotation ? mPlaneTextureInfo.height : mPlaneTextureInfo.width;
+    const texHeight = orthogonalRotation ? mPlaneTextureInfo.width : mPlaneTextureInfo.height;
+    if (0 == texWidth || 0 == texHeight) {
+        console.info("drawScene: invalid texture size");
+        return;
+    }
+
+    var viewportWidth = mViewportWidth;
+    var viewportHeight = mViewportHeight;
+
+    if (mDumpOneFrame) {
+        if (null == mDumpFBO) {
+            mDumpFBO = new FrameBufferObject(gl, gl.TEXTURE2, texWidth, texHeight);
+        }
+        mDumpFBO.bind();
+        viewportWidth = texWidth;
+        viewportHeight = texHeight;
+        gl.viewport(0, 0, texWidth, texHeight);
+    }
+
     gl.clearColor(1.0, 1.0, 1.0, 1.0);  // Clear to black, fully opaque
     gl.clearDepth(1.0);                 // Clear everything
     gl.enable(gl.DEPTH_TEST);           // Enable depth testing
@@ -358,9 +429,7 @@ function drawScene(gl, programInfo, buffers, deltaTime) {
                 mYawing,       // amount to rotate in radians
                 [0, 1, 0]);    // axis to rotate around
 
-    const ratio = mViewportWidth / mViewportHeight;
     const rollRotation = mRolling * DEGREE_TO_RADIUS;
-    const orthogonalRotation = (mRolling % 180.0 != 0.0)
     // mat4.scale(mModelMatrix, mModelMatrix, [1, ratio, 1]);   // 预补偿
     mat4.rotate(mModelMatrix, 
                 mModelMatrix,
@@ -368,10 +437,8 @@ function drawScene(gl, programInfo, buffers, deltaTime) {
                 [0, 0, 1]);
     // mat4.scale(mModelMatrix, mModelMatrix, [1, 1 / ratio, 1]);// 恢复
 
-    const texWidth = orthogonalRotation ? mPlaneTextureInfo.height : mPlaneTextureInfo.width;
-    const texHeight = orthogonalRotation ? mPlaneTextureInfo.width : mPlaneTextureInfo.height;
     const scaleType = calcScaleWithRenderMode(texWidth, texHeight, 
-        mViewportWidth, mViewportHeight, 
+        viewportWidth, viewportHeight, 
         RenderMode.FULL | RenderMode.FIT);
     const scaleWidth = orthogonalRotation ? scaleType.height * mScale * mMirrorY : scaleType.width * mScale * mMirrorX;
     const scaleHeight = orthogonalRotation ? scaleType.width * mScale * mMirrorX : scaleType.height * mScale * mMirrorY;
@@ -439,10 +506,74 @@ function drawScene(gl, programInfo, buffers, deltaTime) {
     gl.uniformMatrix4fv(
         programInfo.uniformLocations.uModelMatrixHandle,
         false, mModelMatrix);
+    
+    const tempMatrix = mat4.create();
+    mat4.multiply(tempMatrix, mViewMatrix, mModelMatrix);
+    mat4.multiply(mMvpMatrix, mProjectionMatrix, tempMatrix);
+    updateHtmlMvpMatrixByRender();
 
     const offset = 0;
     gl.drawArrays(gl.TRIANGLE_STRIP, offset, mVertices.length / 3);
 
     gl.disableVertexAttribArray(programInfo.attribLocations.vertexPosition);
     gl.disableVertexAttribArray(programInfo.attribLocations.textureCoord);
+
+    if (mDumpOneFrame) {
+        mDumpOneFrame = false;
+        gl.viewport(0, 0, mViewportWidth, mViewportHeight); // 恢复
+
+        if (null != mDumpFBO) {
+            // 读取像素数据
+            const pixels = new Uint8Array(texWidth * texHeight * 4);
+            gl.readPixels(0, 0, texWidth, texHeight, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+
+            mDumpFBO.unbind();
+
+            // 创建临时canvas处理图像数据
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = texWidth;
+            tempCanvas.height = texHeight;
+            const tempCtx = tempCanvas.getContext('2d');
+            
+            // 将像素数据放入ImageData
+            const imageData = tempCtx.createImageData(texWidth, texHeight);
+            imageData.data.set(pixels);
+            tempCtx.putImageData(imageData, 0, 0);
+            
+            // 翻转Y轴(WebGL坐标系与canvas不同)
+            tempCtx.scale(1, -1);
+            tempCtx.drawImage(tempCanvas, 0, -texHeight);
+            
+            // 转换为数据URL并触发下载
+            tempCanvas.toBlob((blob) => {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'webgl-render.png';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }, 'image/png');
+        }
+    }
+}
+
+function updateHtmlMvpMatrixByRender() {
+    document.getElementById("id_image_edit_mvpmatrix_m00").innerHTML = mMvpMatrix[0].toFixed(2);
+    document.getElementById("id_image_edit_mvpmatrix_m01").innerHTML = mMvpMatrix[4].toFixed(2);
+    document.getElementById("id_image_edit_mvpmatrix_m02").innerHTML = mMvpMatrix[8].toFixed(2);
+    document.getElementById("id_image_edit_mvpmatrix_m03").innerHTML = mMvpMatrix[12].toFixed(2);
+    document.getElementById("id_image_edit_mvpmatrix_m10").innerHTML = mMvpMatrix[1].toFixed(2);
+    document.getElementById("id_image_edit_mvpmatrix_m11").innerHTML = mMvpMatrix[5].toFixed(2);
+    document.getElementById("id_image_edit_mvpmatrix_m12").innerHTML = mMvpMatrix[9].toFixed(2);
+    document.getElementById("id_image_edit_mvpmatrix_m13").innerHTML = mMvpMatrix[13].toFixed(2);
+    document.getElementById("id_image_edit_mvpmatrix_m20").innerHTML = mMvpMatrix[2].toFixed(2);
+    document.getElementById("id_image_edit_mvpmatrix_m21").innerHTML = mMvpMatrix[6].toFixed(2);
+    document.getElementById("id_image_edit_mvpmatrix_m22").innerHTML = mMvpMatrix[10].toFixed(2);
+    document.getElementById("id_image_edit_mvpmatrix_m23").innerHTML = mMvpMatrix[14].toFixed(2);
+    document.getElementById("id_image_edit_mvpmatrix_m30").innerHTML = mMvpMatrix[3].toFixed(2);
+    document.getElementById("id_image_edit_mvpmatrix_m31").innerHTML = mMvpMatrix[7].toFixed(2);
+    document.getElementById("id_image_edit_mvpmatrix_m32").innerHTML = mMvpMatrix[11].toFixed(2);
+    document.getElementById("id_image_edit_mvpmatrix_m33").innerHTML = mMvpMatrix[15].toFixed(2);
 }
