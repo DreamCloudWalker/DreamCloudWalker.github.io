@@ -6,6 +6,7 @@
   </head>
   <script src="public/gl-matrix.js"></script>
   <script src="imageEditor.js"></script>
+  <script src="base/FrameBufferObject.js"></script>
   <style type="text/css">
       div#canvas-frame {
           border: none;
@@ -19,7 +20,7 @@
       }
   </style>
 
-  <body onload="main();" ondblclick="end();" onkeypress="onKeyPress(event)" >
+  <body onload="main();" ondblclick="doubleClick();" onkeypress="onKeyPress(event)" >
     <canvas id="glcanvas" width="1024" height="610"></canvas>
 
     <div id="horizontal">
@@ -27,6 +28,8 @@
         <button style="display:block; margin:5; width: 60px; height: 30px" onclick="resume()">继续</button>
         <button style="display:block; margin:5; width: 60px; height: 30px" onclick="pause()">暂停</button>
         <button style="display:block; margin:5; width: 60px; height: 30px" onclick="rotate()">旋转</button>
+        <button style="display:block; margin:5; width: 70px; height: 30px" onclick="mirrorX()">水平镜像</button>
+        <button style="display:block; margin:5; width: 70px; height: 30px" onclick="mirrorY()">垂直镜像</button>
     </div>
 
     <div id="vertical">

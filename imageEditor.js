@@ -19,6 +19,8 @@ var mPitching = 0.0;
 var mYawing = 0.0;
 var mRolling = 0.0;
 var mScale = 1.0;
+var mMirrorX = 1.0; // X镜像翻转(scaleX)
+var mMirrorY = 1.0; // Y镜像翻转(scaleY)
 var mProjectionMatrix = mat4.create();
 var mModelMatrix = mat4.create();
 var mViewMatrix = mat4.create();
@@ -276,6 +278,18 @@ function rotate() {
     mRolling = (mRolling + 90.0) % 360.0;
 }
 
+function mirrorX() {
+    mMirrorX = -1.0 * mMirrorX; // 切换镜像状态
+}
+
+function mirrorY() {
+    mMirrorY = -1.0 * mMirrorY; // 切换镜像状态
+}
+
+function doubleClick() {
+
+}
+
 function calcScaleWithRenderMode(srcWidth, srcHeight, dstWidth, dstHeight, renderMode) {
     if (srcWidth == 0 || srcHeight == 0 || dstWidth == 0 || dstHeight == 0) {
         console.error("calcScaleWithRenderMode: invalid size");
@@ -359,8 +373,9 @@ function drawScene(gl, programInfo, buffers, deltaTime) {
     const scaleType = calcScaleWithRenderMode(texWidth, texHeight, 
         mViewportWidth, mViewportHeight, 
         RenderMode.FULL | RenderMode.FIT);
-    const scaleWidth = orthogonalRotation ? scaleType.height * mScale : scaleType.width * mScale;
-    const scaleHeight = orthogonalRotation ? scaleType.width * mScale : scaleType.height * mScale;
+    const scaleWidth = orthogonalRotation ? scaleType.height * mScale * mMirrorY : scaleType.width * mScale * mMirrorX;
+    const scaleHeight = orthogonalRotation ? scaleType.width * mScale * mMirrorX : scaleType.height * mScale * mMirrorY;
+
     mat4.scale(mModelMatrix, mModelMatrix, [scaleWidth, scaleHeight, mScale]);
 
     // Tell WebGL how to pull out the positions from the position
