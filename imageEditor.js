@@ -21,6 +21,8 @@ var mRolling = 0.0;
 var mScale = 1.0;
 var mMirrorX = 1.0; // X镜像翻转(scaleX)
 var mMirrorY = 1.0; // Y镜像翻转(scaleY)
+var mTransX = 0.0;
+var mTransY = 0.0;
 var mProjectionMatrix = mat4.create();
 var mModelMatrix = mat4.create();
 var mViewMatrix = mat4.create();
@@ -33,6 +35,10 @@ var mGl = null;
 
 var mDumpFBO = null;
 var mDumpOneFrame = false;
+
+var mIsDragging = false; // 是否正在拖动
+var mLastMouseX = 0; // 上一次鼠标的 X 坐标
+var mLastMouseY = 0; // 上一次鼠标的 Y 坐标
 
 function main() {
     const canvas = document.querySelector("#glcanvas");
@@ -48,6 +54,17 @@ function main() {
     mViewportWidth = canvas.clientWidth;
     mViewportHeight = canvas.clientHeight;
     mGl.viewport(0, 0, mViewportWidth, mViewportHeight);
+
+    // Add mouse wheel event listener
+    canvas.addEventListener('wheel', onMouseWheel);
+    // Add double-click event listener
+    canvas.addEventListener('dblclick', onMouseDoubleClick);
+
+    // 添加鼠标事件监听
+    canvas.addEventListener('mousedown', onMouseDown);
+    canvas.addEventListener('mousemove', onMouseMove);
+    canvas.addEventListener('mouseup', onMouseUp);
+    canvas.addEventListener('mouseleave', onMouseUp); // 鼠标离开时也停止拖动
 
     // create view matrix
     mViewMatrix = mat4.create();
@@ -314,10 +331,6 @@ function mirrorY() {
     mMirrorY = -1.0 * mMirrorY; // 切换镜像状态
 }
 
-function doubleClick() {
-
-}
-
 function save() {
     mDumpOneFrame = true;
 }
@@ -418,7 +431,7 @@ function drawScene(gl, programInfo, buffers, deltaTime) {
     mModelMatrix = mat4.create();
     mat4.translate(mModelMatrix,     // destination matrix
                    mModelMatrix,     // matrix to translate
-                   [-0.0, 0.0, -0.0]);  // amount to translate
+                   [mTransX, mTransY, 0.0]);  // amount to translate
 
     mat4.rotate(mModelMatrix,  // destination matrix
                 mModelMatrix,  // matrix to rotate
@@ -576,4 +589,174 @@ function updateHtmlMvpMatrixByRender() {
     document.getElementById("id_image_edit_mvpmatrix_m31").innerHTML = mMvpMatrix[7].toFixed(2);
     document.getElementById("id_image_edit_mvpmatrix_m32").innerHTML = mMvpMatrix[11].toFixed(2);
     document.getElementById("id_image_edit_mvpmatrix_m33").innerHTML = mMvpMatrix[15].toFixed(2);
+}
+
+function onMouseWheel(event) {
+    // 阻止默认滚动行为
+    event.preventDefault();
+
+    // 根据滚轮方向调整 mScale 值
+    const delta = event.deltaY > 0 ? -0.1 : 0.1;
+    if (mScale + delta < 1.0) {
+        mTransX = 0.0; // 重置平移
+        mTransY = 0.0; // 重置平移
+    }
+    mScale = Math.min(5.0, Math.max(1.0, mScale + delta));
+
+    console.log(`mScale updated: ${mScale}`);
+}
+
+function onMouseDoubleClick(event) {
+    // 切换 mScale 的值
+    if (mScale !== 3.0) {
+        mScale = 3.0;
+    } else {
+        mScale = 1.0;
+    }
+
+    console.log(`mScale updated on double-click: ${mScale}`);
+}
+
+function onMouseDown(event) {
+    mIsDragging = true; // 开始拖动
+    mLastMouseX = event.clientX; // 记录鼠标的初始位置
+    mLastMouseY = event.clientY;
+}
+
+function onMouseMove(event) {
+    if (!mIsDragging || mScale <= 1.0) return; // 如果没有拖动或未放大，则不处理移动事件
+    const displayedImgSize = getDisplayedImageSize();
+    if (displayedImgSize.displayWidth <= 0 || displayedImgSize.displayHeight <= 0) {
+        console.warn("Image size is zero, cannot drag.");
+        return;
+    }
+
+    // 计算鼠标移动的距离
+    const deltaX = event.clientX - mLastMouseX;
+    const deltaY = event.clientY - mLastMouseY;
+    // 更新图片的位置
+    mTransX += deltaX / mViewportWidth * 2; // 转换为 OpenGL 坐标
+    mTransY -= deltaY / mViewportHeight * 2; // Y 轴方向需要反转
+
+    /** 限制平移范围 **/ 
+    // 计算缩放后的图像实际显示尺寸（分辨率）
+    const scaledDisplayedImgWidth = displayedImgSize.displayWidth * mScale;
+    const scaledDisplayedImgHeight = displayedImgSize.displayHeight * mScale;
+    // 图像左下角在屏幕左下角时的屏幕坐标
+    const imgLeftBottomScreen = {
+        x: scaledDisplayedImgWidth / 2.0,
+        y: (mViewportHeight - scaledDisplayedImgHeight / 2.0)
+    };
+    // 图像右上角在屏幕右上角时的屏幕坐标
+    const imgRightTopScreen = {
+        x: (mViewportWidth - scaledDisplayedImgWidth / 2.0) ,
+        y: scaledDisplayedImgHeight / 2.0
+    };
+    // 图像右下角在屏幕右下角时的屏幕坐标
+    const imgRightBottomScreen = {
+        x: (mViewportWidth - scaledDisplayedImgWidth / 2.0),
+        y: (mViewportHeight - scaledDisplayedImgHeight / 2.0)
+    };
+    // 图像左上角在屏幕左上角时的屏幕坐标
+    const imgLeftTopScreen = {
+        x: scaledDisplayedImgWidth / 2.0,
+        y: scaledDisplayedImgHeight / 2.0
+    };
+
+    if (scaledDisplayedImgWidth > mViewportWidth && scaledDisplayedImgHeight > mViewportHeight) {
+        const realLeftBottomOpenGLWorld = screenToWorld(imgRightTopScreen.x, imgRightTopScreen.y);
+        const realRightTopOpenGLWorld = screenToWorld(imgLeftBottomScreen.x, imgLeftBottomScreen.y);
+        console.log(`imgScaledWidthHeight over: realLeftBottomOpenGLWorld: ${JSON.stringify(realLeftBottomOpenGLWorld)}`);
+        console.log(`imgScaledWidthHeight over: realRightTopOpenGLWorld: ${JSON.stringify(realRightTopOpenGLWorld)}`);
+        if (mTransX < realLeftBottomOpenGLWorld.x) {
+            mTransX = realLeftBottomOpenGLWorld.x;
+        }
+        if (mTransX > realRightTopOpenGLWorld.x) {
+            mTransX = realRightTopOpenGLWorld.x;
+        }
+        if (mTransY < realLeftBottomOpenGLWorld.y) {
+            mTransY = realLeftBottomOpenGLWorld.y;
+        }
+        if (mTransY > realRightTopOpenGLWorld.y) {
+            mTransY = realRightTopOpenGLWorld.y;
+        }
+    } else if (scaledDisplayedImgWidth > mViewportWidth) {
+        const realLeftBottomOpenGLWorld = screenToWorld(imgRightBottomScreen.x, imgRightBottomScreen.y);
+        const realRightTopOpenGLWorld = screenToWorld(imgLeftTopScreen.x, imgLeftTopScreen.y);
+        console.log(`imgScaledWidth over: realLeftBottomOpenGLWorld: ${JSON.stringify(realLeftBottomOpenGLWorld)}`);
+        console.log(`imgScaledWidth over: realRightTopOpenGLWorld: ${JSON.stringify(realRightTopOpenGLWorld)}`);
+        if (mTransX < realLeftBottomOpenGLWorld.x) {
+            mTransX = realLeftBottomOpenGLWorld.x;
+        }
+        if (mTransX > realRightTopOpenGLWorld.x) {
+            mTransX = realRightTopOpenGLWorld.x;
+        }
+        if (mTransY < realLeftBottomOpenGLWorld.y) {
+            mTransY = realLeftBottomOpenGLWorld.y;
+        }
+        if (mTransY > realRightTopOpenGLWorld.y) {
+            mTransY = realRightTopOpenGLWorld.y;
+        }
+    } else if (scaledDisplayedImgHeight > mViewportHeight) { 
+        const realLeftBottomOpenGLWorld = screenToWorld(imgLeftTopScreen.x, imgLeftTopScreen.y);
+        const realRightTopOpenGLWorld = screenToWorld(imgRightBottomScreen.x, imgRightBottomScreen.y);
+        console.log(`imgScaledHeight over: realLeftBottomOpenGLWorld: ${JSON.stringify(realLeftBottomOpenGLWorld)}`);
+        console.log(`imgScaledHeight over: realRightTopOpenGLWorld: ${JSON.stringify(realRightTopOpenGLWorld)}`);
+        if (mTransX < realLeftBottomOpenGLWorld.x) {
+            mTransX = realLeftBottomOpenGLWorld.x;
+        }
+        if (mTransX > realRightTopOpenGLWorld.x) {
+            mTransX = realRightTopOpenGLWorld.x;
+        }
+        if (mTransY < realLeftBottomOpenGLWorld.y) {
+            mTransY = realLeftBottomOpenGLWorld.y;
+        }
+        if (mTransY > realRightTopOpenGLWorld.y) {
+            mTransY = realRightTopOpenGLWorld.y;
+        }
+    } else {
+        console.warn("Image size is scaled, should not happend here!");
+    }
+
+    // 更新鼠标位置
+    mLastMouseX = event.clientX;
+    mLastMouseY = event.clientY;
+
+    console.log(`transX: ${mTransX}, transY: ${mTransY}`);
+}
+
+function onMouseUp(event) {
+    mIsDragging = false; // 停止拖动
+}
+
+// 计算 fitCenter 后的图片实际显示尺寸（分辨率）
+function getDisplayedImageSize() {
+    const viewAspect = mViewportWidth / (mViewportHeight > 0 ? mViewportHeight : 1);
+    const imageAspect = mPlaneTextureInfo 
+        ? mPlaneTextureInfo.width / (mPlaneTextureInfo.height > 0 ? mPlaneTextureInfo.height : 1) 
+        : 1;
+
+    let displayWidth, displayHeight;
+    if (imageAspect > viewAspect) {
+        displayWidth = mViewportWidth;
+        displayHeight = mViewportWidth / imageAspect;
+    } else {
+        displayWidth = mViewportHeight * imageAspect;
+        displayHeight = mViewportHeight;
+    }
+
+    return { displayWidth, displayHeight };
+}
+
+// 将屏幕坐标转换为 OpenGL 世界坐标 [-1, 1]
+function screenToWorld(dx, dy) {
+    if (mViewportWidth <= 0 || mViewportHeight <= 0) {
+        return { x: 0.0, y: 0.0 };
+    }
+    const screenCenterX = mViewportWidth / 2.0;
+    const screenCenterY = mViewportHeight / 2.0;
+    return {
+        x: (dx - screenCenterX) / screenCenterX,
+        y: (screenCenterY - dy) / screenCenterY
+    };
 }
