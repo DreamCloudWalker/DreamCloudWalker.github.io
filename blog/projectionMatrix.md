@@ -57,6 +57,10 @@ glm::mat4 proj = glm::perspective(glm::radians(45.0f), (float)width/(float)heigh
 
 <img src="../blog/pics/perspective.png" alt="proj_matrix_4" style="zoom:100%;" />
 
+从视锥体到NDC坐标变换如下：
+
+<img src="../blog/pics/frustum2cvv.png" alt="proj_matrix_4_5" style="zoom:100%;" />
+
 它的第一个参数定义了fov的值，它表示的是视野(Field of View)，并且设置了观察空间的大小。如果想要一个真实的观察效果，它的值通常设置为45.0f。第二个参数设置了宽高比，由视口的宽除以高所得。第三和第四个参数设置了视锥体的**近**和**远**平面。我们通常设置近距离为0.1f，而远距离设为100.0f。所有在近平面和远平面内且处于视锥体内的顶点都会被渲染。
 
 <mark>当你把透视矩阵的 *near* 值设置太大时（如10.0f），OpenGL会将靠近摄像机的坐标（在0.0f和10.0f之间）都裁剪掉，这会导致一个你在游戏中很熟悉的视觉效果：在太过靠近一个物体的时候你的视线会直接穿过去。</mark>

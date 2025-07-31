@@ -40,6 +40,8 @@ var mIsDragging = false; // 是否正在拖动
 var mLastMouseX = 0; // 上一次鼠标的 X 坐标
 var mLastMouseY = 0; // 上一次鼠标的 Y 坐标
 
+var mUIImageEdit = null;
+
 function main() {
     const canvas = document.querySelector("#glcanvas");
     // Initialize the GL context
@@ -89,6 +91,8 @@ function main() {
     mBuffers = initBuffers(mGl);
     
     requestAnimationFrame(render);
+
+    initImageEditBlog();
 }
 
 // Draw the scene repeatedly
@@ -759,4 +763,18 @@ function screenToWorld(dx, dy) {
         x: (dx - screenCenterX) / screenCenterX,
         y: (screenCenterY - dy) / screenCenterY
     };
+}
+
+function initImageEditBlog() {
+    if (null == mUIImageEdit) {
+        mUIImageEdit = document.getElementById("id_image_edit_blog");
+        var markdownReader = new XMLHttpRequest();
+        markdownReader.open('get', './blog/imageEdit.md', false);
+        markdownReader.send();
+
+        let convertor = new showdown.Converter();
+        let htmlContent = convertor.makeHtml(markdownReader.responseText);
+        mUIImageEdit.innerHTML = htmlContent;
+    }
+    mUIImageEdit.style.display = 'block';
 }
