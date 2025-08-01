@@ -43,6 +43,10 @@ var mLastMouseY = 0; // 上一次鼠标的 Y 坐标
 
 var mUIImageEdit = null;
 
+var mLineProgram = null;
+let isCropping = false; // 是否处于裁剪模式
+let cropBox = { x: 0, y: 0, width: 0, height: 0 }; // 裁剪框的初始位置和大小
+
 function main() {
     const canvas = document.querySelector("#glcanvas");
     // Initialize the GL context
@@ -88,6 +92,7 @@ function main() {
 
     // init shader
     updateShader();
+    loadLineShadersByPath('./shader/line.vs', './shader/line.fs');
 
     mBuffers = initBuffers(mGl);
     
@@ -184,10 +189,28 @@ function initBuffers(gl) {
     gl.bindBuffer(gl.ARRAY_BUFFER, uvBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(mTexCoods), gl.STATIC_DRAW);
 
+    // 创建裁剪框顶点缓冲区
+    const cropBoxBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, cropBoxBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([]), gl.DYNAMIC_DRAW); // 初始为空
+
     return {
         position: positionBuffer,
-        uv: uvBuffer
+        uv: uvBuffer,
+        cropBox: cropBoxBuffer
     };
+}
+
+function updateCropBoxBuffer(gl, cropBox) {
+    const cropBoxVertices = [
+        cropBox.x, cropBox.y, 0.0, // 左下角
+        cropBox.x + cropBox.width, cropBox.y, 0.0, // 右下角
+        cropBox.x + cropBox.width, cropBox.y + cropBox.height, 0.0, // 右上角
+        cropBox.x, cropBox.y + cropBox.height, 0.0 // 左上角
+    ];
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, mBuffers.cropBox);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(cropBoxVertices), gl.DYNAMIC_DRAW);
 }
 
 function loadTextureByImage(gl, image) {
@@ -547,6 +570,11 @@ function drawScene(gl, programInfo, buffers, deltaTime) {
     gl.disableVertexAttribArray(programInfo.attribLocations.vertexPosition);
     gl.disableVertexAttribArray(programInfo.attribLocations.textureCoord);
 
+    // 如果处于裁剪模式，绘制裁剪框
+    if (isCropping) {
+        drawCropBox(gl);
+    }
+
     if (mDumpOneFrame) {
         mDumpOneFrame = false;
         gl.viewport(0, 0, mViewportWidth, mViewportHeight); // 恢复
@@ -586,6 +614,34 @@ function drawScene(gl, programInfo, buffers, deltaTime) {
             }, 'image/png');
         }
     }
+}
+
+function drawCropBox(gl) {
+    // 更新裁剪框顶点缓冲区
+    updateCropBoxBuffer(gl, cropBox);
+
+    // 使用默认的着色器程序
+    gl.useProgram(mLineProgram.program);
+
+    // 绑定裁剪框顶点缓冲区
+    gl.bindBuffer(gl.ARRAY_BUFFER, mBuffers.cropBox);
+    gl.vertexAttribPointer(
+        mLineProgram.attribLocations.vertexPosition,
+        3, // 每个顶点有 3 个分量 (x, y, z)
+        gl.FLOAT,
+        false,
+        0,
+        0
+    );
+    gl.enableVertexAttribArray(mLineProgram.attribLocations.vertexPosition);
+
+    // 设置裁剪框颜色
+    gl.uniform4f(gl.getUniformLocation(mLineProgram.program, 'uColor'), 0.0, 0.0, 1.0, 1.0);
+
+    // 绘制裁剪框
+    gl.drawArrays(gl.LINE_LOOP, 0, 4);
+
+    gl.disableVertexAttribArray(mLineProgram.attribLocations.vertexPosition);
 }
 
 function updateHtmlMvpMatrixByRender() {
@@ -745,6 +801,23 @@ function onMouseUp(event) {
     mIsDragging = false; // 停止拖动
 }
 
+function toggleCrop(event) {
+    isCropping = !isCropping; // 切换裁剪模式
+    if (isCropping) {
+        // 初始化裁剪框为图片当前显示部分
+        const displayedImgSize = getDisplayedImageSize();
+        cropBox = {
+            x: -displayedImgSize.displayWidth / mViewportWidth,
+            y: -displayedImgSize.displayHeight / mViewportHeight,
+            width: 2.0 * displayedImgSize.displayWidth / mViewportWidth,
+            height: 2.0 * displayedImgSize.displayHeight / mViewportHeight
+        };
+        console.log("Crop mode enabled:", cropBox);
+    } else {
+        console.log("Crop mode disabled");
+    }
+}
+
 function toggleFilterOptions() {
     const filterOptions = document.getElementById('filterOptions');
     if (filterOptions.style.display == 'none' || filterOptions.style.display == '') {
@@ -845,6 +918,70 @@ function updateShaders(vertexShaderPath, fragmentShaderPath) {
         updateShader(); // 调用 updateShader 函数
     })
     .catch(error => console.error('Error loading shaders:', error));
+}
+
+function loadLineShadersByPath(vertexShaderPath, fragmentShaderPath) {
+    // 加载顶点着色器（返回实际代码）
+    const vertexShaderPromise = fetch(vertexShaderPath)
+        .then(response => {
+            if (!response.ok) throw new Error(`Failed to load vertex shader: ${vertexShaderPath}`);
+            return response.text();
+        })
+        .then(vertexShaderCode => {
+            console.log(`Vertex shader loaded from ${vertexShaderPath}`);
+            return vertexShaderCode;
+        })
+        .catch(error => {
+            console.error('Vertex shader load error:', error);
+            throw error; // 重新抛出以中断Promise.all
+        });
+
+    // 加载片段着色器（返回实际代码）
+    const fragmentShaderPromise = fetch(fragmentShaderPath)
+        .then(response => {
+            if (!response.ok) throw new Error(`Failed to load fragment shader: ${vertexShaderPath}`);
+            return response.text();
+        })
+        .then(fragmentShaderCode => {
+            console.log(`Fragment shader loaded from ${fragmentShaderPath}`);
+            return fragmentShaderCode;
+        })
+        .catch(error => {
+            console.error('Fragment shader load error:', error);
+            throw error;
+        });
+
+    // 合并处理
+    Promise.all([vertexShaderPromise, fragmentShaderPromise])
+        .then(([vsSource, fsSource]) => {
+            console.log('Both shaders loaded successfully');
+            
+            const vertexShader = loadShader(mGl, mGl.VERTEX_SHADER, vsSource);
+            const fragmentShader = loadShader(mGl, mGl.FRAGMENT_SHADER, fsSource);
+
+            const shaderProgram = mGl.createProgram();
+            mGl.attachShader(shaderProgram, vertexShader);
+            mGl.attachShader(shaderProgram, fragmentShader);
+            mGl.linkProgram(shaderProgram);
+
+            if (!mGl.getProgramParameter(shaderProgram, mGl.LINK_STATUS)) {
+                throw new Error(`Shader link failed: ${mGl.getProgramInfoLog(shaderProgram)}`);
+            }
+
+            mLineProgram = {
+                program: shaderProgram,
+                attribLocations: {
+                    vertexPosition: mGl.getAttribLocation(shaderProgram, 'aPosition')
+                },
+                uniformLocations: {
+                    uProjectionMatrixHandle: mGl.getUniformLocation(shaderProgram, 'uColor')
+                }
+            };
+        })
+        .catch(error => {
+            console.error('Shader initialization failed:', error);
+            throw error; // 允许外部继续处理错误
+        });
 }
 
 // 计算 fitCenter 后的图片实际显示尺寸（分辨率）
