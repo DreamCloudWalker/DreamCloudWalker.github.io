@@ -170,9 +170,6 @@ function loadShader(mGl, type, source) {
 }
 
 function initBuffers(gl) {
-    // Now create an array of positions for the plane
-    const rows = 12;
-    const cols = 12;
     mVertices = createPlaneVertices();
     mTexCoods = generateTexCoord();
 
@@ -205,10 +202,13 @@ function loadTextureByImage(gl, image) {
     //     gl.generateMipmap(gl.TEXTURE_2D);
     //     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
     // } else {
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.LINEAR);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     // }
+
+    gl.bindTexture(gl.TEXTURE_2D, null);
 
     return {
         texture: texture,
@@ -273,6 +273,8 @@ function loadTextureByUrl(gl, url) {
     //      gl.generateMipmap(gl.TEXTURE_2D);
     //      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
     //   }
+
+        gl.bindTexture(gl.TEXTURE_2D, null);
     };
 
     // 错误处理
@@ -771,10 +773,10 @@ function applyFilter(filter) {
         let lutImagePath = '';
         switch (filter) {
             case 'filter2':
-                lutImagePath = './texture/lut_base_beauty.png';
+                lutImagePath = './texture/lut_yellow.png';
                 break;
             case 'filter3':
-                lutImagePath = './texture/lut_1.png';
+                lutImagePath = './texture/lut_purple.png';
                 break;
             case 'filter4':
                 lutImagePath = './texture/lut_2.png';
