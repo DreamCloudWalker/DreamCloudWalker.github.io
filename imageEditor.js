@@ -11,6 +11,7 @@ const RenderMode = {
   };
 
 var mPlaneTextureInfo = null;
+var mLutTextureInfo = null;
 var mVertices = [];
 var mTexCoods = [];
 var mViewportWidth = 0;
@@ -140,10 +141,8 @@ function updateShader() {
             uProjectionMatrixHandle: mGl.getUniformLocation(shaderProgram, 'uProjectionMatrix'),
             uModelMatrixHandle: mGl.getUniformLocation(shaderProgram, 'uModelMatrix'),
             uViewMatrixHandle: mGl.getUniformLocation(shaderProgram, 'uViewMatrix'),
-            uWidthSpanHandle: mGl.getUniformLocation(shaderProgram, 'uWidthSpan'),
-            uHeightSpanHandle: mGl.getUniformLocation(shaderProgram, 'uHeightSpan'),
-            uAngleHandle: mGl.getUniformLocation(shaderProgram, 'uAngle'),
-            uTexSamplerHandle: mGl.getUniformLocation(shaderProgram, 'uTexSampler')
+            uTextureHandle: mGl.getUniformLocation(shaderProgram, 'uTexture'),
+            uLutTextureHandle: mGl.getUniformLocation(shaderProgram, 'uLutTexture')
         },
     };
 }
@@ -203,8 +202,8 @@ function loadTextureByImage(gl, image) {
     if (isPowerOf2(image.width) && isPowerOf2(image.height)) {
         gl.generateMipmap(gl.TEXTURE_2D);
     } else {
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.LINEAR);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
     }
 
@@ -511,7 +510,13 @@ function drawScene(gl, programInfo, buffers, deltaTime) {
     // Bind the diffuseTexture to diffuseTexture unit 0
     gl.bindTexture(gl.TEXTURE_2D, mPlaneTextureInfo.texture);
     // Tell the shader we bound the diffuseTexture to diffuseTexture unit 0
-    gl.uniform1i(programInfo.uniformLocations.uTexSamplerHandle, 0);
+    gl.uniform1i(programInfo.uniformLocations.uTextureHandle, 0);
+
+    if (null != mLutTextureInfo && mLutTextureInfo.width > 0 && mLutTextureInfo.height > 0) {
+        gl.activeTexture(gl.TEXTURE1);
+        gl.bindTexture(gl.TEXTURE_2D, mLutTextureInfo.texture);
+        gl.uniform1i(programInfo.uniformLocations.uLutTextureHandle, 1);
+    }
 
     // Set the shader uniforms
     gl.uniformMatrix4fv(
@@ -731,6 +736,108 @@ function onMouseMove(event) {
 
 function onMouseUp(event) {
     mIsDragging = false; // 停止拖动
+}
+
+function toggleFilterOptions() {
+    const filterOptions = document.getElementById('filterOptions');
+    if (filterOptions.style.display == 'none' || filterOptions.style.display == '') {
+        filterOptions.style.display = 'block';
+    } else {
+        filterOptions.style.display = 'none';
+    }
+}
+
+function onFilterChange(event) {
+    const selectedFilter = event.target.value;
+    console.log(`Selected filter: ${selectedFilter}`);
+    // 在这里添加切换滤镜的逻辑
+    applyFilter(selectedFilter);
+}
+
+function applyFilter(filter) {
+    if (filter == 'filter1') {
+        // 如果是 filter1，不加载任何 LUT 纹理
+        mLutTextureInfo = null;
+        console.log('Filter 1 selected: No LUT applied.');
+        // 更新 Shader 内容
+        updateShaders('./shader/base.vs', './shader/base.fs');
+    } else {
+        // 根据滤镜类型加载对应的 LUT 图片
+        let lutImagePath = '';
+        switch (filter) {
+            case 'filter2':
+                lutImagePath = './texture/lut_base_beauty.png';
+                break;
+            case 'filter3':
+                lutImagePath = './texture/lut_1.png';
+                break;
+            case 'filter4':
+                lutImagePath = './texture/lut_2.png';
+                break;
+            case 'filter5':
+                lutImagePath = './texture/lut_3.png';
+                break;
+            case 'filter6':
+                lutImagePath = './texture/lut_4.png';
+                break;
+            default:
+                console.error(`Unknown filter: ${filter}`);
+                return;
+        }
+
+        // 加载 LUT 图片并转换为纹理信息
+        const image = new Image();
+        image.onload = function () {
+            mLutTextureInfo = loadTextureByImage(mGl, image);
+            console.log(`Filter ${filter} applied: Loaded LUT from ${lutImagePath}, width = ${mLutTextureInfo.width}, 
+                height = ${mLutTextureInfo.height}, lutTexId = ${mLutTextureInfo.texture}`);
+        };
+        image.onerror = function () {
+            console.error(`Failed to load LUT image: ${lutImagePath}`);
+        };
+        image.src = lutImagePath;
+        
+        // 更新 Shader 内容
+        updateShaders('./shader/base.vs', './shader/filter/lut/lut_filter.fs');
+    }
+}
+
+function updateShaders(vertexShaderPath, fragmentShaderPath) {
+    // 加载顶点着色器
+    const vertexShaderPromise = fetch(vertexShaderPath)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`Failed to load vertex shader: ${vertexShaderPath}`);
+            }
+            return response.text();
+        })
+        .then(vertexShaderCode => {
+            document.getElementById('id_vertex_shader').value = vertexShaderCode;
+            console.log(`Vertex shader updated from ${vertexShaderPath}`);
+        })
+        .catch(error => console.error(error));
+
+    // 加载片段着色器
+    const fragmentShaderPromise = fetch(fragmentShaderPath)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`Failed to load fragment shader: ${fragmentShaderPath}`);
+            }
+            return response.text();
+        })
+        .then(fragmentShaderCode => {
+            document.getElementById('id_fragment_shader').value = fragmentShaderCode;
+            console.log(`Fragment shader updated from ${fragmentShaderPath}`);
+        })
+        .catch(error => console.error(error));
+
+    // 等待两个 Shader 文件都加载完成后调用 updateShader()
+    Promise.all([vertexShaderPromise, fragmentShaderPromise])
+    .then(() => {
+        console.log('Both shaders loaded, updating shader program...');
+        updateShader(); // 调用 updateShader 函数
+    })
+    .catch(error => console.error('Error loading shaders:', error));
 }
 
 // 计算 fitCenter 后的图片实际显示尺寸（分辨率）

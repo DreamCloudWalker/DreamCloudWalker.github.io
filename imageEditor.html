@@ -23,6 +23,21 @@
           display: flex;
       }
   </style>
+  <style>
+    #filterOptions label img {
+        border: 2px solid transparent; /* 默认无边框 */
+        border-radius: 5px; /* 可选：圆角边框 */
+        transition: border-color 0.3s; /* 平滑过渡效果 */
+    }
+
+    #filterOptions label input:checked + img {
+        border: 5px solid #007BFF; /* 选中状态的外框颜色 */
+    }
+
+    #filterOptions label img:hover {
+        border-color: #555; /* 鼠标悬停时的边框颜色 */
+    }
+</style>
 
   <body onload="main();" ondblclick="doubleClick();" onkeypress="onKeyPress(event)" >
     <canvas id="glcanvas" width="1024" height="610"></canvas>
@@ -36,6 +51,37 @@
         <button style="display:block; margin:5; width: 60px; height: 30px" onclick="save()">保存</button>
         <button style="display:block; margin:5; width: 120px; height: 30px" onclick="document.getElementById('fileInput').click()">加载图片</button>
         <input type="file" id="fileInput" accept="image/*" style="display:none" onchange="loadImage(event)">    
+        <button style="display:block; margin:5; width: 60px; height: 30px" onclick="toggleFilterOptions()">滤镜</button>
+    </div>
+
+    <!-- 滤镜选项容器 -->
+    <div id="filterOptions" style="display:none; margin-top:10px;">
+        <form id="filterForm" onchange="onFilterChange(event)">
+            <label>
+                <input type="radio" name="filter" value="filter1" checked style="display:none;">
+                <img src="./texture/lut_none.jpg" alt="无滤镜" title="无滤镜" style="width:50px; height:50px; cursor:pointer;">
+            </label>
+            <label>
+                <input type="radio" name="filter" value="filter2" style="display:none;">
+                <img src="./texture/lut_base_beauty.png" alt="滤镜2" title="滤镜2" style="width:50px; height:50px; cursor:pointer;">
+            </label>
+            <label>
+                <input type="radio" name="filter" value="filter3" style="display:none;">
+                <img src="./texture/lut_1.png" alt="滤镜3" title="滤镜3" style="width:50px; height:50px; cursor:pointer;">
+            </label>
+            <label>
+                <input type="radio" name="filter" value="filter4" style="display:none;">
+                <img src="./texture/lut_2.png" alt="滤镜4" title="滤镜4" style="width:50px; height:50px; cursor:pointer;">
+            </label>
+            <label>
+                <input type="radio" name="filter" value="filter5" style="display:none;">
+                <img src="./texture/lut_3.png" alt="滤镜5" title="滤镜5" style="width:50px; height:50px; cursor:pointer;">
+            </label>
+            <label>
+                <input type="radio" name="filter" value="filter6" style="display:none;">
+                <img src="./texture/lut_4.png" alt="滤镜6" title="滤镜6" style="width:50px; height:50px; cursor:pointer;">
+            </label>
+        </form>
     </div>
 
     <div style="border: 1px solid #cccccc; width: 200px; padding: 5px">
@@ -99,11 +145,11 @@ void main() {
                 <textarea spellcheck="false" rows="33" cols="70" id="id_fragment_shader">
 precision mediump float;
 
-uniform sampler2D uTexSampler;
+uniform sampler2D uTexture;
 varying vec2 vTexCoord;
 
 void main() {
-    gl_FragColor = texture2D(uTexSampler, vTexCoord);
+    gl_FragColor = texture2D(uTexture, vTexCoord);
 }
                 </textarea>
             </div>
