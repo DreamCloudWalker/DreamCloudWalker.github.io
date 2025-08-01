@@ -142,7 +142,9 @@ function updateShader() {
             uModelMatrixHandle: mGl.getUniformLocation(shaderProgram, 'uModelMatrix'),
             uViewMatrixHandle: mGl.getUniformLocation(shaderProgram, 'uViewMatrix'),
             uTextureHandle: mGl.getUniformLocation(shaderProgram, 'uTexture'),
-            uLutTextureHandle: mGl.getUniformLocation(shaderProgram, 'uLutTexture')
+            uLutTextureHandle: mGl.getUniformLocation(shaderProgram, 'uLutTexture'),
+            uTileSizeHandle: mGl.getUniformLocation(shaderProgram, 'uTileSize'),
+            uLutSizeHandle: mGl.getUniformLocation(shaderProgram, 'uLutSize')
         },
     };
 }
@@ -199,13 +201,14 @@ function loadTextureByImage(gl, image) {
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
 
     // 设置纹理参数
-    if (isPowerOf2(image.width) && isPowerOf2(image.height)) {
-        gl.generateMipmap(gl.TEXTURE_2D);
-    } else {
+    // if (isPowerOf2(image.width) && isPowerOf2(image.height)) {
+    //     gl.generateMipmap(gl.TEXTURE_2D);
+    //     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+    // } else {
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.LINEAR);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.LINEAR);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-    }
+    // }
 
     return {
         texture: texture,
@@ -265,11 +268,11 @@ function loadTextureByUrl(gl, url) {
       // WebGL1 has different requirements for power of 2 images
       // vs non power of 2 images so check if the image is a
       // power of 2 in both dimensions.
-      if (isPowerOf2(image.width) && isPowerOf2(image.height)) {
-         // Yes, it's a power of 2. Generate mips.
-         gl.generateMipmap(gl.TEXTURE_2D);
-         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
-      }
+    //   if (isPowerOf2(image.width) && isPowerOf2(image.height)) {
+    //      // Yes, it's a power of 2. Generate mips.
+    //      gl.generateMipmap(gl.TEXTURE_2D);
+    //      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+    //   }
     };
 
     // 错误处理
@@ -516,6 +519,8 @@ function drawScene(gl, programInfo, buffers, deltaTime) {
         gl.activeTexture(gl.TEXTURE1);
         gl.bindTexture(gl.TEXTURE_2D, mLutTextureInfo.texture);
         gl.uniform1i(programInfo.uniformLocations.uLutTextureHandle, 1);
+        gl.uniform1f(programInfo.uniformLocations.uTileSizeHandle, 8.0);
+        gl.uniform2f(programInfo.uniformLocations.uLutSizeHandle, mLutTextureInfo.width, mLutTextureInfo.height);
     }
 
     // Set the shader uniforms
