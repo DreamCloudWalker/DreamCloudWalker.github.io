@@ -46,6 +46,8 @@ var mUIImageEdit = null;
 var mLineProgram = null;
 let isCropping = false; // 是否处于裁剪模式
 let cropBox = { x: 0, y: 0, width: 0, height: 0 }; // 裁剪框的初始位置和大小
+let isDraggingCropBox = false; // 是否正在拖动裁剪框
+let cropDragMode = null; // 当前裁剪框拖动模式（'move', 'resize-top', 'resize-bottom', etc.）
 
 function main() {
     const canvas = document.querySelector("#glcanvas");
@@ -690,12 +692,96 @@ function onMouseDoubleClick(event) {
 }
 
 function onMouseDown(event) {
-    mIsDragging = true; // 开始拖动
-    mLastMouseX = event.clientX; // 记录鼠标的初始位置
-    mLastMouseY = event.clientY;
+    const mousePos = screenToWorld(event.clientX, event.clientY);
+
+    if (isCropping && isMouseOnCropBox(mousePos)) {
+        isDraggingCropBox = true;
+        cropDragMode = getCropBoxDragMode(mousePos);
+    } else {
+        mIsDragging = true; // 开始拖动
+        mLastMouseX = event.clientX; // 记录鼠标的初始位置
+        mLastMouseY = event.clientY;
+    }
 }
 
 function onMouseMove(event) {
+    const mousePos = screenToWorld(event.clientX, event.clientY);
+
+    if (isDraggingCropBox) {
+        handleCropBoxDrag(mousePos);
+    } else if (mIsDragging && mScale > 1.0) {
+        handleImageDrag(event);
+    }
+
+    // 更新鼠标位置
+    mLastMouseX = event.clientX;
+    mLastMouseY = event.clientY;
+}
+
+function onMouseUp(event) {
+    mIsDragging = false; // 停止拖动
+    isDraggingCropBox = false;
+    cropDragMode = null;
+}
+
+// 处理裁剪框拖动
+function handleCropBoxDrag(mousePos) {
+    const { x, y, width, height } = cropBox;
+
+    switch (cropDragMode) {
+        case 'move':
+            const lastMousePos = screenToWorld(mLastMouseX, mLastMouseY);
+            const deltaX = mousePos.x - lastMousePos.x;
+            const deltaY = mousePos.y - lastMousePos.y;
+
+            cropBox.x += deltaX;
+            cropBox.y += deltaY;
+            break;
+        case 'resize-left':
+            cropBox.width += cropBox.x - mousePos.x;
+            cropBox.x = mousePos.x;
+            break;
+        case 'resize-right':
+            cropBox.width = mousePos.x - cropBox.x;
+            break;
+        case 'resize-top':
+            cropBox.height = mousePos.y - cropBox.y;
+            break;
+        case 'resize-bottom':
+            cropBox.height += cropBox.y - mousePos.y;
+            cropBox.y = mousePos.y;
+            break;
+        case 'resize-top-left':
+            cropBox.width += cropBox.x - mousePos.x;
+            cropBox.x = mousePos.x;
+            cropBox.height = mousePos.y - cropBox.y;
+            break;
+        case 'resize-top-right':
+            cropBox.width = mousePos.x - cropBox.x;
+            cropBox.height = mousePos.y - cropBox.y;
+            break;
+        case 'resize-bottom-left':
+            cropBox.width += cropBox.x - mousePos.x;
+            cropBox.x = mousePos.x;
+            cropBox.height += cropBox.y - mousePos.y;
+            cropBox.y = mousePos.y;
+            break;
+        case 'resize-bottom-right':
+            cropBox.width = mousePos.x - cropBox.x;
+            cropBox.height += cropBox.y - mousePos.y;
+            cropBox.y = mousePos.y;
+            break;
+    }
+
+    // 限制裁剪框的最小尺寸
+    cropBox.width = Math.max(cropBox.width, 0.1);
+    cropBox.height = Math.max(cropBox.height, 0.1);
+
+    // 更新裁剪框缓冲区
+    updateCropBoxBuffer(mGl, cropBox);
+}
+
+function handleImageDrag(event) {
     if (!mIsDragging || mScale <= 1.0) return; // 如果没有拖动或未放大，则不处理移动事件
     const displayedImgSize = getDisplayedImageSize();
     if (displayedImgSize.displayWidth <= 0 || displayedImgSize.displayHeight <= 0) {
@@ -790,15 +876,7 @@ function onMouseMove(event) {
         console.warn("Image size is scaled, should not happend here!");
     }
 
-    // 更新鼠标位置
-    mLastMouseX = event.clientX;
-    mLastMouseY = event.clientY;
-
     console.log(`transX: ${mTransX}, transY: ${mTransY}`);
-}
-
-function onMouseUp(event) {
-    mIsDragging = false; // 停止拖动
 }
 
 function toggleCrop(event) {
@@ -815,6 +893,44 @@ function toggleCrop(event) {
         console.log("Crop mode enabled:", cropBox);
     } else {
         console.log("Crop mode disabled");
+    }
+}
+
+// 判断鼠标是否在裁剪框上
+function isMouseOnCropBox(mousePos) {
+    const { x, y, width, height } = cropBox;
+    const margin = 0.05; // 边缘检测范围
+    return (
+        mousePos.x >= x - margin &&
+        mousePos.x <= x + width + margin &&
+        mousePos.y >= y - margin &&
+        mousePos.y <= y + height + margin
+    );
+}
+
+// 获取裁剪框拖动模式
+function getCropBoxDragMode(mousePos) {
+    const { x, y, width, height } = cropBox;
+    const margin = 0.05;
+
+    if (Math.abs(mousePos.x - x) < margin && Math.abs(mousePos.y - y) < margin) {
+        return 'resize-bottom-left'; // 左下角
+    } else if (Math.abs(mousePos.x - (x + width)) < margin && Math.abs(mousePos.y - y) < margin) {
+        return 'resize-bottom-right'; // 右下角
+    } else if (Math.abs(mousePos.x - x) < margin && Math.abs(mousePos.y - (y + height)) < margin) {
+        return 'resize-top-left'; // 左上角
+    } else if (Math.abs(mousePos.x - (x + width)) < margin && Math.abs(mousePos.y - (y + height)) < margin) {
+        return 'resize-top-right'; // 右上角
+    } else if (Math.abs(mousePos.x - x) < margin) {
+        return 'resize-left'; // 左边
+    } else if (Math.abs(mousePos.x - (x + width)) < margin) {
+        return 'resize-right'; // 右边
+    } else if (Math.abs(mousePos.y - y) < margin) {
+        return 'resize-bottom'; // 下边
+    } else if (Math.abs(mousePos.y - (y + height)) < margin) {
+        return 'resize-top'; // 上边
+    } else {
+        return 'move'; // 移动整个裁剪框
     }
 }
 
