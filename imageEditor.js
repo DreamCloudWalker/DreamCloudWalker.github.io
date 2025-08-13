@@ -46,6 +46,7 @@ var mUIImageEdit = null;
 var mLineProgram = null;
 let isCropping = false; // 是否处于裁剪模式
 let cropBox = { x: 0, y: 0, width: 0, height: 0 }; // 裁剪框的初始位置和大小
+let initCropBox = { x: 0, y: 0, width: 0, height: 0 }; // 裁剪框的初始位置和大小
 let isDraggingCropBox = false; // 是否正在拖动裁剪框
 let cropDragMode = null; // 当前裁剪框拖动模式（'move', 'resize-top', 'resize-bottom', etc.）
 
@@ -442,14 +443,30 @@ function drawScene(gl, programInfo, buffers, deltaTime) {
     var viewportWidth = mViewportWidth;
     var viewportHeight = mViewportHeight;
 
+    var pixLeft = 0;
+    var pixBottom = 0;
+    var pixWidth = texWidth;
+    var pixHeight = texHeight;
+
     if (mDumpOneFrame) {
         if (null == mDumpFBO) {
             mDumpFBO = new FrameBufferObject(gl, gl.TEXTURE2, texWidth, texHeight);
         }
         mDumpFBO.bind();
+
+        // 如果有裁剪框，调整视口
+        if (isCropping) {
+            pixLeft = ~~((cropBox.x - initCropBox.x) / 2.0 * texWidth);
+            pixBottom = ~~((cropBox.y - initCropBox.y) / 2.0 * texHeight);
+            pixWidth = ~~(cropBox.width / initCropBox.width * texWidth);
+            pixHeight = ~~(cropBox.height / initCropBox.height * texHeight);
+            gl.viewport(pixLeft, pixBottom, pixWidth, pixHeight);
+        } else {
+            gl.viewport(0, 0, texWidth, texHeight);
+        }
+
         viewportWidth = texWidth;
         viewportHeight = texHeight;
-        gl.viewport(0, 0, texWidth, texHeight);
     }
 
     gl.clearColor(1.0, 1.0, 1.0, 1.0);  // Clear to black, fully opaque
@@ -582,26 +599,31 @@ function drawScene(gl, programInfo, buffers, deltaTime) {
         gl.viewport(0, 0, mViewportWidth, mViewportHeight); // 恢复
 
         if (null != mDumpFBO) {
-            // 读取像素数据
-            const pixels = new Uint8Array(texWidth * texHeight * 4);
-            gl.readPixels(0, 0, texWidth, texHeight, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+            const pixels = new Uint8Array(pixWidth * pixHeight * 4);
+            // glReadPixels坐标方向和glViewport一致，都是左下角为原点
+            gl.readPixels(pixLeft, pixBottom, pixWidth, pixHeight, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
 
             mDumpFBO.unbind();
 
             // 创建临时canvas处理图像数据
             const tempCanvas = document.createElement('canvas');
-            tempCanvas.width = texWidth;
-            tempCanvas.height = texHeight;
+            tempCanvas.width = pixWidth;
+            tempCanvas.height = pixHeight;
             const tempCtx = tempCanvas.getContext('2d');
             
             // 将像素数据放入ImageData
-            const imageData = tempCtx.createImageData(texWidth, texHeight);
-            imageData.data.set(pixels);
+            const imageData = tempCtx.createImageData(pixWidth, pixHeight);
+            if (imageData.data.length === pixels.length) { 
+                imageData.data.set(pixels);
+            } else {
+                console.error("Mismatch between imageData size and pixels size.");
+                return ;
+            }
             tempCtx.putImageData(imageData, 0, 0);
             
             // 翻转Y轴(WebGL坐标系与canvas不同)
             tempCtx.scale(1, -1);
-            tempCtx.drawImage(tempCanvas, 0, -texHeight);
+            tempCtx.drawImage(tempCanvas, 0, -pixHeight);
             
             // 转换为数据URL并触发下载
             tempCanvas.toBlob((blob) => {
@@ -885,6 +907,12 @@ function toggleCrop(event) {
         // 初始化裁剪框为图片当前显示部分
         const displayedImgSize = getDisplayedImageSize();
         cropBox = {
+            x: -displayedImgSize.displayWidth / mViewportWidth,
+            y: -displayedImgSize.displayHeight / mViewportHeight,
+            width: 2.0 * displayedImgSize.displayWidth / mViewportWidth,
+            height: 2.0 * displayedImgSize.displayHeight / mViewportHeight
+        };
+        initCropBox = {
             x: -displayedImgSize.displayWidth / mViewportWidth,
             y: -displayedImgSize.displayHeight / mViewportHeight,
             width: 2.0 * displayedImgSize.displayWidth / mViewportWidth,

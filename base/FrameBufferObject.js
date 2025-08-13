@@ -47,6 +47,55 @@ var FrameBufferObject = function(gl, activeTextureType, width, height) {
         gl.deleteRenderbuffer(mRenderBufferId);
     }
 
+    this.dumpImage = function(returnType = 'Image') {
+        const pixels = new Uint8Array(width * height * 4); // RGBA format
+        gl.bindFramebuffer(gl.FRAMEBUFFER, mFrameBufferId);
+    
+        // Read the pixels from the framebuffer
+        gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+    
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    
+        // Create a canvas to draw the image
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+    
+        // Create an ImageData object and set the pixel data
+        const imageData = ctx.createImageData(width, height);
+        imageData.data.set(pixels);
+    
+        // Flip the image vertically because WebGL's origin is bottom-left
+        for (let y = 0; y < height / 2; y++) {
+            for (let x = 0; x < width * 4; x++) {
+                const topIndex = y * width * 4 + x;
+                const bottomIndex = (height - y - 1) * width * 4 + x;
+    
+                const temp = imageData.data[topIndex];
+                imageData.data[topIndex] = imageData.data[bottomIndex];
+                imageData.data[bottomIndex] = temp;
+            }
+        }
+    
+        // Put the ImageData onto the canvas
+        ctx.putImageData(imageData, 0, 0);
+    
+        // Generate the data URL
+        const dataURL = canvas.toDataURL();
+
+        if (returnType === 'dataURL') {
+            return dataURL; // Return the data URL
+        } else if (returnType === 'Image') {
+            // Create and return an Image object
+            const img = new Image();
+            img.src = dataURL;
+            return img;
+        } else {
+            throw new Error("Invalid returnType. Use 'dataURL' or 'Image'.");
+        }
+    };
+
     function generateTextureID(gl, width, height) {
         const texture = gl.createTexture();
         gl.bindTexture(gl.TEXTURE_2D, texture);
