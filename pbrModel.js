@@ -22,6 +22,14 @@ var mProgram = null;
 var mBuffers = null;
 var mGl = null;
 
+// 鼠标交互相关变量
+let mIsDragging = false;
+let mLastMouseX = 0;
+let mLastMouseY = 0;
+let mVelocityX = 0; // 鼠标释放后的惯性速度
+let mVelocityY = 0;
+let mDamping = 0.95; // 阻尼系数，控制旋转逐步变慢
+
 function main() {
   const canvas = document.querySelector("#glcanvas");
   // Initialize the GL context
@@ -63,6 +71,9 @@ function main() {
 
   // mBuffers = initBuffers(mGl);
   initModelBuffers(mGl);
+
+  // 初始化鼠标控制
+  initMouseControls(canvas);
   
   // requestAnimationFrame(render);
   requestRender();
@@ -71,6 +82,56 @@ function main() {
 // Draw the scene repeatedly
 function requestRender() {
   drawScene(mGl, mProgram, 0);
+
+  // 如果鼠标未拖拽，应用惯性旋转
+  if (!mIsDragging) {
+      if (Math.abs(mVelocityX) > 0.01 || Math.abs(mVelocityY) > 0.01) {
+          mYawing += mVelocityX;
+          mPitching += mVelocityY;
+
+          // 应用阻尼
+          mVelocityX *= mDamping;
+          mVelocityY *= mDamping;
+
+          requestAnimationFrame(requestRender); // 持续渲染
+      }
+  }
+}
+
+function initMouseControls(canvas) {
+    canvas.addEventListener('mousedown', (event) => {
+        mIsDragging = true;
+        mLastMouseX = event.clientX;
+        mLastMouseY = event.clientY;
+    });
+
+    canvas.addEventListener('mousemove', (event) => {
+        if (mIsDragging) {
+            const deltaX = event.clientX - mLastMouseX;
+            const deltaY = event.clientY - mLastMouseY;
+
+            // 更新旋转角度
+            mYawing += deltaX * 0.5; // 鼠标水平移动控制 Yaw
+            mPitching += deltaY * 0.5; // 鼠标垂直移动控制 Pitch
+
+            // 更新惯性速度
+            mVelocityX = deltaX * 0.1;
+            mVelocityY = deltaY * 0.1;
+
+            mLastMouseX = event.clientX;
+            mLastMouseY = event.clientY;
+
+            requestRender(); // 持续渲染
+        }
+    });
+
+    canvas.addEventListener('mouseup', () => {
+        mIsDragging = false;
+    });
+
+    canvas.addEventListener('mouseleave', () => {
+        mIsDragging = false;
+    });
 }
 
 function updateShader() {
@@ -295,6 +356,12 @@ function drawScene(gl, programInfo, deltaTime) {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
     gl.useProgram(programInfo.program);
+
+    // 更新模型矩阵
+    mat4.identity(mModelMatrix);
+    mat4.rotateX(mModelMatrix, mModelMatrix, mPitching * DEGREE_TO_RADIUS);
+    mat4.rotateY(mModelMatrix, mModelMatrix, mYawing * DEGREE_TO_RADIUS);
+    mat4.rotateZ(mModelMatrix, mModelMatrix, mRolling * DEGREE_TO_RADIUS);
 
     // 设置 Uniform
     const normalMatrix = mat4.create(); // 模型逆转置矩阵
