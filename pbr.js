@@ -33,6 +33,12 @@ var mMetallic = 0.9;
 var mAlbedo = vec3.fromValues(1.0, 1.0, 1.0);   // 反射颜色？反射率？
 var mAmbientComponent = 0.3;
 
+var baseColorTexture = null;
+var albedoTexture = null;
+var normalTexture = null;
+var roughnessTexture = null;
+var metallicTexture = null;
+
 function main() {
     const canvas = document.querySelector("#glcanvas");
     // Initialize the GL context
@@ -66,6 +72,13 @@ function main() {
     // init shader
     updateShader();
 
+    // 加载纹理
+    baseColorTexture = loadTexture(gl, '../texture/pbr/fire_hydrant_Base_Color.png');
+    albedoTexture = loadTexture(gl, '../texture/pbr/fire_hydrant_Mixed_AO.png');
+    normalTexture = loadTexture(gl, '../texture/pbr/fire_hydrant_Normal_OpenGL.png');
+    roughnessTexture = loadTexture(gl, '../texture/pbr/fire_hydrant_Roughness.png');
+    metallicTexture = loadTexture(gl, '../texture/pbr/fire_hydrant_Metallic.png');
+
     // Here's where we call the routine that builds all the objects we'll be drawing.
     const buffers = initBuffers(gl);
 
@@ -81,6 +94,22 @@ function main() {
         requestAnimationFrame(render);
     }
     requestAnimationFrame(render);
+}
+
+function loadTexture(gl, url) {
+    const texture = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+
+    const image = new Image();
+    image.onload = () => {
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+
+        gl.generateMipmap(gl.TEXTURE_2D);
+    };
+    image.src = url;
+
+    return texture;
 }
 
 function updateShader() {
@@ -129,6 +158,11 @@ function updateShader() {
             uMetallicHandle: gl.getUniformLocation(shaderProgram, 'uMetallic'),
             uAlbedoHandle: gl.getUniformLocation(shaderProgram, 'uAlbedo'),
             uAmbientComponentHandle: gl.getUniformLocation(shaderProgram, 'uAmbientComponent'),
+            uBaseColorMap: gl.getUniformLocation(shaderProgram, 'uBaseColorMap'),
+            uAlbedoMap: gl.getUniformLocation(shaderProgram, 'uAlbedoMap'),
+            uNormalMap: gl.getUniformLocation(shaderProgram, 'uNormalMap'),
+            uRoughnessMap: gl.getUniformLocation(shaderProgram, 'uRoughnessMap'),
+            uMetallicMap: gl.getUniformLocation(shaderProgram, 'uMetallicMap'),
         },
     };
 }
@@ -165,6 +199,10 @@ function initBuffers(gl) {
     gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(mVertices), gl.STATIC_DRAW);
 
+    const texCoordBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, texCoordBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(mTexCoords), gl.STATIC_DRAW);
+
     // normal
     const normalBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer);
@@ -176,6 +214,7 @@ function initBuffers(gl) {
 
     return {
         position: positionBuffer,
+        texCoord: texCoordBuffer,
         normal: normalBuffer,
         indices: indexBuffer,
     };
@@ -242,6 +281,7 @@ function createSphereBySubdivideIcosahedron(subdivideLevel) {
     // 坐标数据初始化
     var alVertices = []; // 原顶点列表（未卷绕）
     var alNormals = [];
+    var alTexCoords = []; 
     var alIndices = [];  // 组织成面的顶点的索引值列表（按逆时针卷绕）
     var vertexCnt = 0;
     for (var k = 0; k < vertices20.length; k += 9) {  // 对正20面体每个大三角形循环
@@ -264,6 +304,12 @@ function createSphereBySubdivideIcosahedron(subdivideLevel) {
                 alNormals.push(vi[0]);
                 alNormals.push(vi[1]);
                 alNormals.push(vi[2]);
+
+                // 计算纹理坐标
+                var u = 0.5 + Math.atan2(vi[2], vi[0]) / (2 * Math.PI);
+                var v = 0.5 - Math.asin(vi[1] / sphereRadius) / Math.PI;
+                alTexCoords.push(u);
+                alTexCoords.push(v);
             }
         }
         // index
@@ -314,6 +360,7 @@ function createSphereBySubdivideIcosahedron(subdivideLevel) {
     mVertices = alVertices;     // cullVertex(alVertices, alIndices);   // 只计算顶点
     mIndices = alIndices;
     mNormals = alNormals;
+    mTexCoords = alTexCoords; // 保存纹理坐标
 }
 
 /**
@@ -531,6 +578,22 @@ function drawScene(gl, programInfo, buffers, deltaTime) {
 
     // Tell WebGL to use our program when drawing
     gl.useProgram(programInfo.program);
+
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, baseColorTexture);
+    gl.uniform1i(mProgram.uniformLocations.uBaseColorMap, 0);
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, albedoTexture);   
+    gl.uniform1i(mProgram.uniformLocations.uAlbedoMap, 1);
+    gl.activeTexture(gl.TEXTURE2);
+    gl.bindTexture(gl.TEXTURE_2D, normalTexture);
+    gl.uniform1i(mProgram.uniformLocations.uNormalMap, 2);
+    gl.activeTexture(gl.TEXTURE3);
+    gl.bindTexture(gl.TEXTURE_2D, roughnessTexture);
+    gl.uniform1i(mProgram.uniformLocations.uRoughnessMap, 3);
+    gl.activeTexture(gl.TEXTURE4);
+    gl.bindTexture(gl.TEXTURE_2D, metallicTexture);
+    gl.uniform1i(mProgram.uniformLocations.uMetallicMap, 4);
 
     // Set the shader uniforms
     gl.uniformMatrix4fv(
