@@ -74,42 +74,43 @@ function requestRender() {
 }
 
 function updateShader() {
-  // Vertex shader program
-  const vsSource = document.getElementById('id_vertex_shader').value;
-  // Fragment shader program
-  const fsSource = document.getElementById('id_fragment_shader').value;
+    const vsSource = document.getElementById('pbr_vertex_shader').value;
+    const fsSource = document.getElementById('pbr_fragment_shader').value;
 
-  // Initialize a shader program
-  const vertexShader = loadShader(mGl, mGl.VERTEX_SHADER, vsSource);
-  const fragmentShader = loadShader(mGl, mGl.FRAGMENT_SHADER, fsSource);
+    const vertexShader = loadShader(mGl, mGl.VERTEX_SHADER, vsSource);
+    const fragmentShader = loadShader(mGl, mGl.FRAGMENT_SHADER, fsSource);
 
-  // Create the shader program
-  const shaderProgram = mGl.createProgram();
-  mGl.attachShader(shaderProgram, vertexShader);
-  mGl.attachShader(shaderProgram, fragmentShader);
-  mGl.linkProgram(shaderProgram);
+    const shaderProgram = mGl.createProgram();
+    mGl.attachShader(shaderProgram, vertexShader);
+    mGl.attachShader(shaderProgram, fragmentShader);
+    mGl.linkProgram(shaderProgram);
 
-  // If creating the shader program failed, alert
-  if (!mGl.getProgramParameter(shaderProgram, mGl.LINK_STATUS)) {
-      alert('Unable to initialize the shader program: ' + mGl.getProgramInfoLog(shaderProgram));
-      return null;
-  }
+    if (!mGl.getProgramParameter(shaderProgram, mGl.LINK_STATUS)) {
+        alert('Unable to initialize the shader program: ' + mGl.getProgramInfoLog(shaderProgram));
+        return null;
+    }
 
-  // Collect all the info needed to use the shader program
-  mProgram = {
-      program: shaderProgram,
-      attribLocations: {
-          vertexPosition: mGl.getAttribLocation(shaderProgram, 'aPosition'),
-          normalPosition: mGl.getAttribLocation(shaderProgram, 'aNormal'),
-          textureCoord: mGl.getAttribLocation(shaderProgram, 'aTexCoord')
-      },
-      uniformLocations: {
-          uProjectionMatrixHandle: mGl.getUniformLocation(shaderProgram, 'uProjectionMatrix'),
-          uModelMatrixHandle: mGl.getUniformLocation(shaderProgram, 'uModelMatrix'),
-          uViewMatrixHandle: mGl.getUniformLocation(shaderProgram, 'uViewMatrix'),
-          uTextureHandle: mGl.getUniformLocation(shaderProgram, 'uTexture'),
-      },
-  };
+    mProgram = {
+        program: shaderProgram,
+        attribLocations: {
+            vertexPosition: mGl.getAttribLocation(shaderProgram, 'aPosition'),
+            normalPosition: mGl.getAttribLocation(shaderProgram, 'aNormal'),
+            textureCoord: mGl.getAttribLocation(shaderProgram, 'aTexCoord'),
+        },
+        uniformLocations: {
+            uProjectionMatrix: mGl.getUniformLocation(shaderProgram, 'uProjectionMatrix'),
+            uModelMatrix: mGl.getUniformLocation(shaderProgram, 'uModelMatrix'),
+            uViewMatrix: mGl.getUniformLocation(shaderProgram, 'uViewMatrix'),
+            uMITMatrix: mGl.getUniformLocation(shaderProgram, 'uMITMatrix'),
+            uLightPosition: mGl.getUniformLocation(shaderProgram, 'uLightPosition'),
+            uLightColor: mGl.getUniformLocation(shaderProgram, 'uLightColor'),
+            uCameraPosition: mGl.getUniformLocation(shaderProgram, 'uCameraPosition'),
+            uBaseColorMap: mGl.getUniformLocation(shaderProgram, 'uBaseColorMap'),
+            uNormalMap: mGl.getUniformLocation(shaderProgram, 'uNormalMap'),
+            uRoughnessMap: mGl.getUniformLocation(shaderProgram, 'uRoughnessMap'),
+            uMetallicMap: mGl.getUniformLocation(shaderProgram, 'uMetallicMap'),
+        },
+    };
 }
 
 // creates a shader of the given type, uploads the source and compiles it.
@@ -291,49 +292,43 @@ function isPowerOf2(value) {
 }
 
 function drawScene(gl, programInfo, deltaTime) {
-  const orthogonalRotation = (mRolling % 180.0 != 0.0)
-  const texWidth = orthogonalRotation ? mBaseTextureInfo.height : mBaseTextureInfo.width;
-  const texHeight = orthogonalRotation ? mBaseTextureInfo.width : mBaseTextureInfo.height;
-  if (0 == texWidth || 0 == texHeight) {
-      console.info("drawScene: invalid texture size");
-      return;
-  }
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-  gl.clearColor(1.0, 1.0, 1.0, 1.0);  // Clear to black, fully opaque
-  gl.clearDepth(1.0);                 // Clear everything
-  gl.enable(gl.DEPTH_TEST);           // Enable depth testing
-  gl.depthFunc(gl.LEQUAL);            // Near things obscure far things
+    gl.useProgram(programInfo.program);
 
-  // Clear the canvas before we start drawing on it.
-  gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    // 设置 Uniform
+    const normalMatrix = mat4.create(); // 模型逆转置矩阵
+    mat4.invert(normalMatrix, mModelMatrix);
+    mat4.transpose(normalMatrix, normalMatrix);
+    gl.uniformMatrix4fv(programInfo.uniformLocations.uMITMatrix, false, normalMatrix);
+    gl.uniformMatrix4fv(programInfo.uniformLocations.uProjectionMatrix, false, mProjectionMatrix);
+    gl.uniformMatrix4fv(programInfo.uniformLocations.uViewMatrix, false, mViewMatrix);
+    gl.uniformMatrix4fv(programInfo.uniformLocations.uModelMatrix, false, mModelMatrix);
+    gl.uniform3fv(programInfo.uniformLocations.uLightPosition, [10.0, 10.0, 10.0]);
+    gl.uniform3fv(programInfo.uniformLocations.uLightColor, [1.0, 1.0, 1.0]);
+    gl.uniform3fv(programInfo.uniformLocations.uCameraPosition, [0.0, 0.0, 5.0]);
 
-  // Set the drawing position to the "identity" point, which is the center of the scene.
-  mModelMatrix = mat4.create();
-  
-  mat4.translate(mModelMatrix,     // destination matrix
-                 mModelMatrix,     // matrix to translate
-                 [mTransX, mTransY, 0.0]);  // amount to translate
+    // 绑定纹理
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, mBaseTextureInfo.texture);
+    gl.uniform1i(programInfo.uniformLocations.uBaseColorMap, 0);
 
-  mat4.rotate(mModelMatrix,  // destination matrix
-              mModelMatrix,  // matrix to rotate
-              mPitching,     // amount to rotate in radians
-              [1, 0, 0]);    // axis to rotate around
-  mat4.rotate(mModelMatrix,  // destination matrix
-              mModelMatrix,  // matrix to rotate
-              mYawing,       // amount to rotate in radians
-              [0, 1, 0]);    // axis to rotate around
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, mObjectNormalTexture.texture);
+    gl.uniform1i(programInfo.uniformLocations.uNormalMap, 1);
 
-  const rollRotation = mRolling * DEGREE_TO_RADIUS;
-  mat4.rotate(mModelMatrix, 
-              mModelMatrix,
-              rollRotation,
-              [0, 0, 1]);
-              
-  mat4.scale(mModelMatrix, mModelMatrix, [mScale, mScale, mScale]);
+    gl.activeTexture(gl.TEXTURE2);
+    gl.bindTexture(gl.TEXTURE_2D, mObjectRoughnessTexture.texture);
+    gl.uniform1i(programInfo.uniformLocations.uRoughnessMap, 2);
 
-  for (var i = 0; i < mObjectBuffer.length; i++) {
-    drawObjects(gl, programInfo, mObjectBuffer[i]);
-  }
+    gl.activeTexture(gl.TEXTURE3);
+    gl.bindTexture(gl.TEXTURE_2D, mObjectMetalnessTexture.texture);
+    gl.uniform1i(programInfo.uniformLocations.uMetallicMap, 3);
+
+    // 绘制对象
+    for (let i = 0; i < mObjectBuffer.length; i++) {
+        drawObjects(gl, programInfo, mObjectBuffer[i]);
+    }
 }
 
 function drawObjects(gl, programInfo, buffers) {
@@ -359,23 +354,23 @@ function drawObjects(gl, programInfo, buffers) {
 
   // Tell WebGL how to pull out the normals from the normal
   // buffer into the normal attribute.
-  // {
-  //     const numComponents = 3;
-  //     const type = gl.FLOAT;
-  //     const normalize = false;
-  //     const stride = 0;
-  //     const offset = 0;
-  //     gl.bindBuffer(gl.ARRAY_BUFFER, buffers.normal);
-  //     gl.vertexAttribPointer(
-  //         programInfo.attribLocations.normalPosition,
-  //         numComponents,
-  //         type,
-  //         normalize,
-  //         stride,
-  //         offset);
-  //     gl.enableVertexAttribArray(
-  //         programInfo.attribLocations.normalPosition);
-  // }
+  {
+      const numComponents = 3;
+      const type = gl.FLOAT;
+      const normalize = false;
+      const stride = 0;
+      const offset = 0;
+      gl.bindBuffer(gl.ARRAY_BUFFER, buffers.normal);
+      gl.vertexAttribPointer(
+          programInfo.attribLocations.normalPosition,
+          numComponents,
+          type,
+          normalize,
+          stride,
+          offset);
+      gl.enableVertexAttribArray(
+          programInfo.attribLocations.normalPosition);
+  }
 
   // Tell WebGL how to pull out the texture coordinates from the texture 
   // coordinate buffer into the textureCoord attribute.
@@ -398,7 +393,7 @@ function drawObjects(gl, programInfo, buffers) {
   }
   
   // Tell WebGL to use our program when drawing
-  gl.useProgram(programInfo.program);
+  // gl.useProgram(programInfo.program);
 
   // Specify the diffuseTexture to map onto the faces.
   // Tell WebGL we want to affect diffuseTexture unit 0
@@ -407,30 +402,6 @@ function drawObjects(gl, programInfo, buffers) {
   gl.bindTexture(gl.TEXTURE_2D, mBaseTextureInfo.texture);
   // Tell the shader we bound the diffuseTexture to diffuseTexture unit 0
   gl.uniform1i(programInfo.uniformLocations.uTextureHandle, 0);
-
-  // if (null != mObjectNormalTexture.texture) {
-  //     gl.activeTexture(gl.TEXTURE1);
-  //     gl.bindTexture(gl.TEXTURE_2D, mObjectNormalTexture.texture);
-  //     gl.uniform1i(programInfo.uniformLocations.uNormalSamplerHandle, 1);
-  //     gl.uniform1f(programInfo.uniformLocations.uNormalScaleHandle, 1.0);
-  // }
-  // if (null != mObjectMetalnessTexture.texture) {
-  //     gl.activeTexture(gl.TEXTURE2);
-  //     gl.bindTexture(gl.TEXTURE_2D, mObjectMetalnessTexture.texture);
-  //     gl.uniform1i(programInfo.uniformLocations.uMetallicSamplerHandle, 2);
-  // }
-
-  // if (null != mObjectRoughnessTexture.texture) {
-  //     gl.activeTexture(gl.TEXTURE3);
-  //     gl.bindTexture(gl.TEXTURE_2D, mObjectRoughnessTexture.texture);
-  //     gl.uniform1i(programInfo.uniformLocations.uRoughnessSamplerHandle, 3);
-  // }
-
-  // if (null != mObjectEmissiveTexture.texture) {
-  //     gl.activeTexture(gl.TEXTURE4);
-  //     gl.bindTexture(gl.TEXTURE_2D, mObjectEmissiveTexture.texture);
-  //     gl.uniform1i(programInfo.uniformLocations.uEmissiveSamplerHandle, 4);
-  // }
 
   // Set the shader uniforms
   gl.uniformMatrix4fv(
@@ -452,7 +423,7 @@ function drawObjects(gl, programInfo, buffers) {
   gl.drawArrays(gl.TRIANGLE_STRIP, offset, buffers.drawCnt);
 
   gl.disableVertexAttribArray(programInfo.attribLocations.vertexPosition);
-  // gl.disableVertexAttribArray(programInfo.attribLocations.normalPosition);
+  gl.disableVertexAttribArray(programInfo.attribLocations.normalPosition);
   gl.disableVertexAttribArray(programInfo.attribLocations.textureCoord);
 }
 
