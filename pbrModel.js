@@ -1,4 +1,8 @@
 const DEGREE_TO_RADIUS = Math.PI / 180;
+
+var mCameraPosition = [0.0, 5.0, 5.0];
+let mCameraAnimationTarget = null; // 动画目标位置
+let mCameraAnimationVelocity = vec3.create(); // 动画速度
   
 var mObjectBuffer = [];
 var mBaseTextureInfo = null;
@@ -47,7 +51,8 @@ function main() {
 
   // create view matrix
   mViewMatrix = mat4.create();
-  mat4.lookAt(mViewMatrix, vec3.fromValues(0.0, 0.0, 5.0), vec3.fromValues(0.0, 0.0, 0.0), 
+  mat4.lookAt(mViewMatrix, vec3.fromValues(mCameraPosition[0], mCameraPosition[1], mCameraPosition[2]), 
+    vec3.fromValues(0.0, 0.0, 0.0), 
     vec3.fromValues(0.0, 1.0, 0.0));
 
   // Create a perspective matrix
@@ -96,6 +101,28 @@ function requestRender() {
           requestAnimationFrame(requestRender); // 持续渲染
       }
   }
+
+  // 相机动画逻辑
+    if (mCameraAnimationTarget) {
+        const damping = 0.1; // 阻尼系数
+        const distanceThreshold = 0.01; // 停止动画的距离阈值
+
+        // 计算相机位置与目标位置的差值
+        const direction = vec3.create();
+        vec3.subtract(direction, mCameraAnimationTarget, mCameraPosition);
+
+        // 如果距离小于阈值，停止动画
+        if (vec3.length(direction) < distanceThreshold) {
+            vec3.copy(mCameraPosition, mCameraAnimationTarget);
+            mCameraAnimationTarget = null; // 停止动画
+        } else {
+            // 应用阻尼移动相机
+            vec3.scale(direction, direction, damping);
+            vec3.add(mCameraPosition, mCameraPosition, direction);
+
+            requestAnimationFrame(requestRender); // 持续渲染
+        }
+    }
 }
 
 function initMouseControls(canvas) {
@@ -132,6 +159,41 @@ function initMouseControls(canvas) {
     canvas.addEventListener('mouseleave', () => {
         mIsDragging = false;
     });
+
+    // 鼠标滚轮交互
+    canvas.addEventListener('wheel', (event) => {
+        event.preventDefault(); // 阻止页面滚动
+
+        const delta = event.deltaY < 0 ? 1 : -1; // 滚轮方向
+        const zoomSpeed = 0.5; // 缩放速度
+
+        // 计算相机移动方向
+        const direction = vec3.create();
+        vec3.subtract(direction, [0, 0, 0], mCameraPosition); // 从相机指向原点
+        vec3.normalize(direction, direction);
+
+        // 更新相机位置
+        const velocity = vec3.create();
+        vec3.scale(velocity, direction, zoomSpeed * delta);
+        vec3.add(mCameraPosition, mCameraPosition, velocity);
+
+        requestRender(); // 持续渲染
+    }, { passive: false }); // 设置为非被动模式，允许调用 preventDefault
+
+    // 鼠标双击交互
+    canvas.addEventListener('dblclick', () => {
+        const targetPosition = vec3.equals(mCameraPosition, [0.0, 5.0, 5.0])
+            ? [0.0, 2.5, 2.5]
+            : [0.0, 5.0, 5.0];
+
+        animateCameraTo(targetPosition);
+    });
+}
+
+function animateCameraTo(targetPosition) {
+    mCameraAnimationTarget = targetPosition;
+    mCameraAnimationVelocity = vec3.create(); // 重置速度
+    requestRender(); // 开始动画
 }
 
 function updateShader() {
@@ -195,7 +257,6 @@ function loadShader(mGl, type, source) {
 }
 
 function initModelBuffers(gl) {
-    // read file
     function onProgress(xhr) {
         if (xhr.lengthComputable) {
             var percentComplete = xhr.loaded / xhr.total * 100;
@@ -203,45 +264,66 @@ function initModelBuffers(gl) {
         }
     }
     function onError(xhr) {
-        console.log('load error!' + error.getWebGLErrorMessage());
+        console.log('load error!' + xhr.message);
     }
 
     var loader = new THREE.OBJLoader();
     loader.load('./model/pbr/FireHydrantMesh.obj', function(object) {
         for (var i = 0; i < object.children.length; i++) {
-            var vertices = object.children[i].geometry.attributes.position;
-            var normals = object.children[i].geometry.attributes.normal;
-            var uvCoords = object.children[i].geometry.attributes.uv;
-            // mIndices = object.children[0].geometry.getIndex();
+            const geometry = object.children[i].geometry;
+            const vertices = geometry.attributes.position;
+            const normals = geometry.attributes.normal;
+            const uvCoords = geometry.attributes.uv;
+            const indices = geometry.index;
 
-            /* create buffer */
-            // Create a buffer for the sphere's positions.
+            // 1. 检查索引是否存在，若不存在则生成默认索引（0,1,2,3,...）
+            let indexArray;
+            let drawCnt;
+            if (indices !== null) {
+                indexArray = indices.array;
+                drawCnt = indices.count;
+            } else {
+                // 如果没有索引，则直接使用顶点顺序作为索引（0,1,2,3,...）
+                indexArray = new Uint16Array(vertices.count);
+                for (let j = 0; j < vertices.count; j++) {
+                    indexArray[j] = j;
+                }
+                drawCnt = vertices.count;
+            }
+
+            // 2. 初始化顶点缓冲区
             const positionBuffer = gl.createBuffer();
-            // Select the positionBuffer as the one to apply buffer operations to from here out.
             gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-            gl.bufferData(gl.ARRAY_BUFFER, vertices.array, gl.STATIC_DRAW);    // notice: not new Float32Array(vertices)
+            gl.bufferData(gl.ARRAY_BUFFER, vertices.array, gl.STATIC_DRAW);
 
-            // normal
-            const normalBuffer = gl.createBuffer();
-            gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer);
-            gl.bufferData(gl.ARRAY_BUFFER, normals.array, gl.STATIC_DRAW);
+            // 3. 初始化法线缓冲区（如果存在）
+            let normalBuffer = null;
+            if (normals !== undefined) {
+                normalBuffer = gl.createBuffer();
+                gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer);
+                gl.bufferData(gl.ARRAY_BUFFER, normals.array, gl.STATIC_DRAW);
+            }
 
-            // texture coord
-            const uvBuffer = gl.createBuffer();
-            gl.bindBuffer(gl.ARRAY_BUFFER, uvBuffer);
-            gl.bufferData(gl.ARRAY_BUFFER, uvCoords.array, gl.STATIC_DRAW);
+            // 4. 初始化UV缓冲区（如果存在）
+            let uvBuffer = null;
+            if (uvCoords !== undefined) {
+                uvBuffer = gl.createBuffer();
+                gl.bindBuffer(gl.ARRAY_BUFFER, uvBuffer);
+                gl.bufferData(gl.ARRAY_BUFFER, uvCoords.array, gl.STATIC_DRAW);
+            }
 
-            // // index
-            // const indexBuffer = gl.createBuffer();
-            // gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
-            // gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(mIndices.array), gl.STATIC_DRAW);
+            // 5. 初始化索引缓冲区
+            const indexBuffer = gl.createBuffer();
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+            gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indexArray, gl.STATIC_DRAW);
 
+            // 6. 存储缓冲区对象
             var objectGroupBuffer = {
                 position: positionBuffer,
                 normal: normalBuffer,
                 uv: uvBuffer,
-                drawCnt: vertices.count,   // may be indices.count if has indice
-                // indices: indexBuffer,
+                indices: indexBuffer,
+                drawCnt: drawCnt, // 索引的数量
             };
             mObjectBuffer.push(objectGroupBuffer);
         }
@@ -354,8 +436,16 @@ function isPowerOf2(value) {
 
 function drawScene(gl, programInfo, deltaTime) {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    gl.clearColor(0.9, 0.9, 0.9, 1.0);  // Clear to white, fully opaque
+    gl.clearDepth(1.0);                 // Clear everything
+    gl.enable(gl.DEPTH_TEST);           // Enable depth testing
+    gl.depthFunc(gl.LEQUAL);            // Near things obscure far things
 
     gl.useProgram(programInfo.program);
+
+    // 更新视图矩阵
+    mat4.lookAt(mViewMatrix, vec3.fromValues(mCameraPosition[0], mCameraPosition[1], mCameraPosition[2]),
+        vec3.fromValues(0.0, 0.0, 0.0), vec3.fromValues(0.0, 1.0, 0.0));
 
     // 更新模型矩阵
     mat4.identity(mModelMatrix);
@@ -373,7 +463,7 @@ function drawScene(gl, programInfo, deltaTime) {
     gl.uniformMatrix4fv(programInfo.uniformLocations.uModelMatrix, false, mModelMatrix);
     gl.uniform3fv(programInfo.uniformLocations.uLightPosition, [10.0, 10.0, 10.0]);
     gl.uniform3fv(programInfo.uniformLocations.uLightColor, [1.0, 1.0, 1.0]);
-    gl.uniform3fv(programInfo.uniformLocations.uCameraPosition, [0.0, 0.0, 5.0]);
+    gl.uniform3fv(programInfo.uniformLocations.uCameraPosition, mCameraPosition);
 
     // 绑定纹理
     gl.activeTexture(gl.TEXTURE0);
@@ -399,8 +489,6 @@ function drawScene(gl, programInfo, deltaTime) {
 }
 
 function drawObjects(gl, programInfo, buffers) {
-  // Tell WebGL how to pull out the positions from the position
-  // buffer into the vertexPosition attribute.
   {
       const numComponents = 3;
       const type = gl.FLOAT;
@@ -415,12 +503,9 @@ function drawObjects(gl, programInfo, buffers) {
           normalize,
           stride,
           offset);
-      gl.enableVertexAttribArray(
-          programInfo.attribLocations.vertexPosition);
+      gl.enableVertexAttribArray(programInfo.attribLocations.vertexPosition);
   }
 
-  // Tell WebGL how to pull out the normals from the normal
-  // buffer into the normal attribute.
   {
       const numComponents = 3;
       const type = gl.FLOAT;
@@ -435,12 +520,9 @@ function drawObjects(gl, programInfo, buffers) {
           normalize,
           stride,
           offset);
-      gl.enableVertexAttribArray(
-          programInfo.attribLocations.normalPosition);
+      gl.enableVertexAttribArray(programInfo.attribLocations.normalPosition);
   }
 
-  // Tell WebGL how to pull out the texture coordinates from the texture 
-  // coordinate buffer into the textureCoord attribute.
   {
       const numComponents = 2;
       const type = gl.FLOAT;
@@ -459,35 +541,17 @@ function drawObjects(gl, programInfo, buffers) {
           programInfo.attribLocations.textureCoord);
   }
   
-  // Tell WebGL to use our program when drawing
-  // gl.useProgram(programInfo.program);
-
-  // Specify the diffuseTexture to map onto the faces.
-  // Tell WebGL we want to affect diffuseTexture unit 0
-  gl.activeTexture(gl.TEXTURE0);
-  // Bind the diffuseTexture to diffuseTexture unit 0
-  gl.bindTexture(gl.TEXTURE_2D, mBaseTextureInfo.texture);
-  // Tell the shader we bound the diffuseTexture to diffuseTexture unit 0
-  gl.uniform1i(programInfo.uniformLocations.uTextureHandle, 0);
-
-  // Set the shader uniforms
-  gl.uniformMatrix4fv(
-      programInfo.uniformLocations.uProjectionMatrixHandle,
-      false, mProjectionMatrix);
-  gl.uniformMatrix4fv(
-      programInfo.uniformLocations.uViewMatrixHandle,
-      false, mViewMatrix);
-  gl.uniformMatrix4fv(
-      programInfo.uniformLocations.uModelMatrixHandle,
-      false, mModelMatrix);
-  
   const tempMatrix = mat4.create();
   mat4.multiply(tempMatrix, mViewMatrix, mModelMatrix);
   mat4.multiply(mMvpMatrix, mProjectionMatrix, tempMatrix);
   updateHtmlMvpMatrixByRender();
 
-  const offset = 0;
-  gl.drawArrays(gl.TRIANGLE_STRIP, offset, buffers.drawCnt);
+  // 绑定索引缓冲区
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffers.indices);
+
+  // 绘制对象
+  gl.drawElements(gl.TRIANGLES, buffers.drawCnt, gl.UNSIGNED_SHORT, 0);
+  // gl.drawArrays(gl.TRIANGLE_STRIP, offset, buffers.drawCnt);
 
   gl.disableVertexAttribArray(programInfo.attribLocations.vertexPosition);
   gl.disableVertexAttribArray(programInfo.attribLocations.normalPosition);
