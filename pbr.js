@@ -73,11 +73,11 @@ function main() {
     updateShader();
 
     // 加载纹理
-    baseColorTexture = loadTexture(gl, '../texture/pbr/fire_hydrant_Base_Color.png');
-    albedoTexture = loadTexture(gl, '../texture/pbr/fire_hydrant_Mixed_AO.png');
-    normalTexture = loadTexture(gl, '../texture/pbr/fire_hydrant_Normal_OpenGL.png');
-    roughnessTexture = loadTexture(gl, '../texture/pbr/fire_hydrant_Roughness.png');
-    metallicTexture = loadTexture(gl, '../texture/pbr/fire_hydrant_Metallic.png');
+    baseColorTexture = loadTexture(gl, '../model/pbr/fire_hydrant_Base_Color.png');
+    albedoTexture = loadTexture(gl, '../model/pbr/fire_hydrant_Mixed_AO.png');
+    normalTexture = loadTexture(gl, '../model/pbr/fire_hydrant_Normal_OpenGL.png');
+    roughnessTexture = loadTexture(gl, '../model/pbr/fire_hydrant_Roughness.png');
+    metallicTexture = loadTexture(gl, '../model/pbr/fire_hydrant_Metallic.png');
 
     // Here's where we call the routine that builds all the objects we'll be drawing.
     const buffers = initBuffers(gl);

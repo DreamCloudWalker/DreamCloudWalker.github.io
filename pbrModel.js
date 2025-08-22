@@ -1,16 +1,6 @@
 const DEGREE_TO_RADIUS = Math.PI / 180;
-// 定义渲染模式常量
-const RenderMode = {
-    FULL:        1 << 0,  // 二进制: 00000001 (默认全屏模式)
-    FIT:         1 << 1,  // 二进制: 00000010 (填充模式)
-    FILL:        1 << 2,  // 二进制: 00000100 (适应模式)
-    KEEP_SCALE:  1 << 3,  // 二进制: 00001000 (保持原始比例)
-    WIDTH_FILL:  1 << 4,  // 二进制: 00010000 (宽度填充)
-    HEIGHT_FILL: 1 << 5   // 二进制: 00100000 (高度填充)
-  };
-
   
-var mPlaneTextureInfo = null;
+var mBaseTextureInfo = null;
 var mVertices = [];
 var mTexCoods = [];
 var mViewportWidth = 0;
@@ -44,23 +34,22 @@ function main() {
   mViewportHeight = canvas.clientHeight;
   mGl.viewport(0, 0, mViewportWidth, mViewportHeight);
 
-
   // create view matrix
   mViewMatrix = mat4.create();
-  // mat4.lookAt(mViewMatrix, CAMERA_POSITION, vec3.fromValues(0.0, 0.0, 0.0), vec3.fromValues(0.0, 1.0, 0.0));
+  mat4.lookAt(mViewMatrix, vec3.fromValues(0.0, 0.0, 5.0), vec3.fromValues(0.0, 0.0, 0.0), 
+    vec3.fromValues(0.0, 1.0, 0.0));
 
   // Create a perspective matrix
-  // const fov = 45 * DEGREE_TO_RADIUS;   // in radians
-  // const aspect = mGl.canvas.clientWidth / mGl.canvas.clientHeight;
-  // const zNear = 0.1;
-  // const zFar = 1000.0;
+  const fov = 45 * DEGREE_TO_RADIUS;   // in radians
+  const aspect = mGl.canvas.clientWidth / mGl.canvas.clientHeight;
+  const zNear = 0.1;
+  const zFar = 1000.0;
 
-  // note: glmatrix.js always has the first argument
-  // as the destination to receive the result.
+  // note: glmatrix.js always has the first argument as the destination to receive the result.
   mProjectionMatrix = mat4.create();
-  // mat4.perspective(mProjectionMatrix, fov, aspect, zNear, zFar);
+  mat4.perspective(mProjectionMatrix, fov, aspect, zNear, zFar);
 
-  mPlaneTextureInfo = loadTextureByUrl(mGl, './texture/testTransformation.png');
+  mBaseTextureInfo = loadTextureByUrl(mGl, './model/pbr/fire_hydrant_Base_Color.png');
 
   // init shader
   updateShader();
@@ -278,8 +267,8 @@ function generateTexCoord() {
 
 function drawScene(gl, programInfo, buffers, deltaTime) {
   const orthogonalRotation = (mRolling % 180.0 != 0.0)
-  const texWidth = orthogonalRotation ? mPlaneTextureInfo.height : mPlaneTextureInfo.width;
-  const texHeight = orthogonalRotation ? mPlaneTextureInfo.width : mPlaneTextureInfo.height;
+  const texWidth = orthogonalRotation ? mBaseTextureInfo.height : mBaseTextureInfo.width;
+  const texHeight = orthogonalRotation ? mBaseTextureInfo.width : mBaseTextureInfo.height;
   if (0 == texWidth || 0 == texHeight) {
       console.info("drawScene: invalid texture size");
       return;
@@ -365,7 +354,7 @@ function drawScene(gl, programInfo, buffers, deltaTime) {
   // Tell WebGL we want to affect diffuseTexture unit 0
   gl.activeTexture(gl.TEXTURE0);
   // Bind the diffuseTexture to diffuseTexture unit 0
-  gl.bindTexture(gl.TEXTURE_2D, mPlaneTextureInfo.texture);
+  gl.bindTexture(gl.TEXTURE_2D, mBaseTextureInfo.texture);
   // Tell the shader we bound the diffuseTexture to diffuseTexture unit 0
   gl.uniform1i(programInfo.uniformLocations.uTextureHandle, 0);
 
@@ -393,68 +382,24 @@ function drawScene(gl, programInfo, buffers, deltaTime) {
 }
 
 function updateHtmlMvpMatrixByRender() {
-  document.getElementById("id_image_edit_mvpmatrix_m00").innerHTML = mMvpMatrix[0].toFixed(2);
-  document.getElementById("id_image_edit_mvpmatrix_m01").innerHTML = mMvpMatrix[4].toFixed(2);
-  document.getElementById("id_image_edit_mvpmatrix_m02").innerHTML = mMvpMatrix[8].toFixed(2);
-  document.getElementById("id_image_edit_mvpmatrix_m03").innerHTML = mMvpMatrix[12].toFixed(2);
-  document.getElementById("id_image_edit_mvpmatrix_m10").innerHTML = mMvpMatrix[1].toFixed(2);
-  document.getElementById("id_image_edit_mvpmatrix_m11").innerHTML = mMvpMatrix[5].toFixed(2);
-  document.getElementById("id_image_edit_mvpmatrix_m12").innerHTML = mMvpMatrix[9].toFixed(2);
-  document.getElementById("id_image_edit_mvpmatrix_m13").innerHTML = mMvpMatrix[13].toFixed(2);
-  document.getElementById("id_image_edit_mvpmatrix_m20").innerHTML = mMvpMatrix[2].toFixed(2);
-  document.getElementById("id_image_edit_mvpmatrix_m21").innerHTML = mMvpMatrix[6].toFixed(2);
-  document.getElementById("id_image_edit_mvpmatrix_m22").innerHTML = mMvpMatrix[10].toFixed(2);
-  document.getElementById("id_image_edit_mvpmatrix_m23").innerHTML = mMvpMatrix[14].toFixed(2);
-  document.getElementById("id_image_edit_mvpmatrix_m30").innerHTML = mMvpMatrix[3].toFixed(2);
-  document.getElementById("id_image_edit_mvpmatrix_m31").innerHTML = mMvpMatrix[7].toFixed(2);
-  document.getElementById("id_image_edit_mvpmatrix_m32").innerHTML = mMvpMatrix[11].toFixed(2);
-  document.getElementById("id_image_edit_mvpmatrix_m33").innerHTML = mMvpMatrix[15].toFixed(2);
+  document.getElementById("id_pbr_model_mvpmatrix_m00").innerHTML = mMvpMatrix[0].toFixed(2);
+  document.getElementById("id_pbr_model_mvpmatrix_m01").innerHTML = mMvpMatrix[4].toFixed(2);
+  document.getElementById("id_pbr_model_mvpmatrix_m02").innerHTML = mMvpMatrix[8].toFixed(2);
+  document.getElementById("id_pbr_model_mvpmatrix_m03").innerHTML = mMvpMatrix[12].toFixed(2);
+  document.getElementById("id_pbr_model_mvpmatrix_m10").innerHTML = mMvpMatrix[1].toFixed(2);
+  document.getElementById("id_pbr_model_mvpmatrix_m11").innerHTML = mMvpMatrix[5].toFixed(2);
+  document.getElementById("id_pbr_model_mvpmatrix_m12").innerHTML = mMvpMatrix[9].toFixed(2);
+  document.getElementById("id_pbr_model_mvpmatrix_m13").innerHTML = mMvpMatrix[13].toFixed(2);
+  document.getElementById("id_pbr_model_mvpmatrix_m20").innerHTML = mMvpMatrix[2].toFixed(2);
+  document.getElementById("id_pbr_model_mvpmatrix_m21").innerHTML = mMvpMatrix[6].toFixed(2);
+  document.getElementById("id_pbr_model_mvpmatrix_m22").innerHTML = mMvpMatrix[10].toFixed(2);
+  document.getElementById("id_pbr_model_mvpmatrix_m23").innerHTML = mMvpMatrix[14].toFixed(2);
+  document.getElementById("id_pbr_model_mvpmatrix_m30").innerHTML = mMvpMatrix[3].toFixed(2);
+  document.getElementById("id_pbr_model_mvpmatrix_m31").innerHTML = mMvpMatrix[7].toFixed(2);
+  document.getElementById("id_pbr_model_mvpmatrix_m32").innerHTML = mMvpMatrix[11].toFixed(2);
+  document.getElementById("id_pbr_model_mvpmatrix_m33").innerHTML = mMvpMatrix[15].toFixed(2);
 }
 
-function moveLeft() {
-  mTransX -= 0.5;
-  console.log(`向左移动，当前 mTransX: ${mTransX}`);
-  requestRender();
-}
-
-function moveRight() {
-  mTransX += 0.5;
-  console.log(`向右移动，当前 mTransX: ${mTransX}`);
-  requestRender();
-}
-
-function moveUp() {
-  mTransY += 0.5;
-  console.log(`向上移动，当前 mTransY: ${mTransY}`);
-  requestRender();
-}
-
-function moveDown() {
-  mTransY -= 0.5;
-  console.log(`向下移动，当前 mTransY: ${mTransY}`);
-  requestRender();
-}
-
-function scaleUp() {
-  mScale += 0.5;
-  console.log(`放大，当前 mScale: ${mScale}`);
-  requestRender();
-}
-
-function scaleDown() {
-  mScale = Math.max(0.0, mScale - 0.5); // 防止缩小到负值
-  console.log(`缩小，当前 mScale: ${mScale}`);
-  requestRender();
-}
-
-function rotateRight() {
-  mRolling += 15;
-  console.log(`向右旋转，当前 mRolling: ${mRolling}`);
-  requestRender();
-}
-
-function rotateLeft() {
-  mRolling -= 15;
-  console.log(`向左旋转，当前 mRolling: ${mRolling}`);
+function refresh() {
   requestRender();
 }

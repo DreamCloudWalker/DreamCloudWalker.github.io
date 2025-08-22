@@ -5,7 +5,9 @@
     <link rel="stylesheet" href="public/webgl.css" type="text/css">
   </head>
   <script src="public/gl-matrix.js"></script>
-  <script src="learnMatrix.js"></script>
+  <script src="public/three/three.js"></script>
+  <script src="public/three/OBJLoader.js"></script>
+  <script src="pbrModel.js"></script>
   <script src="base/FrameBufferObject.js"></script>
   <script src="public/showdown_2_1_0.min.js"></script>
   <style type="text/css">
@@ -40,17 +42,10 @@
   </style>
 
   <body onload="main();" ondblclick="doubleClick();" onkeypress="onKeyPress(event)" >
-    <canvas id="glcanvas" width="512" height="512"></canvas>
+    <canvas id="glcanvas" width="1024" height="768"></canvas>
 
     <div id="horizontal">
-        <button style="margin: 5px; width: 120px; height: 30px;" onclick="moveLeft()">向左移动0.5</button>
-        <button style="margin: 5px; width: 120px; height: 30px;" onclick="moveRight()">向右移动0.5</button>
-        <button style="margin: 5px; width: 120px; height: 30px;" onclick="moveUp()">向上移动0.5</button>
-        <button style="margin: 5px; width: 120px; height: 30px;" onclick="moveDown()">向下移动0.5</button>
-        <button style="margin: 5px; width: 120px; height: 30px;" onclick="scaleUp()">放大0.5</button>
-        <button style="margin: 5px; width: 120px; height: 30px;" onclick="scaleDown()">缩小0.5</button>
-        <button style="margin: 5px; width: 120px; height: 30px;" onclick="rotateRight()">向右旋转15度</button>
-        <button style="margin: 5px; width: 120px; height: 30px;" onclick="rotateLeft()">向左旋转15度</button>
+        <button style="margin: 5px; width: 120px; height: 30px;" onclick="refresh()">刷新</button>
     </div>
 
     <div style="border: 1px solid #cccccc; width: 200px; padding: 5px">
@@ -58,28 +53,28 @@
         <div id="horizontal" style="margin: 5px">
             <img src="./texture/matrixL.png">
             <div id="matrix" style="margin: 5px;">
-                     <label id="id_image_edit_mvpmatrix_m00">1.00</label><br/>
-                <br/><label id="id_image_edit_mvpmatrix_m10">0.00</label><br/>
-                <br/><label id="id_image_edit_mvpmatrix_m20">0.00</label><br/>
-                <br/><label id="id_image_edit_mvpmatrix_m30">0.00</label>
+                     <label id="id_pbr_model_mvpmatrix_m00">1.00</label><br/>
+                <br/><label id="id_pbr_model_mvpmatrix_m10">0.00</label><br/>
+                <br/><label id="id_pbr_model_mvpmatrix_m20">0.00</label><br/>
+                <br/><label id="id_pbr_model_mvpmatrix_m30">0.00</label>
             </div>
             <div id="matrix" style="margin: 5px">
-                     <label id="id_image_edit_mvpmatrix_m01">0.00</label><br/>
-                <br/><label id="id_image_edit_mvpmatrix_m11">1.00</label><br/>
-                <br/><label id="id_image_edit_mvpmatrix_m21">0.00</label><br/>
-                <br/><label id="id_image_edit_mvpmatrix_m31">0.00</label>
+                     <label id="id_pbr_model_mvpmatrix_m01">0.00</label><br/>
+                <br/><label id="id_pbr_model_mvpmatrix_m11">1.00</label><br/>
+                <br/><label id="id_pbr_model_mvpmatrix_m21">0.00</label><br/>
+                <br/><label id="id_pbr_model_mvpmatrix_m31">0.00</label>
             </div>
             <div id="matrix" style="margin: 5px">
-                     <label id="id_image_edit_mvpmatrix_m02">0.00</label><br/>
-                <br/><label id="id_image_edit_mvpmatrix_m12">0.00</label><br/>
-                <br/><label id="id_image_edit_mvpmatrix_m22">1.00</label><br/>
-                <br/><label id="id_image_edit_mvpmatrix_m32">0.00</label>
+                     <label id="id_pbr_model_mvpmatrix_m02">0.00</label><br/>
+                <br/><label id="id_pbr_model_mvpmatrix_m12">0.00</label><br/>
+                <br/><label id="id_pbr_model_mvpmatrix_m22">1.00</label><br/>
+                <br/><label id="id_pbr_model_mvpmatrix_m32">0.00</label>
             </div>
             <div id="matrix" style="margin: 5px">
-                     <label id="id_image_edit_mvpmatrix_m03">0.00</label><br/>
-                <br/><label id="id_image_edit_mvpmatrix_m13">0.00</label><br/>
-                <br/><label id="id_image_edit_mvpmatrix_m23">0.00</label><br/>
-                <br/><label id="id_image_edit_mvpmatrix_m33">1.00</label>
+                     <label id="id_pbr_model_mvpmatrix_m03">0.00</label><br/>
+                <br/><label id="id_pbr_model_mvpmatrix_m13">0.00</label><br/>
+                <br/><label id="id_pbr_model_mvpmatrix_m23">0.00</label><br/>
+                <br/><label id="id_pbr_model_mvpmatrix_m33">1.00</label>
             </div>
 
             <img src="./texture/matrixR.png">
