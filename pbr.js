@@ -75,7 +75,7 @@ function main() {
     // 加载纹理
     baseColorTexture = loadTexture(gl, '../model/pbr/fire_hydrant_Base_Color.png');
     albedoTexture = loadTexture(gl, '../model/pbr/fire_hydrant_Mixed_AO.png');
-    normalTexture = loadTexture(gl, '../model/pbr/fire_hydrant_Normal_OpenGL.png');
+    normalTexture = loadTexture(gl, '../model/pbr/fire_hydrant_Normal.png');
     roughnessTexture = loadTexture(gl, '../model/pbr/fire_hydrant_Roughness.png');
     metallicTexture = loadTexture(gl, '../model/pbr/fire_hydrant_Metallic.png');
 

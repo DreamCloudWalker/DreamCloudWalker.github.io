@@ -1,8 +1,11 @@
 const DEGREE_TO_RADIUS = Math.PI / 180;
   
+var mObjectBuffer = [];
 var mBaseTextureInfo = null;
-var mVertices = [];
-var mTexCoods = [];
+var mObjectNormalTexture = null;
+var mObjectMetalnessTexture = null;
+var mObjectEmissiveTexture = null;
+var mObjectRoughnessTexture = null;
 var mViewportWidth = 0;
 var mViewportHeight = 0;
 var mPitching = 0.0;
@@ -50,11 +53,16 @@ function main() {
   mat4.perspective(mProjectionMatrix, fov, aspect, zNear, zFar);
 
   mBaseTextureInfo = loadTextureByUrl(mGl, './model/pbr/fire_hydrant_Base_Color.png');
+  mObjectNormalTexture = loadTextureByUrl(mGl, './model/pbr/fire_hydrant_Normal.png');
+  mObjectMetalnessTexture = loadTextureByUrl(mGl, './model/pbr/fire_hydrant_Metallic.png');
+  mObjectEmissiveTexture = loadTextureByUrl(mGl, './model/pbr/fire_hydrant_Mixed_AO.png');
+  mObjectRoughnessTexture = loadTextureByUrl(mGl, './model/pbr/fire_hydrant_Roughness.png');
 
   // init shader
   updateShader();
 
-  mBuffers = initBuffers(mGl);
+  // mBuffers = initBuffers(mGl);
+  initModelBuffers(mGl);
   
   // requestAnimationFrame(render);
   requestRender();
@@ -62,7 +70,7 @@ function main() {
 
 // Draw the scene repeatedly
 function requestRender() {
-  drawScene(mGl, mProgram, mBuffers, 0);
+  drawScene(mGl, mProgram, 0);
 }
 
 function updateShader() {
@@ -92,6 +100,7 @@ function updateShader() {
       program: shaderProgram,
       attribLocations: {
           vertexPosition: mGl.getAttribLocation(shaderProgram, 'aPosition'),
+          normalPosition: mGl.getAttribLocation(shaderProgram, 'aNormal'),
           textureCoord: mGl.getAttribLocation(shaderProgram, 'aTexCoord')
       },
       uniformLocations: {
@@ -123,31 +132,59 @@ function loadShader(mGl, type, source) {
   return shader;
 }
 
-function initBuffers(gl) {
-  mVertices = createPlaneVertices();
-  mTexCoods = generateTexCoord();
+function initModelBuffers(gl) {
+    // read file
+    function onProgress(xhr) {
+        if (xhr.lengthComputable) {
+            var percentComplete = xhr.loaded / xhr.total * 100;
+            console.log(Math.round(percentComplete, 2) + '% loading');
+        }
+    }
+    function onError(xhr) {
+        console.log('load error!' + error.getWebGLErrorMessage());
+    }
 
-  // Create a buffer for the sphere's positions.
-  const positionBuffer = gl.createBuffer();
-  // Select the positionBuffer as the one to apply buffer operations to from here out.
-  gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(mVertices), gl.STATIC_DRAW);
+    var loader = new THREE.OBJLoader();
+    loader.load('./model/pbr/FireHydrantMesh.obj', function(object) {
+        for (var i = 0; i < object.children.length; i++) {
+            var vertices = object.children[i].geometry.attributes.position;
+            var normals = object.children[i].geometry.attributes.normal;
+            var uvCoords = object.children[i].geometry.attributes.uv;
+            // mIndices = object.children[0].geometry.getIndex();
 
-  // Create a buffer for the viewFrustum's color.
-  const uvBuffer = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, uvBuffer);
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(mTexCoods), gl.STATIC_DRAW);
+            /* create buffer */
+            // Create a buffer for the sphere's positions.
+            const positionBuffer = gl.createBuffer();
+            // Select the positionBuffer as the one to apply buffer operations to from here out.
+            gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+            gl.bufferData(gl.ARRAY_BUFFER, vertices.array, gl.STATIC_DRAW);    // notice: not new Float32Array(vertices)
 
-  // 创建裁剪框顶点缓冲区
-  const cropBoxBuffer = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, cropBoxBuffer);
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([]), gl.DYNAMIC_DRAW); // 初始为空
+            // normal
+            const normalBuffer = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer);
+            gl.bufferData(gl.ARRAY_BUFFER, normals.array, gl.STATIC_DRAW);
 
-  return {
-      position: positionBuffer,
-      uv: uvBuffer,
-      cropBox: cropBoxBuffer
-  };
+            // texture coord
+            const uvBuffer = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, uvBuffer);
+            gl.bufferData(gl.ARRAY_BUFFER, uvCoords.array, gl.STATIC_DRAW);
+
+            // // index
+            // const indexBuffer = gl.createBuffer();
+            // gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+            // gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(mIndices.array), gl.STATIC_DRAW);
+
+            var objectGroupBuffer = {
+                position: positionBuffer,
+                normal: normalBuffer,
+                uv: uvBuffer,
+                drawCnt: vertices.count,   // may be indices.count if has indice
+                // indices: indexBuffer,
+            };
+            mObjectBuffer.push(objectGroupBuffer);
+        }
+        requestRender();
+    }, onProgress, onError);
 }
 
 function loadTextureByImage(gl, image) {
@@ -253,19 +290,7 @@ function isPowerOf2(value) {
   return (value & (value - 1)) == 0;
 }
 
-function createPlaneVertices() {
-  var vertices = [-1.0, -1.0, 0.0, 1.0, -1.0, 0.0, -1.0,  1.0, 0.0, 1.0,  1.0, 0.0];
-  
-  return vertices;
-}
-
-function generateTexCoord() {
-  var result = [0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 1.0, 1.0];
-  
-  return result;
-}
-
-function drawScene(gl, programInfo, buffers, deltaTime) {
+function drawScene(gl, programInfo, deltaTime) {
   const orthogonalRotation = (mRolling % 180.0 != 0.0)
   const texWidth = orthogonalRotation ? mBaseTextureInfo.height : mBaseTextureInfo.width;
   const texHeight = orthogonalRotation ? mBaseTextureInfo.width : mBaseTextureInfo.height;
@@ -306,7 +331,12 @@ function drawScene(gl, programInfo, buffers, deltaTime) {
               
   mat4.scale(mModelMatrix, mModelMatrix, [mScale, mScale, mScale]);
 
+  for (var i = 0; i < mObjectBuffer.length; i++) {
+    drawObjects(gl, programInfo, mObjectBuffer[i]);
+  }
+}
 
+function drawObjects(gl, programInfo, buffers) {
   // Tell WebGL how to pull out the positions from the position
   // buffer into the vertexPosition attribute.
   {
@@ -326,6 +356,26 @@ function drawScene(gl, programInfo, buffers, deltaTime) {
       gl.enableVertexAttribArray(
           programInfo.attribLocations.vertexPosition);
   }
+
+  // Tell WebGL how to pull out the normals from the normal
+  // buffer into the normal attribute.
+  // {
+  //     const numComponents = 3;
+  //     const type = gl.FLOAT;
+  //     const normalize = false;
+  //     const stride = 0;
+  //     const offset = 0;
+  //     gl.bindBuffer(gl.ARRAY_BUFFER, buffers.normal);
+  //     gl.vertexAttribPointer(
+  //         programInfo.attribLocations.normalPosition,
+  //         numComponents,
+  //         type,
+  //         normalize,
+  //         stride,
+  //         offset);
+  //     gl.enableVertexAttribArray(
+  //         programInfo.attribLocations.normalPosition);
+  // }
 
   // Tell WebGL how to pull out the texture coordinates from the texture 
   // coordinate buffer into the textureCoord attribute.
@@ -358,6 +408,30 @@ function drawScene(gl, programInfo, buffers, deltaTime) {
   // Tell the shader we bound the diffuseTexture to diffuseTexture unit 0
   gl.uniform1i(programInfo.uniformLocations.uTextureHandle, 0);
 
+  // if (null != mObjectNormalTexture.texture) {
+  //     gl.activeTexture(gl.TEXTURE1);
+  //     gl.bindTexture(gl.TEXTURE_2D, mObjectNormalTexture.texture);
+  //     gl.uniform1i(programInfo.uniformLocations.uNormalSamplerHandle, 1);
+  //     gl.uniform1f(programInfo.uniformLocations.uNormalScaleHandle, 1.0);
+  // }
+  // if (null != mObjectMetalnessTexture.texture) {
+  //     gl.activeTexture(gl.TEXTURE2);
+  //     gl.bindTexture(gl.TEXTURE_2D, mObjectMetalnessTexture.texture);
+  //     gl.uniform1i(programInfo.uniformLocations.uMetallicSamplerHandle, 2);
+  // }
+
+  // if (null != mObjectRoughnessTexture.texture) {
+  //     gl.activeTexture(gl.TEXTURE3);
+  //     gl.bindTexture(gl.TEXTURE_2D, mObjectRoughnessTexture.texture);
+  //     gl.uniform1i(programInfo.uniformLocations.uRoughnessSamplerHandle, 3);
+  // }
+
+  // if (null != mObjectEmissiveTexture.texture) {
+  //     gl.activeTexture(gl.TEXTURE4);
+  //     gl.bindTexture(gl.TEXTURE_2D, mObjectEmissiveTexture.texture);
+  //     gl.uniform1i(programInfo.uniformLocations.uEmissiveSamplerHandle, 4);
+  // }
+
   // Set the shader uniforms
   gl.uniformMatrix4fv(
       programInfo.uniformLocations.uProjectionMatrixHandle,
@@ -375,9 +449,10 @@ function drawScene(gl, programInfo, buffers, deltaTime) {
   updateHtmlMvpMatrixByRender();
 
   const offset = 0;
-  gl.drawArrays(gl.TRIANGLE_STRIP, offset, mVertices.length / 3);
+  gl.drawArrays(gl.TRIANGLE_STRIP, offset, buffers.drawCnt);
 
   gl.disableVertexAttribArray(programInfo.attribLocations.vertexPosition);
+  // gl.disableVertexAttribArray(programInfo.attribLocations.normalPosition);
   gl.disableVertexAttribArray(programInfo.attribLocations.textureCoord);
 }
 
