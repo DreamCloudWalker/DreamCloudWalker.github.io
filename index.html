@@ -26,6 +26,28 @@
             div#horizontal {
                 display: flex;
             }
+            div#horizontal_parent {
+                display: flex;          /* Flex 布局使左侧菜单和 Canvas 容器并排 */
+                position: relative;     /* 作为 Canvas 绝对定位的参考 */
+            }
+            .left-menu {
+                width: 230px;
+                background: #ffffff;
+                flex-shrink: 0;        /* 禁止宽度压缩 */
+            }
+            .canvas-container {
+                flex-grow: 1;          /* 占据剩余宽度 */
+                position: relative;    /* 为 Canvas 提供定位基准 */
+                min-height: 720px;     /* 最小高度（避免父容器塌陷） */
+            }
+            /* Canvas - 固定高度且脱离文档流 */
+            #glcanvas {
+                position: absolute;  /* 绝对定位 */
+                top: 100px;
+                left: 230px;
+                width: 1440px; 
+                height: 720px;
+            }
             div#id_shader {
                 display: none;
             }
@@ -104,8 +126,8 @@
           onunload="onDestoryed()"
           onkeypress="onKeyPress(event)">
         <div id="vertical">
-            <div id="horizontal">
-                <div style="width: 230px; background: #ffffff">
+            <div id="horizontal_parent">
+                <div class="left-menu" style="width: 230px; background: #ffffff; overflow-y: auto;">
                     <ul>
                         <div id="horizontal">
                             <select id="language_select" name="language" onchange="languageSelect(this)">
@@ -185,7 +207,9 @@
                     </ul> 
                 </div>
 
-                <canvas id="glcanvas" width="1440" height="720">Looks like your browser do not support WebGL!</canvas>
+                <div class="canvas-container"></div>
+                    <canvas id="glcanvas" width="1440" height="720">Looks like your browser do not support WebGL!</canvas>
+                </div>
             </div>
             <div id="id_shader">
                 <button style="display:block; width: 230px; height: 50px" onclick="updateBackgroundShader()" data-lang="compile_and_run_shader">编译并运行着色器&#13;&#10;(左窗口背景绘制为例)</button>
