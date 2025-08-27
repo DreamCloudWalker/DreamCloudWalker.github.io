@@ -274,22 +274,22 @@ function initModelBuffers(gl) {
             const vertices = geometry.attributes.position;
             const normals = geometry.attributes.normal;
             const uvCoords = geometry.attributes.uv;
-            const indices = geometry.index;
+            // const indices = geometry.index;
 
             // 1. 检查索引是否存在，若不存在则生成默认索引（0,1,2,3,...）
             let indexArray;
-            let drawCnt;
-            if (indices !== null) {
-                indexArray = indices.array;
-                drawCnt = indices.count;
-            } else {
-                // 如果没有索引，则直接使用顶点顺序作为索引（0,1,2,3,...）
-                indexArray = new Uint16Array(vertices.count);
-                for (let j = 0; j < vertices.count; j++) {
-                    indexArray[j] = j;
-                }
+            // let drawCnt;
+            // if (indices !== null) {
+            //     indexArray = indices.array;
+            //     drawCnt = indices.count;
+            // } else {
+            //     // 如果没有索引，则直接使用顶点顺序作为索引（0,1,2,3,...）
+            //     indexArray = new Uint16Array(vertices.count);
+            //     for (let j = 0; j < vertices.count; j++) {
+            //         indexArray[j] = j;
+            //     }
                 drawCnt = vertices.count;
-            }
+            // }
 
             // 2. 初始化顶点缓冲区
             const positionBuffer = gl.createBuffer();
@@ -313,16 +313,16 @@ function initModelBuffers(gl) {
             }
 
             // 5. 初始化索引缓冲区
-            const indexBuffer = gl.createBuffer();
-            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
-            gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indexArray, gl.STATIC_DRAW);
+            // const indexBuffer = gl.createBuffer();
+            // gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+            // gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indexArray, gl.STATIC_DRAW);
 
             // 6. 存储缓冲区对象
             var objectGroupBuffer = {
                 position: positionBuffer,
                 normal: normalBuffer,
                 uv: uvBuffer,
-                indices: indexBuffer,
+                // indices: indexBuffer,
                 drawCnt: drawCnt, // 索引的数量
             };
             mObjectBuffer.push(objectGroupBuffer);
@@ -449,6 +449,7 @@ function drawScene(gl, programInfo, deltaTime) {
 
     // 更新模型矩阵
     mat4.identity(mModelMatrix);
+    mat4.translate(mModelMatrix, mModelMatrix, [0, -1, 0]);
     mat4.rotateX(mModelMatrix, mModelMatrix, mPitching * DEGREE_TO_RADIUS);
     mat4.rotateY(mModelMatrix, mModelMatrix, mYawing * DEGREE_TO_RADIUS);
     mat4.rotateZ(mModelMatrix, mModelMatrix, mRolling * DEGREE_TO_RADIUS);
@@ -550,8 +551,8 @@ function drawObjects(gl, programInfo, buffers) {
   gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffers.indices);
 
   // 绘制对象
-  gl.drawElements(gl.TRIANGLES, buffers.drawCnt, gl.UNSIGNED_SHORT, 0);
-  // gl.drawArrays(gl.TRIANGLE_STRIP, offset, buffers.drawCnt);
+//   gl.drawElements(gl.TRIANGLES, buffers.drawCnt, gl.UNSIGNED_SHORT, 0);
+  gl.drawArrays(gl.TRIANGLES, 0, buffers.drawCnt);
 
   gl.disableVertexAttribArray(programInfo.attribLocations.vertexPosition);
   gl.disableVertexAttribArray(programInfo.attribLocations.normalPosition);
