@@ -26,17 +26,17 @@
       }
   </style>
   <style>
-    #filterOptions label img {
+    #lightModelOptions label img {
         border: 2px solid transparent; /* 默认无边框 */
         border-radius: 5px; /* 可选：圆角边框 */
         transition: border-color 0.3s; /* 平滑过渡效果 */
     }
 
-    #filterOptions label input:checked + img {
+    #lightModelOptions label input:checked + img {
         border: 5px solid #007BFF; /* 选中状态的外框颜色 */
     }
 
-    #filterOptions label img:hover {
+    #lightModelOptions label img:hover {
         border-color: #555; /* 鼠标悬停时的边框颜色 */
     }
   </style>
@@ -46,6 +46,23 @@
 
     <div id="horizontal">
         <button style="margin: 5px; width: 120px; height: 30px;" onclick="refresh()">刷新</button>
+    </div>
+    <!-- 光照模型选项容器 -->
+    <div id="lightModelOptions" style="display:block; margin-top:10px;">
+        <form id="lightForm" onchange="onLightModelChange(event)">
+            <label>
+                <input type="radio" name="light" value="nolight" style="display:none;">
+                <img src="./texture/lut_none.jpg" alt="无光照" title="无光照" style="width:50px; height:50px; cursor:pointer;">
+            </label>
+            <label>
+                <input type="radio" name="light" value="pbrlight" checked style="display:none;">
+                <img src="./model/pbr/pbr.jpg" alt="PBR" title="PBR" style="width:50px; height:50px; cursor:pointer;">
+            </label>
+            <label>
+                <input type="radio" name="light" value="phonglight" style="display:none;">
+                <img src="./model/pbr/phonglight.jpg" alt="Phong光照" title="Phong光照" style="width:50px; height:50px; cursor:pointer;">
+            </label>
+        </form>
     </div>
 
     <div style="border: 1px solid #cccccc; width: 200px; padding: 5px">

@@ -8,7 +8,7 @@ var mObjectBuffer = [];
 var mBaseTextureInfo = null;
 var mObjectNormalTexture = null;
 var mObjectMetalnessTexture = null;
-var mObjectEmissiveTexture = null;
+// var mObjectEmissiveTexture = null;
 var mObjectRoughnessTexture = null;
 var mViewportWidth = 0;
 var mViewportHeight = 0;
@@ -68,7 +68,7 @@ function main() {
   mBaseTextureInfo = loadTextureByUrl(mGl, './model/pbr/fire_hydrant_Base_Color.png');
   mObjectNormalTexture = loadTextureByUrl(mGl, './model/pbr/fire_hydrant_Normal.png');
   mObjectMetalnessTexture = loadTextureByUrl(mGl, './model/pbr/fire_hydrant_Metallic.png');
-  mObjectEmissiveTexture = loadTextureByUrl(mGl, './model/pbr/fire_hydrant_Mixed_AO.png');
+//   mObjectEmissiveTexture = loadTextureByUrl(mGl, './model/pbr/fire_hydrant_Mixed_AO.png');
   mObjectRoughnessTexture = loadTextureByUrl(mGl, './model/pbr/fire_hydrant_Roughness.png');
 
   // init shader
@@ -86,23 +86,23 @@ function main() {
 
 // Draw the scene repeatedly
 function requestRender() {
-  drawScene(mGl, mProgram, 0);
+    drawScene(mGl, mProgram, 0);
 
-  // 如果鼠标未拖拽，应用惯性旋转
-  if (!mIsDragging) {
-      if (Math.abs(mVelocityX) > 0.01 || Math.abs(mVelocityY) > 0.01) {
-          mYawing += mVelocityX;
-          mPitching += mVelocityY;
+    // 如果鼠标未拖拽，应用惯性旋转
+    if (!mIsDragging) {
+        if (Math.abs(mVelocityX) > 0.01 || Math.abs(mVelocityY) > 0.01) {
+            mYawing += mVelocityX;
+            mPitching += mVelocityY;
 
-          // 应用阻尼
-          mVelocityX *= mDamping;
-          mVelocityY *= mDamping;
+            // 应用阻尼
+            mVelocityX *= mDamping;
+            mVelocityY *= mDamping;
 
-          requestAnimationFrame(requestRender); // 持续渲染
-      }
-  }
+            requestAnimationFrame(requestRender); // 持续渲染
+        }
+    }
 
-  // 相机动画逻辑
+    // 相机动画逻辑
     if (mCameraAnimationTarget) {
         const damping = 0.1; // 阻尼系数
         const distanceThreshold = 0.01; // 停止动画的距离阈值
@@ -232,6 +232,8 @@ function updateShader() {
             uNormalMap: mGl.getUniformLocation(shaderProgram, 'uNormalMap'),
             uRoughnessMap: mGl.getUniformLocation(shaderProgram, 'uRoughnessMap'),
             uMetallicMap: mGl.getUniformLocation(shaderProgram, 'uMetallicMap'),
+            uShininess: mGl.getUniformLocation(shaderProgram, 'uShininess'),
+            uAmbientColor: mGl.getUniformLocation(shaderProgram, 'uAmbientColor'),
         },
     };
 }
@@ -465,23 +467,31 @@ function drawScene(gl, programInfo, deltaTime) {
     gl.uniform3fv(programInfo.uniformLocations.uLightPosition, [10.0, 10.0, 10.0]);
     gl.uniform3fv(programInfo.uniformLocations.uLightColor, [1.0, 1.0, 1.0]);
     gl.uniform3fv(programInfo.uniformLocations.uCameraPosition, mCameraPosition);
+    gl.uniform1f(programInfo.uniformLocations.uShininess, 32.0);
+    gl.uniform3fv(programInfo.uniformLocations.uAmbientColor, [0.1, 0.1, 0.1]);
 
     // 绑定纹理
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, mBaseTextureInfo.texture);
     gl.uniform1i(programInfo.uniformLocations.uBaseColorMap, 0);
 
-    gl.activeTexture(gl.TEXTURE1);
-    gl.bindTexture(gl.TEXTURE_2D, mObjectNormalTexture.texture);
-    gl.uniform1i(programInfo.uniformLocations.uNormalMap, 1);
+    if (null != mObjectNormalTexture) {
+        gl.activeTexture(gl.TEXTURE1);
+        gl.bindTexture(gl.TEXTURE_2D, mObjectNormalTexture.texture);
+        gl.uniform1i(programInfo.uniformLocations.uNormalMap, 1);
+    }
 
-    gl.activeTexture(gl.TEXTURE2);
-    gl.bindTexture(gl.TEXTURE_2D, mObjectRoughnessTexture.texture);
-    gl.uniform1i(programInfo.uniformLocations.uRoughnessMap, 2);
+    if (null != mObjectMetalnessTexture) {
+        gl.activeTexture(gl.TEXTURE2);
+        gl.bindTexture(gl.TEXTURE_2D, mObjectMetalnessTexture.texture);
+        gl.uniform1i(programInfo.uniformLocations.uMetallicMap, 2);
+    }
 
-    gl.activeTexture(gl.TEXTURE3);
-    gl.bindTexture(gl.TEXTURE_2D, mObjectMetalnessTexture.texture);
-    gl.uniform1i(programInfo.uniformLocations.uMetallicMap, 3);
+    if (null != mObjectRoughnessTexture) {
+        gl.activeTexture(gl.TEXTURE3);
+        gl.bindTexture(gl.TEXTURE_2D, mObjectRoughnessTexture.texture);
+        gl.uniform1i(programInfo.uniformLocations.uRoughnessMap, 3);
+    }
 
     // 绘制对象
     for (let i = 0; i < mObjectBuffer.length; i++) {
@@ -579,5 +589,68 @@ function updateHtmlMvpMatrixByRender() {
 }
 
 function refresh() {
-  requestRender();
+    requestRender();
+}
+
+function onLightModelChange(event) {
+    const selectedLight = event.target.value;
+    console.log(`Selected Light Model: ${selectedLight}`);
+    if (selectedLight == 'nolight') {
+        mObjectNormalTexture = null;
+        mObjectMetalnessTexture = null;
+        mObjectRoughnessTexture = null;
+        console.log('No Light Model applied.');
+        updateShaders('./shader/base.vs', './shader/base.fs');
+    } else if (selectedLight == 'pbrlight') {
+        mObjectNormalTexture = loadTextureByUrl(mGl, './model/pbr/fire_hydrant_Normal.png');
+        mObjectMetalnessTexture = loadTextureByUrl(mGl, './model/pbr/fire_hydrant_Metallic.png');
+        mObjectRoughnessTexture = loadTextureByUrl(mGl, './model/pbr/fire_hydrant_Roughness.png');
+        console.log('PBR Light applied.');
+        updateShaders('./shader/pbr_debug.vs', './shader/pbr_debug.fs');
+    } else if (selectedLight == 'phonglight') {
+        mObjectNormalTexture = loadTextureByUrl(mGl, './model/pbr/fire_hydrant_Normal.png');
+        mObjectMetalnessTexture = null;
+        mObjectRoughnessTexture = null;
+        console.log('Phong Light applied.');
+        updateShaders('./shader/phong_lighting.vs', './shader/phong_lighting.fs');
+    }
+
+    requestRender();
+}
+
+function updateShaders(vertexShaderPath, fragmentShaderPath) {
+    const vertexShaderPromise = fetch(vertexShaderPath)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`Failed to load vertex shader: ${vertexShaderPath}`);
+            }
+            return response.text();
+        })
+        .then(vertexShaderCode => {
+            document.getElementById('pbr_vertex_shader').value = vertexShaderCode;
+            console.log(`Vertex shader updated from ${vertexShaderPath}`);
+        })
+        .catch(error => console.error(error));
+
+    const fragmentShaderPromise = fetch(fragmentShaderPath)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`Failed to load fragment shader: ${fragmentShaderPath}`);
+            }
+            return response.text();
+        })
+        .then(fragmentShaderCode => {
+            document.getElementById('pbr_fragment_shader').value = fragmentShaderCode;
+            console.log(`Fragment shader updated from ${fragmentShaderPath}`);
+        })
+        .catch(error => console.error(error));
+
+    // 等待两个 Shader 文件都加载完成后调用 updateShader()
+    Promise.all([vertexShaderPromise, fragmentShaderPromise])
+    .then(() => {
+        console.log('Both shaders loaded, updating shader program...');
+        updateShader(); // 调用 updateShader 函数
+        requestRender();
+    })
+    .catch(error => console.error('Error loading shaders:', error));
 }
