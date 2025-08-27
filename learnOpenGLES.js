@@ -257,6 +257,9 @@ var mQuatRatateMatrix = mat4.create();
 var mMouseDown = false;
 var mLastMouseX = null;
 var mLastMouseY = null;
+let mVelocityX = 0; // 鼠标释放后的惯性速度
+let mVelocityY = 0;
+let mDamping = 0.95; // 阻尼系数，控制旋转逐步变慢
 var mDragMainView = true;
 // cobra anim
 var mNeedDrawCobraAnim = false;
@@ -478,6 +481,20 @@ class GLScene extends GLCanvas {
 
         // draw scene
         drawScene(gl, mBasicProgram, mBasicTexProgram, mDiffuseLightingProgram, now, deltaTime);
+
+        // 如果鼠标未拖拽，应用惯性旋转
+        // if (!mMouseDown) {
+        //     if (Math.abs(mVelocityX) > 0.01 || Math.abs(mVelocityY) > 0.01) {
+        //         mYawing += mVelocityX;
+        //         mPitching += mVelocityY;
+
+        //         // 应用阻尼
+        //         mVelocityX *= mDamping;
+        //         mVelocityY *= mDamping;
+
+        //         requestRender(); // 持续渲染
+        //     }
+        // }
 
         if (now - mOneSecThen > 1000) {
             mOneSecThen = now;
@@ -2545,13 +2562,24 @@ function handleMouseMove(event) {
     var deltaX = event.clientX - mLastMouseX;
     var deltaY = event.clientY - mLastMouseY;
     if (mDragMainView) {
-        mYawing = deltaX / 100;
-        mPitching = deltaY / 100;
+        // mYawing = deltaX / 100;
+        // mPitching = deltaY / 100;
+        mYawing += deltaX * 0.01;
+        mPitching += deltaY * 0.01;
+        console.log('yawing: ' + mYawing + ' pitch: ' + mPitching);
     } else {
-        mEyePosYawing = deltaX / 100;
-        mEyePosPitching = -deltaY / 100;
+        // mEyePosYawing = deltaX / 100;
+        // mEyePosPitching = -deltaY / 100;
+        mEyePosYawing += deltaX * 0.01;
+        mEyePosPitching += deltaY * 0.01;
         updateViewMatrixByMouse();
     }
+
+    // 更新惯性速度
+    mVelocityX = deltaX * 0.1;
+    mVelocityY = deltaY * 0.1;
+    mLastMouseX = event.clientX;
+    mLastMouseY = event.clientY;
 
     requestRender();
 }
@@ -3758,7 +3786,7 @@ function drawObject(gl, pbrLightingProgram, shadowProgram, buffers,
         gl.uniform4fv(pbrLightingProgram.uniformLocations.uScaleDiffBaseMRHandle, DEFAULT_SCALE_DIFF_BASE_MR);
         gl.uniform4fv(pbrLightingProgram.uniformLocations.uScaleFGDSpecHandle, DEFAULT_SCALE_FGD_SPEC);
         gl.uniform4fv(pbrLightingProgram.uniformLocations.uScaleIBLAmbientHandle, DEFAULT_SCALE_IBL_AMBIENT);
-        gl.uniform4fv(pbrLightingProgram.uniformLocations.uCameraHandle, vec3.fromValues(0.0, 0.0, -5.0));
+        gl.uniform3fv(pbrLightingProgram.uniformLocations.uCameraHandle, vec3.fromValues(0.0, 0.0, -5.0));
     }
 
     const drawOffset = 0;
