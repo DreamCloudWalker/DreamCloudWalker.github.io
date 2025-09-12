@@ -18,7 +18,8 @@ var mViewportHeight = 0;
 var mPitching = 0.0;
 var mYawing = 0.0;
 var mRolling = 0.0;
-var mScale = 1.0;
+var mScaleX = 1.0;
+var mScaleY = 1.0;
 var mTransX = 0.0;
 var mTransY = 0.0;
 var mProjectionMatrix = mat4.create();
@@ -315,7 +316,7 @@ function drawScene(gl, programInfo, buffers, deltaTime) {
               rollRotation,
               [0, 0, 1]);
               
-  mat4.scale(mModelMatrix, mModelMatrix, [mScale, mScale, mScale]);
+  mat4.scale(mModelMatrix, mModelMatrix, [mScaleX, mScaleY, 1.0]);
 
 
   // Tell WebGL how to pull out the positions from the position
@@ -412,38 +413,50 @@ function updateHtmlMvpMatrixByRender() {
 }
 
 function moveLeft() {
-  mTransX -= 0.5;
+  mTransX -= 0.25;
   console.log(`向左移动，当前 mTransX: ${mTransX}`);
   requestRender();
 }
 
 function moveRight() {
-  mTransX += 0.5;
+  mTransX += 0.25;
   console.log(`向右移动，当前 mTransX: ${mTransX}`);
   requestRender();
 }
 
 function moveUp() {
-  mTransY += 0.5;
+  mTransY += 0.25;
   console.log(`向上移动，当前 mTransY: ${mTransY}`);
   requestRender();
 }
 
 function moveDown() {
-  mTransY -= 0.5;
+  mTransY -= 0.25;
   console.log(`向下移动，当前 mTransY: ${mTransY}`);
   requestRender();
 }
 
-function scaleUp() {
-  mScale += 0.5;
-  console.log(`放大，当前 mScale: ${mScale}`);
+function scaleXUp() {
+  mScaleX += 0.25;
+  console.log(`放大，当前 mScaleX: ${mScaleX}`);
   requestRender();
 }
 
-function scaleDown() {
-  mScale = Math.max(0.0, mScale - 0.5); // 防止缩小到负值
-  console.log(`缩小，当前 mScale: ${mScale}`);
+function scaleXDown() {
+  mScaleX = Math.max(0.0, mScaleX - 0.25); // 防止缩小到负值
+  console.log(`缩小，当前 mScaleX: ${mScaleX}`);
+  requestRender();
+}
+
+function scaleYUp() {
+  mScaleY += 0.25;
+  console.log(`放大，当前 mScaleY: ${mScaleY}`);
+  requestRender();
+}
+
+function scaleYDown() {
+  mScaleY = Math.max(0.0, mScaleY - 0.25); // 防止缩小到负值
+  console.log(`缩小，当前 mScaleY: ${mScaleY}`);
   requestRender();
 }
 

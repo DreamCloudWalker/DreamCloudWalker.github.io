@@ -43,12 +43,14 @@
     <canvas id="glcanvas" width="512" height="512"></canvas>
 
     <div id="horizontal">
-        <button style="margin: 5px; width: 120px; height: 30px;" onclick="moveLeft()">向左移动0.5</button>
-        <button style="margin: 5px; width: 120px; height: 30px;" onclick="moveRight()">向右移动0.5</button>
-        <button style="margin: 5px; width: 120px; height: 30px;" onclick="moveUp()">向上移动0.5</button>
-        <button style="margin: 5px; width: 120px; height: 30px;" onclick="moveDown()">向下移动0.5</button>
-        <button style="margin: 5px; width: 120px; height: 30px;" onclick="scaleUp()">放大0.5</button>
-        <button style="margin: 5px; width: 120px; height: 30px;" onclick="scaleDown()">缩小0.5</button>
+        <button style="margin: 5px; width: 120px; height: 30px;" onclick="moveLeft()">向左移动0.25</button>
+        <button style="margin: 5px; width: 120px; height: 30px;" onclick="moveRight()">向右移动0.25</button>
+        <button style="margin: 5px; width: 120px; height: 30px;" onclick="moveUp()">向上移动0.25</button>
+        <button style="margin: 5px; width: 120px; height: 30px;" onclick="moveDown()">向下移动0.25</button>
+        <button style="margin: 5px; width: 120px; height: 30px;" onclick="scaleXUp()">X放大0.25</button>
+        <button style="margin: 5px; width: 120px; height: 30px;" onclick="scaleXDown()">X缩小0.25</button>
+        <button style="margin: 5px; width: 120px; height: 30px;" onclick="scaleYUp()">Y放大0.25</button>
+        <button style="margin: 5px; width: 120px; height: 30px;" onclick="scaleYDown()">Y缩小0.25</button>
         <button style="margin: 5px; width: 120px; height: 30px;" onclick="rotateRight()">向右旋转15度</button>
         <button style="margin: 5px; width: 120px; height: 30px;" onclick="rotateLeft()">向左旋转15度</button>
     </div>
@@ -88,7 +90,7 @@
 
     <button style="display:block; margin:5; width: 200px; height: 30px" onclick="updateShader()">编译并运行下面着色程序</button>
     <div id="vertical">
-        <div id="horizontal" style="width: 1024px;">
+        <div id="horizontal" style="width: 512px;">
             <div id="vertical">
                 <b>VertexShader</b>
                 <textarea spellcheck="false" rows="33" cols="70" id="id_vertex_shader">

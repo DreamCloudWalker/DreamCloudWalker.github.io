@@ -79,6 +79,19 @@ var mSpecularShininess = 33.0;  // shinniness, the more smaller, the more smooth
 var mUseAmbientColor = true;
 var mUseDiffuseColor = true;
 var mUseSpecularColor = true;
+// lens flare
+var mLensFlareTextures = [];
+var mLensFlareElements = [];
+var mLensFlareQuadBuffer = null;
+var mLensFlareTexCoordBuffer = null;
+const mLensFlareQuadVerts = new Float32Array([
+    -1.0, -1.0,
+     1.0, -1.0,
+    -1.0,  1.0,
+     1.0,  1.0
+]);
+var mLensFlareProgram = null;
+var mLensFlareModelViewMatrix = mat4.create();
 // shadow
 var mNeedDrawShadow = false;
 var mShadowProgram = null;
@@ -357,6 +370,7 @@ class GLScene extends GLCanvas {
 
         // Here's where we call the routine that builds all the objects we'll be drawing.
         initFighterBuffers(gl);
+        initLensFlareBuffers(gl);
         // init terrain
         mTerrainBuffer = initTerrainBuffer(gl);
         // texture
@@ -371,6 +385,21 @@ class GLScene extends GLCanvas {
         mYUVVideoTexture = createTexture(gl);
         // mLutTexture = loadTexture(gl, './texture/lookup_vertigo.png', requestRender);
 
+        mLensFlareTextures = [
+            loadTexture(gl, './texture/LensFlare/lensflare0.png', requestRender),
+            loadTexture(gl, './texture/LensFlare/lensflare2.png', requestRender),
+            loadTexture(gl, './texture/LensFlare/lensflare3.png', requestRender)
+        ];
+        mLensFlareElements = [
+            { texture: mLensFlareTextures[0], size: 500, distance: 0.0, color: [1,1,1,1] },
+            { texture: mLensFlareTextures[1], size: 512, distance: 0.3, color: [1,1,1,1] },
+            { texture: mLensFlareTextures[1], size: 512, distance: 0.5, color: [1,1,1,1] },
+            { texture: mLensFlareTextures[2], size: 60,  distance: 0.6, color: [1,1,1,1] },
+            { texture: mLensFlareTextures[2], size: 70,  distance: 0.7, color: [1,1,1,1] },
+            { texture: mLensFlareTextures[2], size: 120, distance: 0.9, color: [1,1,1,1] },
+            { texture: mLensFlareTextures[2], size: 70,  distance: 1.0, color: [1,1,1,1] }
+        ];
+
         // init shader
         updateBackgroundShader();
         updateLightShader();
@@ -378,6 +407,7 @@ class GLScene extends GLCanvas {
         updateYUVVideoShader();
         initPBRLightingShader();
         mBasicProgram = initBasicShader(gl);
+        mLensFlareProgram = initLensFlareShader(gl);
         mShadowProgram = updateShadowProgram();
         mBasicTexProgram = initBasicTexShader(gl);
         mDiffuseLightingProgram = initDiffuseLightingShader(gl);
@@ -764,6 +794,72 @@ function initBasicTexShader(gl) {
         uniformLocations: {
             uMVPMatrixHandle: gl.getUniformLocation(shaderProgram, 'uMVPMatrix'),
             uTexSamplerHandle: gl.getUniformLocation(shaderProgram, 'uTexSampler'),
+        },
+    };
+
+    return programInfo;
+}
+
+function initLensFlareShader(gl) {
+    const vsSource = `
+        attribute vec2 aPosition;
+        attribute vec2 aTexCoord;
+        varying vec2 vTexCoord;
+
+        uniform vec2   uCenter;
+        uniform float  uSize;
+        uniform vec2   uResolution;
+
+        void main() {
+            // vec2 pos = uCenter + aPosition * uSize;
+            // vec2 clipPos = (pos / uResolution) * 2.0 - 1.0;
+            gl_Position = vec4(aPosition, 0.0, 1.0);    // vec4(clipPos * vec2(1, -1), 0, 1);
+
+            vTexCoord = aTexCoord;
+        }
+    `;
+
+    const fsSource = `
+        precision mediump float;
+        uniform sampler2D uTexture;
+        uniform vec4 uColor;
+        varying vec2 vTexCoord;
+
+        void main() {
+            vec4 texColor = texture2D(uTexture, vTexCoord);
+            gl_FragColor = texColor * uColor;
+        }
+    `;
+
+    // Initialize a shader program
+    const vertexShader = loadShader(gl, gl.VERTEX_SHADER, vsSource);
+    const fragmentShader = loadShader(gl, gl.FRAGMENT_SHADER, fsSource);
+  
+    // Create the shader program
+    const shaderProgram = gl.createProgram();
+    gl.attachShader(shaderProgram, vertexShader);
+    gl.attachShader(shaderProgram, fragmentShader);
+    gl.linkProgram(shaderProgram);
+  
+    // If creating the shader program failed, alert
+    if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
+        alert('Unable to initialize the shader program: ' + gl.getProgramInfoLog(shaderProgram));
+        return null;
+    }
+
+    // Collect all the info needed to use the shader program
+    const programInfo = {
+        program: shaderProgram,
+        attribLocations: {
+            vertexPosition: gl.getAttribLocation(shaderProgram, 'aPosition'),
+            textureCoord: gl.getAttribLocation(shaderProgram, 'aTexCoord'),
+        },
+        uniformLocations: {
+            uCenterHandle: gl.getUniformLocation(shaderProgram, 'uCenter'),
+            uSizeHandle: gl.getUniformLocation(shaderProgram, 'uSize'),
+            uResolutionHandle: gl.getUniformLocation(shaderProgram, 'uResolution'),
+            uTextureHandle: gl.getUniformLocation(shaderProgram, 'uTexture'),
+            uColorHandle: gl.getUniformLocation(shaderProgram, 'uColor'),
         },
     };
 
@@ -2467,6 +2563,23 @@ function updateBackgroundBuffer(gl) {
     };
 }
 
+function initLensFlareBuffers(gl) {
+    mLensFlareQuadBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, mLensFlareQuadBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(mLensFlareQuadVerts), gl.STATIC_DRAW);
+
+    // 纹理坐标缓冲区
+    const texCoords = new Float32Array([
+        0.0, 0.0,
+        1.0, 0.0,
+        0.0, 1.0,
+        1.0, 1.0
+    ]);
+    mLensFlareTexCoordBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, mLensFlareTexCoordBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, texCoords, gl.STATIC_DRAW);
+}
+
 function initFighterBuffers(gl) {
     // read file
     function onProgress(xhr) {
@@ -2566,7 +2679,7 @@ function handleMouseMove(event) {
         // mPitching = deltaY / 100;
         mYawing += deltaX * 0.01;
         mPitching += deltaY * 0.01;
-        console.log('yawing: ' + mYawing + ' pitch: ' + mPitching);
+        // console.log('yawing: ' + mYawing + ' pitch: ' + mPitching);
     } else {
         // mEyePosYawing = deltaX / 100;
         // mEyePosPitching = -deltaY / 100;
@@ -3875,6 +3988,7 @@ function drawScene(gl, basicProgram, basicTexProgram, diffuseLightingProgram, no
     if (mNeedDrawSphere) {
         drawSphere(gl, mSphereProgram, mSphereBuffer, mSphereBuffer.drawCnt, deltaTime, false);
     }
+    drawLensFlare(gl, mLensFlareProgram, LIGHT_POSITION, mLensFlareModelViewMatrix, mProjectionMatrix);
     // drawCloud(gl, mCloudProgram, mCloudPlaneBuffer, mCloudTexture, mCloudPlaneBuffer.drawCnt, deltaTime, false);
     updateAnimQuatHtmlValue();
     mCobraAnimFrameEllapse++;
@@ -4417,4 +4531,83 @@ function executeYawing(step) {
 
 function executeRolling(step) {
     mRolling += step;
+}
+
+function worldToScreen(pos, modelViewMatrix, projectionMatrix) {
+    // pos: [x, y, z]
+    let v = vec4.fromValues(pos[0], pos[1], pos[2], 1.0);
+    vec4.transformMat4(v, v, modelViewMatrix);
+    vec4.transformMat4(v, v, projectionMatrix);
+    v[0] /= v[3];
+    v[1] /= v[3];
+    // 转换到像素坐标
+    return [
+        (v[0] * 0.5 + 0.5) * mViewportWidth,
+        (1.0 - (v[1] * 0.5 + 0.5)) * mViewportHeight
+    ];
+}
+
+function drawLensFlare(gl, lensFlareProgram, lightWorldPos, modelViewMatrix, projectionMatrix) {
+    // 启用 Alpha 混合
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
+    // 1. 计算光源屏幕坐标
+    const lightScreen = worldToScreen(lightWorldPos, modelViewMatrix, projectionMatrix);
+    const screenCenter = [mViewportWidth / 2, mViewportHeight / 2];
+    const flareVec = [screenCenter[0] - lightScreen[0], screenCenter[1] - lightScreen[1]];
+
+    // 2. 依次绘制每个 lens flare 元素,记录已绑定的纹理及其对应的纹理单元
+    const textureUnitMap = new Map();
+    let textureUnit = 0; // 从纹理单元 0 开始
+
+    for (let elem of mLensFlareElements) {
+        // 计算当前元素的中心点
+        const center = [
+            lightScreen[0] + flareVec[0] * elem.distance,
+            lightScreen[1] + flareVec[1] * elem.distance
+        ];
+
+        // 检查纹理是否已经绑定到某个纹理单元
+        let currentTextureUnit;
+        if (textureUnitMap.has(elem.texture)) {
+            currentTextureUnit = textureUnitMap.get(elem.texture);
+        } else {
+            // 如果纹理尚未绑定，分配新的纹理单元
+            currentTextureUnit = textureUnit;
+            gl.activeTexture(gl.TEXTURE0 + textureUnit);
+            gl.bindTexture(gl.TEXTURE_2D, elem.texture);
+            textureUnitMap.set(elem.texture, textureUnit);
+            textureUnit++;
+
+            // 检查是否超过最大纹理单元数
+            if (textureUnit >= gl.MAX_COMBINED_TEXTURE_IMAGE_UNITS) {
+                console.warn("超过了最大纹理单元数，可能会导致渲染问题！");
+                break;
+            }
+        }
+
+        // 设置 uniforms
+        gl.useProgram(lensFlareProgram.program);
+        gl.uniform2fv(lensFlareProgram.uniformLocations.uCenter, center);
+        gl.uniform1f(lensFlareProgram.uniformLocations.uSize, elem.size);
+        gl.uniform2fv(lensFlareProgram.uniformLocations.uResolution, [mViewportWidth, mViewportHeight]);
+        gl.uniform4fv(lensFlareProgram.uniformLocations.uColor, elem.color);
+        gl.uniform1i(lensFlareProgram.uniformLocations.uTexture, currentTextureUnit); // 告诉着色器使用哪个纹理单元
+
+        // 绑定顶点坐标缓冲区,绘制一个屏幕对齐的四边形（两个三角形）
+        gl.bindBuffer(gl.ARRAY_BUFFER, mLensFlareQuadBuffer);
+        gl.vertexAttribPointer(lensFlareProgram.attribLocations.aPosition, 2, gl.FLOAT, false, 0, 0);
+        gl.enableVertexAttribArray(lensFlareProgram.attribLocations.aPosition);
+
+        // 绑定纹理坐标缓冲区
+        gl.bindBuffer(gl.ARRAY_BUFFER, mLensFlareTexCoordBuffer);
+        gl.vertexAttribPointer(lensFlareProgram.attribLocations.aTexCoord, 2, gl.FLOAT, false, 0, 0);
+        gl.enableVertexAttribArray(lensFlareProgram.attribLocations.aTexCoord);
+
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    }
+
+    // 禁用 Alpha 混合
+    gl.disable(gl.BLEND);
 }
