@@ -170,7 +170,7 @@ function updateShader() {
       uniformLocations: {
           uMVPMatrixHandle: mGl.getUniformLocation(shaderProgram, 'uMvpMatrix'),
           uCenterHandle: mGl.getUniformLocation(shaderProgram, 'uCenter'),
-          uSizeHandle: mGl.getUniformLocation(shaderProgram, 'uSize'),
+          uScaleHandle: mGl.getUniformLocation(shaderProgram, 'uScale'),
           uResolutionHandle: mGl.getUniformLocation(shaderProgram, 'uResolution'),
           uColorHandle: mGl.getUniformLocation(shaderProgram, 'uColor'),
           uTextureHandle: mGl.getUniformLocation(shaderProgram, 'uTexture'),
@@ -329,7 +329,12 @@ function isPowerOf2(value) {
 }
 
 function createPlaneVertices() {
-  var vertices = [-1.0, -1.0, 0.0, 1.0, -1.0, 0.0, -1.0,  1.0, 0.0, 1.0,  1.0, 0.0];
+  var vertices = [
+    -0.5, -0.5,
+     0.5, -0.5,
+    -0.5,  0.5,
+     0.5,  0.5
+  ]   // [-1.0, -1.0, 1.0, -1.0, -1.0,  1.0, 1.0,  1.0];
   
   return vertices;
 }
@@ -379,105 +384,129 @@ function drawScene(gl, programInfo, buffers, deltaTime) {
 }
 
 function drawLensFlare(gl, programInfo, buffers, deltaTime) {
-// 启用 Alpha 混合
-  gl.enable(gl.BLEND);
-  gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    const tempMatrix = mat4.create();
+    mat4.multiply(tempMatrix, mViewMatrix, mModelMatrix);
+    mat4.multiply(mMvpMatrix, mProjectionMatrix, tempMatrix);
+    updateHtmlMvpMatrixByRender();
 
-  // Set the drawing position to the "identity" point, which is the center of the scene.
-  mModelMatrix = mat4.create();
-  
-  mat4.translate(mModelMatrix,     // destination matrix
-                 mModelMatrix,     // matrix to translate
-                 [mTransX, mTransY, 0.0]);  // amount to translate
+    // 1. 计算光源屏幕坐标
+    const lightScreen = worldToScreen(LIGHT_POSITION, mMvpMatrix);
+    const screenCenter = [0.5, 0.5];   // [mViewportWidth / 2, mViewportHeight / 2];
+    const flareVec = [screenCenter[0] - lightScreen[0], screenCenter[1] - lightScreen[1]];
 
-  mat4.rotate(mModelMatrix,  // destination matrix
-              mModelMatrix,  // matrix to rotate
-              mPitching,     // amount to rotate in radians
-              [1, 0, 0]);    // axis to rotate around
-  mat4.rotate(mModelMatrix,  // destination matrix
-              mModelMatrix,  // matrix to rotate
-              mYawing,       // amount to rotate in radians
-              [0, 1, 0]);    // axis to rotate around
+    // 启用 Alpha 混合
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
-  const rollRotation = mRolling * DEGREE_TO_RADIUS;
-  mat4.rotate(mModelMatrix, 
-              mModelMatrix,
-              rollRotation,
-              [0, 0, 1]);
+    // Set the drawing position to the "identity" point, which is the center of the scene.
+    mModelMatrix = mat4.create();
+    
+    mat4.translate(mModelMatrix,     // destination matrix
+                    mModelMatrix,     // matrix to translate
+                    [mTransX, mTransY, 0.0]);  // amount to translate
 
-  // Tell WebGL how to pull out the positions from the position
-  // buffer into the vertexPosition attribute.
-  {
-      const numComponents = 3;
-      const type = gl.FLOAT;
-      const normalize = false;
-      const stride = 0;
-      const offset = 0;
-      gl.bindBuffer(gl.ARRAY_BUFFER, buffers.position);
-      gl.vertexAttribPointer(
-          programInfo.attribLocations.vertexPosition,
-          numComponents,
-          type,
-          normalize,
-          stride,
-          offset);
-      gl.enableVertexAttribArray(
-          programInfo.attribLocations.vertexPosition);
-  }
+    mat4.rotate(mModelMatrix,  // destination matrix
+                mModelMatrix,  // matrix to rotate
+                mPitching,     // amount to rotate in radians
+                [1, 0, 0]);    // axis to rotate around
+    mat4.rotate(mModelMatrix,  // destination matrix
+                mModelMatrix,  // matrix to rotate
+                mYawing,       // amount to rotate in radians
+                [0, 1, 0]);    // axis to rotate around
 
-  // Tell WebGL how to pull out the texture coordinates from the texture 
-  // coordinate buffer into the textureCoord attribute.
-  {
-      const numComponents = 2;
-      const type = gl.FLOAT;
-      const normalize = false;
-      const stride = 0;
-      const offset = 0;
-      gl.bindBuffer(gl.ARRAY_BUFFER, buffers.uv);
-      gl.vertexAttribPointer(
-          programInfo.attribLocations.textureCoord,
-          numComponents,
-          type,
-          normalize,
-          stride,
-          offset);
-      gl.enableVertexAttribArray(
-          programInfo.attribLocations.textureCoord);
-  }
-  
-  // Tell WebGL to use our program when drawing
-  gl.useProgram(programInfo.program);
+    const rollRotation = mRolling * DEGREE_TO_RADIUS;
+    mat4.rotate(mModelMatrix, 
+                mModelMatrix,
+                rollRotation,
+                [0, 0, 1]);
 
-  // Specify the diffuseTexture to map onto the faces.
-  // Tell WebGL we want to affect diffuseTexture unit 0
-  gl.activeTexture(gl.TEXTURE0);
-  // Bind the diffuseTexture to diffuseTexture unit 0
-  gl.bindTexture(gl.TEXTURE_2D, mPlaneTextureInfo.texture);
-  // Tell the shader we bound the diffuseTexture to diffuseTexture unit 0
-  gl.uniform1i(programInfo.uniformLocations.uTextureHandle, 0);
-  gl.uniform2fv(programInfo.uniformLocations.uCenter, [0, 0]);
-  gl.uniform1f(programInfo.uniformLocations.uSize, 512);
-  gl.uniform2fv(programInfo.uniformLocations.uResolution, [mViewportWidth, mViewportHeight]);
-  gl.uniform4fv(programInfo.uniformLocations.uColor, [1,1,1,1]);
+    // Tell WebGL how to pull out the positions from the position
+    // buffer into the vertexPosition attribute.
+    {
+        const numComponents = 2;
+        const type = gl.FLOAT;
+        const normalize = false;
+        const stride = 0;
+        const offset = 0;
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffers.position);
+        gl.vertexAttribPointer(
+            programInfo.attribLocations.vertexPosition,
+            numComponents,
+            type,
+            normalize,
+            stride,
+            offset);
+        gl.enableVertexAttribArray(
+            programInfo.attribLocations.vertexPosition);
+    }
 
-  const tempMatrix = mat4.create();
-  mat4.multiply(tempMatrix, mViewMatrix, mModelMatrix);
-  mat4.multiply(mMvpMatrix, mProjectionMatrix, tempMatrix);
-  updateHtmlMvpMatrixByRender();
+    // Tell WebGL how to pull out the texture coordinates from the texture 
+    // coordinate buffer into the textureCoord attribute.
+    {
+        const numComponents = 2;
+        const type = gl.FLOAT;
+        const normalize = false;
+        const stride = 0;
+        const offset = 0;
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffers.uv);
+        gl.vertexAttribPointer(
+            programInfo.attribLocations.textureCoord,
+            numComponents,
+            type,
+            normalize,
+            stride,
+            offset);
+        gl.enableVertexAttribArray(
+            programInfo.attribLocations.textureCoord);
+    }
+    
+    // Tell WebGL to use our program when drawing
+    gl.useProgram(programInfo.program);
 
-  // Set the shader uniforms
-  gl.uniformMatrix4fv(
-      programInfo.uniformLocations.uMVPMatrixHandle,
-      false, mMvpMatrix);
+    // Specify the diffuseTexture to map onto the faces.
+    // Tell WebGL we want to affect diffuseTexture unit 0
+    gl.activeTexture(gl.TEXTURE0);
+    // Bind the diffuseTexture to diffuseTexture unit 0
+    gl.bindTexture(gl.TEXTURE_2D, mPlaneTextureInfo.texture);
+    // Tell the shader we bound the diffuseTexture to diffuseTexture unit 0
+    gl.uniform1i(programInfo.uniformLocations.uTextureHandle, 0);
 
-  const offset = 0;
-  gl.drawArrays(gl.TRIANGLE_STRIP, offset, mVertices.length / 3);
+    const center = [
+        lightScreen[0] + flareVec[0] * 0.3,
+        lightScreen[1] + flareVec[1] * 0.3
+    ];
+    gl.uniform2fv(programInfo.uniformLocations.uCenterHandle, center);
+    gl.uniform2fv(programInfo.uniformLocations.uScaleHandle, [0.5, 0.5]);
+    gl.uniform2fv(programInfo.uniformLocations.uResolutionHandle, [mViewportWidth, mViewportHeight]);
+    gl.uniform4fv(programInfo.uniformLocations.uColorHandle, [1,1,1,1]);
 
-  gl.disableVertexAttribArray(programInfo.attribLocations.vertexPosition);
-  gl.disableVertexAttribArray(programInfo.attribLocations.textureCoord);
+    // Set the shader uniforms
+    gl.uniformMatrix4fv(
+        programInfo.uniformLocations.uMVPMatrixHandle,
+        false, mMvpMatrix);
 
-  // 禁用 Alpha 混合
-  gl.disable(gl.BLEND);
+    const offset = 0;
+    gl.drawArrays(gl.TRIANGLE_STRIP, offset, mVertices.length / 2);
+
+    gl.disableVertexAttribArray(programInfo.attribLocations.vertexPosition);
+    gl.disableVertexAttribArray(programInfo.attribLocations.textureCoord);
+
+    // 禁用 Alpha 混合
+    gl.disable(gl.BLEND);
+}
+
+// 不是像素坐标
+function worldToScreen(pos, mvpMatrix) {
+    // pos: [x, y, z]
+    let v = vec4.fromValues(pos[0], pos[1], pos[2], 1.0);
+    vec4.transformMat4(v, v, mvpMatrix);
+    v[0] /= v[3];
+    v[1] /= v[3];
+    // 转换到像素坐标
+    return [
+        (v[0] * 0.5 + 0.5),
+        (1.0 - (v[1] * 0.5 + 0.5))
+    ];
 }
 
 function updateHtmlMvpMatrixByRender() {

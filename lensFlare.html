@@ -43,7 +43,7 @@
   <body onload="main();" onkeypress="onKeyPress(event)" >
     <canvas id="glcanvas" width="720" height="720"></canvas>
 
-    <div style="border: 1px solid #cccccc; width: 200px; padding: 5px">
+    <div style="border: 1px solid #cccccc; width: 220px; padding: 5px">
         MVP矩阵 = 
         <div id="horizontal" style="margin: 5px">
             <img src="./texture/matrixL.png">
@@ -87,13 +87,17 @@ attribute vec2 aTexCoord;
 varying vec2 vTexCoord;
 
 uniform vec2   uCenter;
-uniform float  uSize;
+uniform vec2   uScale;
 uniform vec2   uResolution;
-
 uniform mat4   uMvpMatrix;
 
 void main() {
-    gl_Position = uMvpMatrix * vec4(aPosition, 0, 1);
+    vec2 screenPosition = aPosition * uScale + uCenter;
+    // convert to OpenGL coordinate system (with (0,0) in center of screen)
+	screenPosition.x = screenPosition.x * 2.0 - 1.0;
+	screenPosition.y = screenPosition.y * -2.0 + 1.0;
+
+    gl_Position = vec4(screenPosition, 0.0, 1.0);
 
     vTexCoord = aTexCoord;
 }
