@@ -1,9 +1,10 @@
 const DEGREE_TO_RADIUS = Math.PI / 180;
 const LIGHT_POSITION = vec3.fromValues(0.0, 5.0, -5.0);
+const LENS_FLARE_SPACING = 0.16;
 
+var mLensFlareTexures = [];
+var mLensFlareElements = [];
 var mCameraPosition = [0.0, 0.0, 10.0];
-
-var mPlaneTextureInfo = null;
 var mVertices = [];
 var mTexCoods = [];
 var mViewportWidth = 0;
@@ -61,7 +62,35 @@ function main() {
   mProjectionMatrix = mat4.create();
   mat4.perspective(mProjectionMatrix, fov, aspect, zNear, zFar);
 
-  mPlaneTextureInfo = loadTextureByUrl(mGl, './texture/lensFlare/lensflare0_alpha.png');
+  mLensFlareTextures = [
+    loadTextureByUrl(mGl, './texture/lensFlare1/sun.png'),
+    loadTextureByUrl(mGl, './texture/lensFlare1/tex1.png'),
+    loadTextureByUrl(mGl, './texture/lensFlare1/tex2.png'),
+    loadTextureByUrl(mGl, './texture/lensFlare1/tex3.png'),
+    loadTextureByUrl(mGl, './texture/lensFlare1/tex4.png'),
+    loadTextureByUrl(mGl, './texture/lensFlare1/tex5.png'),
+    loadTextureByUrl(mGl, './texture/lensFlare1/tex6.png'),
+    loadTextureByUrl(mGl, './texture/lensFlare1/tex7.png'),
+    loadTextureByUrl(mGl, './texture/lensFlare1/tex8.png'),
+    loadTextureByUrl(mGl, './texture/lensFlare1/tex9.png')
+  ];
+  mLensFlareElements = [
+    {texture: mLensFlareTextures[6], scale: 0.5}, 
+    {texture: mLensFlareTextures[4], scale: 0.23}, 
+    {texture: mLensFlareTextures[2], scale: 0.1}, 
+    {texture: mLensFlareTextures[7], scale: 0.05}, 
+    {texture: mLensFlareTextures[1], scale: 0.02}, 
+    {texture: mLensFlareTextures[3], scale: 0.06}, 
+    {texture: mLensFlareTextures[9], scale: 0.12}, 
+    {texture: mLensFlareTextures[5], scale: 0.07}, 
+    {texture: mLensFlareTextures[1], scale: 0.012}, 
+    {texture: mLensFlareTextures[7], scale: 0.2}, 
+    {texture: mLensFlareTextures[9], scale: 0.1}, 
+    {texture: mLensFlareTextures[3], scale: 0.07}, 
+    {texture: mLensFlareTextures[5], scale: 0.3}, 
+    {texture: mLensFlareTextures[4], scale: 0.4}, 
+    {texture: mLensFlareTextures[8], scale: 0.6}, 
+  ];
 
   // init shader
   updateShader();
@@ -172,7 +201,7 @@ function updateShader() {
           uCenterHandle: mGl.getUniformLocation(shaderProgram, 'uCenter'),
           uScaleHandle: mGl.getUniformLocation(shaderProgram, 'uScale'),
           uResolutionHandle: mGl.getUniformLocation(shaderProgram, 'uResolution'),
-          uColorHandle: mGl.getUniformLocation(shaderProgram, 'uColor'),
+          uBrightnessHandle: mGl.getUniformLocation(shaderProgram, 'uBrightness'),
           uTextureHandle: mGl.getUniformLocation(shaderProgram, 'uTexture'),
       },
   };
@@ -363,6 +392,11 @@ function drawScene(gl, programInfo, buffers, deltaTime) {
     // 更新视图矩阵
     mat4.lookAt(mViewMatrix, mCameraPosition, cameraTarget, [0.0, 1.0, 0.0]);
 
+    const tempMatrix = mat4.create();
+    mat4.multiply(tempMatrix, mViewMatrix, mModelMatrix);
+    mat4.multiply(mMvpMatrix, mProjectionMatrix, tempMatrix);
+    updateHtmlMvpMatrixByRender();
+
     drawLensFlare(gl, programInfo, buffers, deltaTime);
 
      // 如果鼠标未拖拽，应用惯性旋转
@@ -384,17 +418,35 @@ function drawScene(gl, programInfo, buffers, deltaTime) {
 }
 
 function drawLensFlare(gl, programInfo, buffers, deltaTime) {
-    const tempMatrix = mat4.create();
-    mat4.multiply(tempMatrix, mViewMatrix, mModelMatrix);
-    mat4.multiply(mMvpMatrix, mProjectionMatrix, tempMatrix);
-    updateHtmlMvpMatrixByRender();
-
     // 1. 计算光源屏幕坐标
-    const lightScreen = worldToScreen(LIGHT_POSITION, mMvpMatrix);
+    const lightScreen = worldToScreenNDC(LIGHT_POSITION, mMvpMatrix);
     const screenCenter = [0.5, 0.5];   // [mViewportWidth / 2, mViewportHeight / 2];
     const flareVec = [screenCenter[0] - lightScreen[0], screenCenter[1] - lightScreen[1]];
+    // 2. 计算 sunToCenter 向量
+    // const sunToCenter = vec2.create();
+    // vec2.sub(sunToCenter, screenCenter, lightScreen);
+    // // 3. 计算向量长度
+    // const distance = vec2.length(sunToCenter);
+    const distance = Math.sqrt(flareVec[0] * flareVec[0] + flareVec[1] * flareVec[1]);
+    // 4. 计算亮度
+    const maxDistance = 0.7; // 最大距离
+    let brightness = 1 - (distance / maxDistance);
+    console.log('Brightness:', brightness);
 
-    // 启用 Alpha 混合
+    // 绘制光源
+    renderLensFlare(gl, programInfo, buffers, lightScreen, flareVec, 0, 1.0);
+    if (brightness > 0.0) {
+        // 绘制光晕
+        for (let i = 0; i < mLensFlareElements.length; i++) {
+            const elementDir = [flareVec[0] * i * LENS_FLARE_SPACING, flareVec[1] * i * LENS_FLARE_SPACING];
+            const flarePos = [lightScreen[0] + elementDir[0], lightScreen[1] + elementDir[1]];
+            renderLensFlare(gl, programInfo, buffers, flarePos, elementDir, i, brightness);
+        }
+    }
+}
+
+function renderLensFlare(gl, programInfo, buffers, lightScreen, flareVec, index, brightness) {
+// 启用 Alpha 混合
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
@@ -467,7 +519,7 @@ function drawLensFlare(gl, programInfo, buffers, deltaTime) {
     // Tell WebGL we want to affect diffuseTexture unit 0
     gl.activeTexture(gl.TEXTURE0);
     // Bind the diffuseTexture to diffuseTexture unit 0
-    gl.bindTexture(gl.TEXTURE_2D, mPlaneTextureInfo.texture);
+    gl.bindTexture(gl.TEXTURE_2D, mLensFlareElements[index].texture.texture);
     // Tell the shader we bound the diffuseTexture to diffuseTexture unit 0
     gl.uniform1i(programInfo.uniformLocations.uTextureHandle, 0);
 
@@ -476,9 +528,9 @@ function drawLensFlare(gl, programInfo, buffers, deltaTime) {
         lightScreen[1] + flareVec[1] * 0.3
     ];
     gl.uniform2fv(programInfo.uniformLocations.uCenterHandle, center);
-    gl.uniform2fv(programInfo.uniformLocations.uScaleHandle, [0.5, 0.5]);
+    gl.uniform2fv(programInfo.uniformLocations.uScaleHandle, [mLensFlareElements[index].scale, mLensFlareElements[index].scale]);
     gl.uniform2fv(programInfo.uniformLocations.uResolutionHandle, [mViewportWidth, mViewportHeight]);
-    gl.uniform4fv(programInfo.uniformLocations.uColorHandle, [1,1,1,1]);
+    gl.uniform1f(programInfo.uniformLocations.uBrightnessHandle, brightness);
 
     // Set the shader uniforms
     gl.uniformMatrix4fv(
@@ -496,7 +548,7 @@ function drawLensFlare(gl, programInfo, buffers, deltaTime) {
 }
 
 // 不是像素坐标
-function worldToScreen(pos, mvpMatrix) {
+function worldToScreenNDC(pos, mvpMatrix) {
     // pos: [x, y, z]
     let v = vec4.fromValues(pos[0], pos[1], pos[2], 1.0);
     vec4.transformMat4(v, v, mvpMatrix);
