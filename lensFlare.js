@@ -85,20 +85,20 @@ function main() {
     // 创建天空盒缓冲区
     mSkyboxBuffers = createSkyboxBuffers(mGl);
 
-    mPlaneTexture = loadTextureByUrl(mGl, './texture/terrain.jpg');
+    mPlaneTexture = loadTextureNoMipmapByUrl(mGl, './texture/terrain.jpg');
     mPlaneBuffers = createPlaneBuffers(mGl);
 
     mLensFlareTextures = [
-        loadTextureByUrl(mGl, './texture/lensFlare1/sun.png'),
-        loadTextureByUrl(mGl, './texture/lensFlare1/tex1.png'),
-        loadTextureByUrl(mGl, './texture/lensFlare1/tex2.png'),
-        loadTextureByUrl(mGl, './texture/lensFlare1/tex3.png'),
-        loadTextureByUrl(mGl, './texture/lensFlare1/tex4.png'),
-        loadTextureByUrl(mGl, './texture/lensFlare1/tex5.png'),
-        loadTextureByUrl(mGl, './texture/lensFlare1/tex6.png'),
-        loadTextureByUrl(mGl, './texture/lensFlare1/tex7.png'),
-        loadTextureByUrl(mGl, './texture/lensFlare1/tex8.png'),
-        loadTextureByUrl(mGl, './texture/lensFlare1/tex9.png')
+        loadTextureNoMipmapByUrl(mGl, './texture/lensFlare1/sun.png'),
+        loadTextureNoMipmapByUrl(mGl, './texture/lensFlare1/tex1.png'),
+        loadTextureNoMipmapByUrl(mGl, './texture/lensFlare1/tex2.png'),
+        loadTextureNoMipmapByUrl(mGl, './texture/lensFlare1/tex3.png'),
+        loadTextureNoMipmapByUrl(mGl, './texture/lensFlare1/tex4.png'),
+        loadTextureNoMipmapByUrl(mGl, './texture/lensFlare1/tex5.png'),
+        loadTextureNoMipmapByUrl(mGl, './texture/lensFlare1/tex6.png'),
+        loadTextureNoMipmapByUrl(mGl, './texture/lensFlare1/tex7.png'),
+        loadTextureNoMipmapByUrl(mGl, './texture/lensFlare1/tex8.png'),
+        loadTextureNoMipmapByUrl(mGl, './texture/lensFlare1/tex9.png')
     ];
     mLensFlareElements = [
         {texture: mLensFlareTextures[6], scale: 0.5}, 
@@ -262,6 +262,7 @@ function updateSkyBoxShader(vsSource, fsSource) {
             uViewMatrix: mGl.getUniformLocation(skyboxProgram, 'uViewMatrix'),
             uProjectionMatrix: mGl.getUniformLocation(skyboxProgram, 'uProjectionMatrix'),
             uSkybox: mGl.getUniformLocation(skyboxProgram, 'uSkybox'),
+            uViewDirectionProjectionInverse: mGl.getUniformLocation(skyboxProgram, 'uViewDirectionProjectionInverse'),
         },
     };
 }
@@ -475,7 +476,7 @@ function loadTextureByImage(gl, image) {
 
 // Initialize a texture and load an image.
 // When the image finished loading copy it into the texture.
-function loadTextureByUrl(gl, url) {
+function loadTextureNoMipmapByUrl(gl, url) {
   const texture = gl.createTexture();
   gl.bindTexture(gl.TEXTURE_2D, texture);
 
@@ -560,7 +561,7 @@ function loadSkyboxTexture(gl, urls) {
         gl.TEXTURE_CUBE_MAP_POSITIVE_Z, gl.TEXTURE_CUBE_MAP_NEGATIVE_Z
     ];
     targets.forEach(target => {
-        gl.texImage2D(target, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, placeholder);
+        gl.texImage2D(target, 0, gl.RGBA, 1024, 1024, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
     });
 
     // 2. 异步加载所有图片
@@ -589,17 +590,18 @@ function loadSkyboxTexture(gl, urls) {
             });
 
             // 更新纹理数据
-            gl.bindTexture(gl.TEXTURE_CUBE_MAP, texture);
             faces.forEach(({ target, img }) => {
+                gl.bindTexture(gl.TEXTURE_CUBE_MAP, texture);
                 gl.texImage2D(target, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+                gl.generateMipmap(gl.TEXTURE_CUBE_MAP);
             });
 
             // 统一设置参数（仅在所有面就绪后执行一次）
             gl.generateMipmap(gl.TEXTURE_CUBE_MAP);
             gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
-            gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-            gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-            gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+            // gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+            // gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+            // gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
             return texture;
         })
@@ -610,39 +612,59 @@ function loadSkyboxTexture(gl, urls) {
         });
 }
 
+// function createSkyboxBuffers(gl) {
+//     const positions = [
+//         -1, -1,  1,
+//          1, -1,  1,
+//         -1,  1,  1,
+//          1,  1,  1,
+//         -1, -1, -1,
+//         -1,  1, -1,
+//          1, -1, -1,
+//          1,  1, -1,
+//     ];
+
+//     const indices = [
+//         0, 1, 2,  2, 1, 3, // front
+//         5, 4, 6,  5, 6, 7, // back
+//         6, 4, 0,  6, 0, 1, // bottom
+//         2, 3, 7,  2, 7, 5, // top
+//         4, 5, 0,  0, 5, 2, // left
+//         1, 6, 3,  3, 6, 7, // right
+//     ];
+
+//     const positionBuffer = gl.createBuffer();
+//     gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+//     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
+
+//     const indexBuffer = gl.createBuffer();
+//     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+//     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
+
+//     return {
+//         position: positionBuffer,
+//         indices: indexBuffer,
+//         vertexCount: indices.length / 3,
+//     };
+// }
+
 function createSkyboxBuffers(gl) {
     const positions = [
-        -1, -1,  1,
-         1, -1,  1,
-        -1,  1,  1,
-         1,  1,  1,
-        -1, -1, -1,
-        -1,  1, -1,
-         1, -1, -1,
-         1,  1, -1,
-    ];
-
-    const indices = [
-        0, 1, 2,  2, 1, 3, // front
-        5, 4, 6,  5, 6, 7, // back
-        6, 4, 0,  6, 0, 1, // bottom
-        2, 3, 7,  2, 7, 5, // top
-        4, 5, 0,  0, 5, 2, // left
-        1, 6, 3,  3, 6, 7, // right
+        -1, -1,
+        1, -1,
+        -1,  1,
+        -1,  1,
+        1, -1,
+        1,  1,
     ];
 
     const positionBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
 
-    const indexBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
-
     return {
         position: positionBuffer,
-        indices: indexBuffer,
-        vertexCount: indices.length,
+        vertexCount: positions.length / 2,
     };
 }
 
@@ -687,7 +709,7 @@ function drawScene(gl, programInfo, buffers, deltaTime) {
     updateHtmlMvpMatrixByRender();
 
     drawPlane(gl, mPlaneProgramInfo, mPlaneBuffers);
-    // drawSkybox(gl, mSkyboxProgramInfo, mSkyboxBuffers, deltaTime);
+    drawSkybox(gl, mSkyboxProgramInfo, mSkyboxBuffers, deltaTime);
     drawLensFlare(gl, programInfo, buffers, deltaTime);
 
      // 如果鼠标未拖拽，应用惯性旋转
@@ -737,7 +759,7 @@ function drawLensFlare(gl, programInfo, buffers, deltaTime) {
 }
 
 function renderLensFlare(gl, programInfo, buffers, lightScreen, flareVec, index, brightness) {
-// 启用 Alpha 混合
+    // 启用 Alpha 混合
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
@@ -852,7 +874,7 @@ function drawSkybox(gl, programInfo, buffers, deltaTime) {
 
     // 绑定顶点缓冲区
     gl.bindBuffer(gl.ARRAY_BUFFER, buffers.position);
-    gl.vertexAttribPointer(programInfo.attribLocations.vertexPosition, 3, gl.FLOAT, false, 0, 0);
+    gl.vertexAttribPointer(programInfo.attribLocations.vertexPosition, 2, gl.FLOAT, false, 0, 0);
     gl.enableVertexAttribArray(programInfo.attribLocations.vertexPosition);
 
     // 绑定索引缓冲区
@@ -869,8 +891,20 @@ function drawSkybox(gl, programInfo, buffers, deltaTime) {
     gl.uniformMatrix4fv(programInfo.uniformLocations.uViewMatrix, false, viewMatrix);
     gl.uniformMatrix4fv(programInfo.uniformLocations.uProjectionMatrix, false, mProjectionMatrix);
 
+    const viewInverseMatrix = mat4.create();
+    mat4.invert(viewInverseMatrix, mViewMatrix);
+    viewInverseMatrix[12] = 0;
+    viewInverseMatrix[13] = 0;
+    viewInverseMatrix[14] = 0;
+
+    var viewDirectionProjectionMatrix = mat4.create();
+    mat4.multiply(viewDirectionProjectionMatrix, mProjectionMatrix, viewInverseMatrix);
+    var viewDirectionProjectionInverseMatrix = mat4.create();
+    mat4.invert(viewDirectionProjectionInverseMatrix, viewDirectionProjectionMatrix);
+    gl.uniformMatrix4fv(programInfo.uniformLocations.uViewDirectionProjectionInverse, false, viewDirectionProjectionInverseMatrix);
+
     // 绘制天空盒
-    gl.drawElements(gl.TRIANGLES, buffers.vertexCount, gl.UNSIGNED_SHORT, 0);
+    gl.drawArrays(gl.TRIANGLES, 0, 6);
 
     gl.disableVertexAttribArray(programInfo.attribLocations.vertexPosition);
 
