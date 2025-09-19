@@ -370,7 +370,7 @@ class GLScene extends GLCanvas {
 
         // Here's where we call the routine that builds all the objects we'll be drawing.
         initFighterBuffers(gl);
-        initLensFlareBuffers(gl);
+        // initLensFlareBuffers(gl);
         // init terrain
         mTerrainBuffer = initTerrainBuffer(gl);
         // texture
@@ -386,9 +386,9 @@ class GLScene extends GLCanvas {
         // mLutTexture = loadTexture(gl, './texture/lookup_vertigo.png', requestRender);
 
         mLensFlareTextures = [
-            loadTexture(gl, './texture/LensFlare/lensflare0.png', requestRender),
-            loadTexture(gl, './texture/LensFlare/lensflare2.png', requestRender),
-            loadTexture(gl, './texture/LensFlare/lensflare3.png', requestRender)
+            loadTexture(gl, './texture/LensFlare1/tex1.png', requestRender),
+            loadTexture(gl, './texture/LensFlare1/tex2.png', requestRender),
+            loadTexture(gl, './texture/LensFlare1/tex3.png', requestRender)
         ];
         mLensFlareElements = [
             { texture: mLensFlareTextures[0], size: 500, distance: 0.0, color: [1,1,1,1] },
@@ -407,7 +407,7 @@ class GLScene extends GLCanvas {
         updateYUVVideoShader();
         initPBRLightingShader();
         mBasicProgram = initBasicShader(gl);
-        mLensFlareProgram = initLensFlareShader(gl);
+        // mLensFlareProgram = initLensFlareShader(gl);
         mShadowProgram = updateShadowProgram();
         mBasicTexProgram = initBasicTexShader(gl);
         mDiffuseLightingProgram = initDiffuseLightingShader(gl);
@@ -811,9 +811,9 @@ function initLensFlareShader(gl) {
         uniform vec2   uResolution;
 
         void main() {
-            // vec2 pos = uCenter + aPosition * uSize;
-            // vec2 clipPos = (pos / uResolution) * 2.0 - 1.0;
-            gl_Position = vec4(aPosition, 0.0, 1.0);    // vec4(clipPos * vec2(1, -1), 0, 1);
+            vec2 pos = uCenter + aPosition * uSize;
+            vec2 clipPos = (pos / uResolution) * 2.0 - 1.0;
+            gl_Position = vec4(clipPos * vec2(1, -1), 0, 1);
 
             vTexCoord = aTexCoord;
         }
@@ -3988,7 +3988,10 @@ function drawScene(gl, basicProgram, basicTexProgram, diffuseLightingProgram, no
     if (mNeedDrawSphere) {
         drawSphere(gl, mSphereProgram, mSphereBuffer, mSphereBuffer.drawCnt, deltaTime, false);
     }
-    drawLensFlare(gl, mLensFlareProgram, LIGHT_POSITION, mLensFlareModelViewMatrix, mProjectionMatrix);
+
+    // mLensFlareModelViewMatrix = mat4.create();
+    // mat4.multiply(mLensFlareModelViewMatrix, mViewMatrix, mModelMatrix);
+    // drawLensFlare(gl, mLensFlareProgram, LIGHT_POSITION, mLensFlareModelViewMatrix, mProjectionMatrix);
     // drawCloud(gl, mCloudProgram, mCloudPlaneBuffer, mCloudTexture, mCloudPlaneBuffer.drawCnt, deltaTime, false);
     updateAnimQuatHtmlValue();
     mCobraAnimFrameEllapse++;
@@ -4552,14 +4555,10 @@ function drawLensFlare(gl, lensFlareProgram, lightWorldPos, modelViewMatrix, pro
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
-    // 1. 计算光源屏幕坐标
+    // 计算光源屏幕坐标
     const lightScreen = worldToScreen(lightWorldPos, modelViewMatrix, projectionMatrix);
     const screenCenter = [mViewportWidth / 2, mViewportHeight / 2];
     const flareVec = [screenCenter[0] - lightScreen[0], screenCenter[1] - lightScreen[1]];
-
-    // 2. 依次绘制每个 lens flare 元素,记录已绑定的纹理及其对应的纹理单元
-    const textureUnitMap = new Map();
-    let textureUnit = 0; // 从纹理单元 0 开始
 
     for (let elem of mLensFlareElements) {
         // 计算当前元素的中心点
@@ -4568,32 +4567,16 @@ function drawLensFlare(gl, lensFlareProgram, lightWorldPos, modelViewMatrix, pro
             lightScreen[1] + flareVec[1] * elem.distance
         ];
 
-        // 检查纹理是否已经绑定到某个纹理单元
-        let currentTextureUnit;
-        if (textureUnitMap.has(elem.texture)) {
-            currentTextureUnit = textureUnitMap.get(elem.texture);
-        } else {
-            // 如果纹理尚未绑定，分配新的纹理单元
-            currentTextureUnit = textureUnit;
-            gl.activeTexture(gl.TEXTURE0 + textureUnit);
-            gl.bindTexture(gl.TEXTURE_2D, elem.texture);
-            textureUnitMap.set(elem.texture, textureUnit);
-            textureUnit++;
-
-            // 检查是否超过最大纹理单元数
-            if (textureUnit >= gl.MAX_COMBINED_TEXTURE_IMAGE_UNITS) {
-                console.warn("超过了最大纹理单元数，可能会导致渲染问题！");
-                break;
-            }
-        }
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, elem.texture);
 
         // 设置 uniforms
         gl.useProgram(lensFlareProgram.program);
-        gl.uniform2fv(lensFlareProgram.uniformLocations.uCenter, center);
-        gl.uniform1f(lensFlareProgram.uniformLocations.uSize, elem.size);
-        gl.uniform2fv(lensFlareProgram.uniformLocations.uResolution, [mViewportWidth, mViewportHeight]);
-        gl.uniform4fv(lensFlareProgram.uniformLocations.uColor, elem.color);
-        gl.uniform1i(lensFlareProgram.uniformLocations.uTexture, currentTextureUnit); // 告诉着色器使用哪个纹理单元
+        gl.uniform2fv(lensFlareProgram.uniformLocations.uCenterHandle, center);
+        gl.uniform1f(lensFlareProgram.uniformLocations.uSizeHandle, elem.size);
+        gl.uniform2fv(lensFlareProgram.uniformLocations.uResolutionHandle, [mViewportWidth, mViewportHeight]);
+        gl.uniform4fv(lensFlareProgram.uniformLocations.uColorHandle, elem.color);
+        gl.uniform1i(lensFlareProgram.uniformLocations.uTextureHandle, 0); // 告诉着色器使用哪个纹理单元
 
         // 绑定顶点坐标缓冲区,绘制一个屏幕对齐的四边形（两个三角形）
         gl.bindBuffer(gl.ARRAY_BUFFER, mLensFlareQuadBuffer);

@@ -39,6 +39,10 @@ let mSkyboxTexture;
 let mSkyboxBuffers;
 let mSkyboxProgramInfo;
 
+let mPlaneProgramInfo;
+let mPlaneTexture;
+let mPlaneBuffers;
+
 function main() {
     const canvas = document.querySelector("#glcanvas");
     // Initialize the GL context
@@ -81,6 +85,9 @@ function main() {
     // 创建天空盒缓冲区
     mSkyboxBuffers = createSkyboxBuffers(mGl);
 
+    mPlaneTexture = loadTextureByUrl(mGl, './texture/terrain.jpg');
+    mPlaneBuffers = createPlaneBuffers(mGl);
+
     mLensFlareTextures = [
         loadTextureByUrl(mGl, './texture/lensFlare1/sun.png'),
         loadTextureByUrl(mGl, './texture/lensFlare1/tex1.png'),
@@ -113,6 +120,7 @@ function main() {
 
   // init shader
   loadSkyBoxShaderByPath('./shader/skybox.vs', './shader/skybox.fs');
+  loadTerrainShaderByPath('./shader/base.vs', './shader/base.fs');
   updateLensFlareShader();
 
   mBuffers = initBuffers(mGl);
@@ -258,6 +266,65 @@ function updateSkyBoxShader(vsSource, fsSource) {
     };
 }
 
+function updateTerrainShader(vsSource, fsSource) { 
+    // Initialize a shader program
+    const vertexShader = loadShader(mGl, mGl.VERTEX_SHADER, vsSource);
+    const fragmentShader = loadShader(mGl, mGl.FRAGMENT_SHADER, fsSource);
+
+    // Create the shader program
+    const terrainProgram = mGl.createProgram();
+    mGl.attachShader(terrainProgram, vertexShader);
+    mGl.attachShader(terrainProgram, fragmentShader);
+    mGl.linkProgram(terrainProgram);
+
+    // If creating the shader program failed, alert
+    if (!mGl.getProgramParameter(terrainProgram, mGl.LINK_STATUS)) {
+        alert('Unable to initialize the shader program: ' + mGl.getProgramInfoLog(terrainProgram));
+        return null;
+    }
+
+    mPlaneProgramInfo = {
+        program: terrainProgram,
+        attribLocations: {
+            vertexPosition: mGl.getAttribLocation(terrainProgram, 'aPosition'),
+            textureCoord: mGl.getAttribLocation(terrainProgram, 'aTexCoord')
+        },
+        uniformLocations: {
+            uModelMatrix: mGl.getUniformLocation(terrainProgram, 'uModelMatrix'),
+            uViewMatrix: mGl.getUniformLocation(terrainProgram, 'uViewMatrix'),
+            uProjectionMatrix: mGl.getUniformLocation(terrainProgram, 'uProjectionMatrix'),
+            uTexSampler: mGl.getUniformLocation(terrainProgram, 'uTexSampler'),
+        },
+    };
+}
+
+function loadTerrainShaderByPath(vertexShaderPath, fragmentShaderPath) {
+    // 同时加载顶点和片段着色器
+    Promise.all([
+        fetch(vertexShaderPath).then(handleShaderResponse),
+        fetch(fragmentShaderPath).then(handleShaderResponse)
+    ])
+    .then(([vertexShaderCode, fragmentShaderCode]) => {
+        console.log('Shaders loaded successfully:');
+        console.log(`Vertex shader from ${vertexShaderPath} (${vertexShaderCode.length} chars)`);
+        console.log(`Fragment shader from ${fragmentShaderPath} (${fragmentShaderCode.length} chars)`);
+        
+        // 直接将源码传递给更新函数
+        updateTerrainShader(vertexShaderCode, fragmentShaderCode);
+    })
+    .catch(error => {
+        console.error('Shader loading failed:', error);
+    });
+
+    // 统一的响应处理函数
+    function handleShaderResponse(response) {
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.text();
+    }
+}
+
 function loadSkyBoxShaderByPath(vertexShaderPath, fragmentShaderPath) {
     // 同时加载顶点和片段着色器
     Promise.all([
@@ -303,6 +370,52 @@ function loadShader(mGl, type, source) {
   }
 
   return shader;
+}
+
+function createPlaneBuffers(gl) {
+    // 顶点数据（平行于 xz 平面，y = 0）
+    const positions = [
+        -5.0, -5.0, -5.0, // 左下角
+         5.0, -5.0, -5.0, // 右下角
+        -5.0, -5.0,  5.0, // 左上角
+         5.0, -5.0,  5.0, // 右上角
+    ];
+
+    // 纹理坐标数据
+    const texCoords = [
+        0.0, 0.0, // 左下角
+        1.0, 0.0, // 右下角
+        0.0, 1.0, // 左上角
+        1.0, 1.0, // 右上角
+    ];
+
+    // 索引数据（两个三角形组成一个平面）
+    const indices = [
+        0, 1, 2, // 第一个三角形
+        2, 1, 3, // 第二个三角形
+    ];
+
+    // 创建顶点缓冲区
+    const positionBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
+
+    // 创建纹理坐标缓冲区
+    const texCoordBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, texCoordBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(texCoords), gl.STATIC_DRAW);
+
+    // 创建索引缓冲区
+    const indexBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
+
+    return {
+        position: positionBuffer,
+        texCoord: texCoordBuffer,
+        indices: indexBuffer,
+        vertexCount: indices.length,
+    };
 }
 
 function initBuffers(gl) {
@@ -573,7 +686,8 @@ function drawScene(gl, programInfo, buffers, deltaTime) {
     mat4.multiply(mMvpMatrix, mProjectionMatrix, tempMatrix);
     updateHtmlMvpMatrixByRender();
 
-    drawSkybox(gl, mSkyboxProgramInfo, mSkyboxBuffers, deltaTime);
+    drawPlane(gl, mPlaneProgramInfo, mPlaneBuffers);
+    // drawSkybox(gl, mSkyboxProgramInfo, mSkyboxBuffers, deltaTime);
     drawLensFlare(gl, programInfo, buffers, deltaTime);
 
      // 如果鼠标未拖拽，应用惯性旋转
@@ -608,7 +722,7 @@ function drawLensFlare(gl, programInfo, buffers, deltaTime) {
     // 4. 计算亮度
     const maxDistance = 0.7; // 最大距离
     let brightness = 1 - (distance / maxDistance);
-    console.log('Brightness:', brightness);
+    // console.log('Brightness:', brightness);
 
     // 绘制光源
     renderLensFlare(gl, programInfo, buffers, lightScreen, flareVec, 0, 1.0);
@@ -744,14 +858,16 @@ function drawSkybox(gl, programInfo, buffers, deltaTime) {
     // 绑定索引缓冲区
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffers.indices);
 
-    // 设置 Uniforms
-    gl.uniformMatrix4fv(programInfo.uniformLocations.uViewMatrix, false, mViewMatrix);
-    gl.uniformMatrix4fv(programInfo.uniformLocations.uProjectionMatrix, false, mProjectionMatrix);
-
     // 绑定天空盒纹理
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_CUBE_MAP, mSkyboxTexture.texture);
     gl.uniform1i(programInfo.uniformLocations.uSkybox, 0);
+
+    // 矩阵计算（移除平移部分）
+    const viewMatrix = mat4.clone(mViewMatrix);
+    viewMatrix[12] = viewMatrix[13] = viewMatrix[14] = 0; // 清零平移分量
+    gl.uniformMatrix4fv(programInfo.uniformLocations.uViewMatrix, false, viewMatrix);
+    gl.uniformMatrix4fv(programInfo.uniformLocations.uProjectionMatrix, false, mProjectionMatrix);
 
     // 绘制天空盒
     gl.drawElements(gl.TRIANGLES, buffers.vertexCount, gl.UNSIGNED_SHORT, 0);
@@ -762,6 +878,46 @@ function drawSkybox(gl, programInfo, buffers, deltaTime) {
     gl.depthMask(true);
     // 恢复深度测试（如果禁用了深度测试）
     gl.enable(gl.DEPTH_TEST);
+}
+
+function drawPlane(gl, programInfo, buffers) {
+    if (null == programInfo || !mPlaneTexture) {
+        console.log('drawPlane, No program info or no skybox texture.');
+        return;
+    }
+    gl.useProgram(programInfo.program);
+
+    // 设置模型矩阵（平面位于 xz 平面）
+    gl.uniformMatrix4fv(programInfo.uniformLocations.uModelMatrix, false, mModelMatrix);
+
+    // 设置视图矩阵和投影矩阵
+    gl.uniformMatrix4fv(programInfo.uniformLocations.uViewMatrix, false, mViewMatrix);
+    gl.uniformMatrix4fv(programInfo.uniformLocations.uProjectionMatrix, false, mProjectionMatrix);
+
+    // 绑定顶点缓冲区
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffers.position);
+    gl.vertexAttribPointer(programInfo.attribLocations.vertexPosition, 3, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(programInfo.attribLocations.vertexPosition);
+
+    // 绑定纹理坐标缓冲区
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffers.texCoord);
+    gl.vertexAttribPointer(programInfo.attribLocations.textureCoord, 2, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(programInfo.attribLocations.textureCoord);
+
+    // 绑定索引缓冲区
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffers.indices);
+
+    // 绑定纹理
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, mPlaneTexture.texture);
+    gl.uniform1i(programInfo.uniformLocations.uTexSampler, 0);
+
+    // 绘制平面
+    gl.drawElements(gl.TRIANGLES, buffers.vertexCount, gl.UNSIGNED_SHORT, 0);
+
+    // 禁用顶点属性
+    gl.disableVertexAttribArray(programInfo.attribLocations.vertexPosition);
+    gl.disableVertexAttribArray(programInfo.attribLocations.textureCoord);
 }
 
 // 不是像素坐标
