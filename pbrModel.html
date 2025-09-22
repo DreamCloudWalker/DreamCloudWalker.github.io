@@ -187,6 +187,8 @@ float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness) {
 }
 
 void main() {
+    float exposure = 2.0;
+
     // 从纹理中采样
     vec3 albedo = texture2D(uBaseColorMap, vTexCoord).rgb;
     vec3 normal = normalize(texture2D(uNormalMap, vTexCoord).rgb * 2.0 - 1.0);
@@ -228,7 +230,7 @@ void main() {
     // Gamma 校正
     color = pow(color, vec3(1.0 / 2.2));
 
-    gl_FragColor = vec4(color, 1.0);
+    gl_FragColor = vec4(color, 1.0) * exposure;
 }
                 </textarea>
             </div>

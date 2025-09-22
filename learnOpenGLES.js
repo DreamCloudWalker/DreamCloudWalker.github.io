@@ -81,6 +81,7 @@ var mUseAmbientColor = true;
 var mUseDiffuseColor = true;
 var mUseSpecularColor = true;
 // lens flare
+var mNeedDrawLensFlare = false;
 var mLensFlareTextures = [];
 var mLensFlareElements = [];
 var mLensFlareVBOBuffer = null;
@@ -93,6 +94,7 @@ const mLensFlareQuadVerts = new Float32Array([
 var mLensFlareProgram = null;
 var mLensFlareModelViewMatrix = mat4.create();
 // skybox 
+var mNeedDrawSkyBox = true;
 var mSkyBoxTexture = null;
 var mSkyBoxVBOBuffer = null;
 const mSkyBoxQuadVerts = [
@@ -2829,6 +2831,8 @@ function switchDemo(demoId) {
     mNeedDrawYUVVideo = false;
     mNeedDrawShadow = false;
     mNeedDrawTerrain = false;
+    mNeedDrawLensFlare = false;
+    mNeedDrawSkyBox = false;
     document.getElementById("id_shader").style.display = 'none';
     document.getElementById("id_mvpmatrix").style.display = 'none';
     document.getElementById("id_modelmatrix").style.display = 'none';
@@ -2872,6 +2876,8 @@ function switchDemo(demoId) {
             resumeMVPMatrix(true);
             mNeedDrawFighter = true;
             mNeedDrawBackground = true;
+            mNeedDrawLensFlare = true;
+            mNeedDrawSkyBox = true;
             if (null == mUIConclusion) {
                 mUIConclusion = document.getElementById("id_conclusion");
 
@@ -2889,6 +2895,8 @@ function switchDemo(demoId) {
             resumeMVPMatrix(true);
             mNeedDrawFighter = true;
             mNeedDrawBackground = true;
+            mNeedDrawLensFlare = true;
+            mNeedDrawSkyBox = true;
             if (null == mUINormalMapping) {
                 mUINormalMapping = document.getElementById("id_normal_mapping");
                 var markdownReader = new XMLHttpRequest();
@@ -2962,18 +2970,23 @@ function switchDemo(demoId) {
             mNeedDrawAssistObject = true;
             mNeedDrawFighter = true;
             mNeedDrawBackground = true;
+            mNeedDrawSkyBox = true;
             document.getElementById("id_mvpmatrix").style.display = 'flex';
             break;
         case 'ModelMatrix':
             resumeMVPMatrix(true);
             mNeedDrawFighter = true;
             mNeedDrawBackground = true;
+            mNeedDrawLensFlare = true;
+            mNeedDrawSkyBox = true;
             document.getElementById("id_modelmatrix").style.display = 'flex';
             mUIModelMatrix.style.display = 'block';
             break;
         case 'ViewMatrix':
             mNeedDrawFighter = true;
             mNeedDrawBackground = true;
+            mNeedDrawLensFlare = true;
+            mNeedDrawSkyBox = true;
             document.getElementById("id_viewmatrix").style.display = 'flex';
             if (null == mUIViewMatrix) {
                 mUIViewMatrix = document.getElementById("id_view_matrix_blog");
@@ -2990,6 +3003,8 @@ function switchDemo(demoId) {
         case 'ProjectionMatrix':
             mNeedDrawFighter = true;
             mNeedDrawBackground = true;
+            mNeedDrawLensFlare = true;
+            mNeedDrawSkyBox = true;
             document.getElementById("id_projmatrix").style.display = 'flex';
             if (null == mUIProjectionMatrix) {
                 mUIProjectionMatrix = document.getElementById("id_projection_matrix_blog");
@@ -3005,6 +3020,8 @@ function switchDemo(demoId) {
             break;
         case 'UV':
             mNeedDrawUVDemoPlane = true;
+            mNeedDrawLensFlare = true;
+            mNeedDrawSkyBox = true;
             resumeMVPMatrix(false);
             document.getElementById("id_uv_demo").style.display = 'flex';
             if (null == mUIUVMapping) {
@@ -3022,11 +3039,15 @@ function switchDemo(demoId) {
         case 'PerVertexOrFragLighting':
             mNeedDrawSphere = true;
             mNeedDrawBackground = true;
+            mNeedDrawLensFlare = true;
+            mNeedDrawSkyBox = true;
             document.getElementById("id_per_vertex_or_frag_lighting").style.display = 'flex';
             break;
         case 'Light':
             mNeedDrawFighter = true;
             mNeedDrawBackground = true;
+            mNeedDrawLensFlare = true;
+            mNeedDrawSkyBox = true;
             document.getElementById("id_lightdemo").style.display = 'flex';
             break;
         case 'Shadow':
@@ -4090,6 +4111,9 @@ function drawScene(gl, basicProgram, basicTexProgram, diffuseLightingProgram, no
         drawBackground(gl, mBackgroundProgram, mBackgroundBuffer, mBackgroundTexture, mBackgroundBuffer.drawCnt, deltaTime);
     }
 
+    if (mNeedDrawSkyBox) 
+        drawSkybox(gl, mSkyBoxProgram, mSkyBoxVBOBuffer, mSkyBoxTexture);
+
     if (mNeedDrawFighter && mObjectBuffer.length > 0) {
         for (var i = 0; i < mObjectBuffer.length; i++) {
             drawObject(gl, mPBRLightProgram, mShadowProgram, mObjectBuffer[i], mObjectDiffuseTexture, 
@@ -4106,9 +4130,9 @@ function drawScene(gl, basicProgram, basicTexProgram, diffuseLightingProgram, no
     }
 
     mLensFlareModelViewMatrix = mat4.create();
-    mat4.multiply(mLensFlareModelViewMatrix, mViewMatrix, mModelMatrix);
-    drawLensFlare(gl, mLensFlareProgram, LIGHT_POSITION, mLensFlareModelViewMatrix, mProjectionMatrix);
-    drawSkybox(gl, mSkyBoxProgram, mSkyBoxVBOBuffer, mSkyBoxTexture);
+    mat4.multiply(mLensFlareModelViewMatrix, mViewMatrix, mLensFlareModelViewMatrix);
+    if (mNeedDrawLensFlare)
+        drawLensFlare(gl, mLensFlareProgram, LIGHT_POSITION, mLensFlareModelViewMatrix, mProjectionMatrix);
     // drawCloud(gl, mCloudProgram, mCloudPlaneBuffer, mCloudTexture, mCloudPlaneBuffer.drawCnt, deltaTime, false);
     updateAnimQuatHtmlValue();
     mCobraAnimFrameEllapse++;
@@ -4229,6 +4253,8 @@ function drawScene(gl, basicProgram, basicTexProgram, diffuseLightingProgram, no
                 mBrdfLutTexture, mBackgroundTexture, mObjectBuffer[i].drawCnt, deltaTime, false, true);
         }
     }
+    if (mNeedDrawSkyBox) 
+        drawSkybox(gl, mSkyBoxProgram, mSkyBoxVBOBuffer, mSkyBoxTexture, true);
     // draw terrain
     if (mNeedDrawTerrain) {
         drawTerrain(gl, mLightProgram, mShadowProgram, mTerrainBuffer, mTerrainTexture, mTerrainBuffer.drawCnt, deltaTime, false, true);
@@ -4681,14 +4707,14 @@ function worldToScreenNDC(pos, modelViewMatrix, projectionMatrix) {
     ];
 }
 
-function drawSkybox(gl, programInfo, buffers, skyboxTexture) {
+function drawSkybox(gl, programInfo, buffers, skyboxTexture, isGodView) {
     if (null == programInfo || !buffers || !skyboxTexture) {
         console.log('drawSkybox, No program info or no skybox buffers or texture.');
         return;
     }
 
-    gl.enable(gl.CULL_FACE);
-    gl.enable(gl.DEPTH_TEST);
+    // gl.enable(gl.CULL_FACE);
+    // gl.enable(gl.DEPTH_TEST);
 
     gl.useProgram(programInfo.program);
 
@@ -4699,27 +4725,36 @@ function drawSkybox(gl, programInfo, buffers, skyboxTexture) {
 
     // 绑定天空盒纹理
     gl.activeTexture(gl.TEXTURE0);
-    // gl.bindTexture(gl.TEXTURE_CUBE_MAP, mSkyBoxTexture.texture); // bug2
+    // gl.bindTexture(gl.TEXTURE_CUBE_MAP, skyboxTexture.texture); // bug2
     gl.uniform1i(programInfo.uniformLocations.uSkybox, 0);
 
     // 矩阵计算（移除平移部分）
-    const viewMatrix = mat4.clone(mViewMatrix);
-    viewMatrix[12] = viewMatrix[13] = viewMatrix[14] = 0; // 清零平移分量
+    var viewMatrix = mat4.create();
+    var viewInverseMatrix = mat4.create();
+    var projMatrix = mat4.create();
+    if (isGodView) {
+        viewMatrix = mat4.clone(mGodViewMatrix);
+        mat4.invert(viewInverseMatrix, mGodViewMatrix);
+        projMatrix = mat4.clone(mGodProjectionMatrix);
+    } else {
+        viewMatrix = mat4.clone(mViewMatrix);
+        mat4.invert(viewInverseMatrix, mViewMatrix);
+        projMatrix = mat4.clone(mProjectionMatrix);
+    }
 
-    const viewInverseMatrix = mat4.create();
-    mat4.invert(viewInverseMatrix, mViewMatrix);
+    viewMatrix[12] = viewMatrix[13] = viewMatrix[14] = 0; // 清零平移分量
     viewInverseMatrix[12] = 0;
     viewInverseMatrix[13] = 0;
     viewInverseMatrix[14] = 0;
 
     var viewDirectionProjectionMatrix = mat4.create();
-    mat4.multiply(viewDirectionProjectionMatrix, mProjectionMatrix, viewInverseMatrix);
+    mat4.multiply(viewDirectionProjectionMatrix, projMatrix, viewInverseMatrix);
     var viewDirectionProjectionInverseMatrix = mat4.create();
     mat4.invert(viewDirectionProjectionInverseMatrix, viewDirectionProjectionMatrix);
     gl.uniformMatrix4fv(programInfo.uniformLocations.uViewDirectionProjectionInverse, false, viewDirectionProjectionInverseMatrix);
 
     // let our quad pass the depth test at 1.0
-    gl.depthFunc(gl.LEQUAL);
+    // gl.depthFunc(gl.LEQUAL);
     
     // 绘制天空盒
     gl.drawArrays(gl.TRIANGLES, 0, buffers.vertexCount);
