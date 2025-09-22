@@ -57,6 +57,7 @@ function main() {
     mViewportWidth = canvas.clientWidth;
     mViewportHeight = canvas.clientHeight;
     mGl.viewport(0, 0, mViewportWidth, mViewportHeight);
+    // alignLightToSkybox();
 
     // create view matrix
     mViewMatrix = mat4.create();
@@ -193,6 +194,24 @@ function initMouseControls(canvas) {
 
         requestRender();
     });
+}
+
+function alignLightToSkybox() {
+    // 假设太阳在 posY 图片的右上角
+    const u = 0.85; // 水平位置
+    const v = 0.85; // 垂直位置
+
+    // 计算太阳在天空盒中的世界坐标
+    const sunWorldPosition = [
+        -1 + 2 * u, // x 坐标
+        1,          // y 坐标（固定为 1，因为是 posY 面）
+        -1 + 2 * v  // z 坐标
+    ];
+
+    // 设置光源位置
+    vec3.set(LIGHT_POSITION, sunWorldPosition[0], sunWorldPosition[1], sunWorldPosition[2]);
+
+    console.log('Aligned light position:', LIGHT_POSITION);
 }
 
 function updateLensFlareShader() {
@@ -494,8 +513,8 @@ function loadTextureNoMipmapByUrl(gl, url) {
   const srcType = gl.UNSIGNED_BYTE;
   const pixel = new Uint8Array([255, 255, 255, 255]);
   // 1表示翻转，0表示不翻转，参考 https://juejin.im/post/5d4423c4f265da038f47ef87
-  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1); 
-  gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+//   gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1); 
+//   gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
   gl.texImage2D(gl.TEXTURE_2D, level, internalFormat,
                 width, height, border, srcFormat, srcType,
                 pixel);
@@ -708,7 +727,7 @@ function drawScene(gl, programInfo, buffers, deltaTime) {
     mat4.multiply(mMvpMatrix, mProjectionMatrix, tempMatrix);
     updateHtmlMvpMatrixByRender();
 
-    drawPlane(gl, mPlaneProgramInfo, mPlaneBuffers);
+    // drawPlane(gl, mPlaneProgramInfo, mPlaneBuffers);
     drawSkybox(gl, mSkyboxProgramInfo, mSkyboxBuffers, deltaTime);
     drawLensFlare(gl, programInfo, buffers, deltaTime);
 
@@ -868,9 +887,9 @@ function drawSkybox(gl, programInfo, buffers, deltaTime) {
     gl.useProgram(programInfo.program);
 
     // 禁用深度写入
-    gl.depthMask(false);
+    // gl.depthMask(false); // bug3
      // 禁用深度测试
-    gl.disable(gl.DEPTH_TEST);
+    // gl.disable(gl.DEPTH_TEST);
 
     // 绑定顶点缓冲区
     gl.bindBuffer(gl.ARRAY_BUFFER, buffers.position);
@@ -878,11 +897,11 @@ function drawSkybox(gl, programInfo, buffers, deltaTime) {
     gl.enableVertexAttribArray(programInfo.attribLocations.vertexPosition);
 
     // 绑定索引缓冲区
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffers.indices);
+    // gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffers.indices); // bug1
 
     // 绑定天空盒纹理
     gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_CUBE_MAP, mSkyboxTexture.texture);
+    // gl.bindTexture(gl.TEXTURE_CUBE_MAP, mSkyboxTexture.texture); // bug2
     gl.uniform1i(programInfo.uniformLocations.uSkybox, 0);
 
     // 矩阵计算（移除平移部分）
@@ -909,9 +928,9 @@ function drawSkybox(gl, programInfo, buffers, deltaTime) {
     gl.disableVertexAttribArray(programInfo.attribLocations.vertexPosition);
 
     // 恢复深度写入
-    gl.depthMask(true);
+    // gl.depthMask(true);
     // 恢复深度测试（如果禁用了深度测试）
-    gl.enable(gl.DEPTH_TEST);
+    // gl.enable(gl.DEPTH_TEST);
 }
 
 function drawPlane(gl, programInfo, buffers) {

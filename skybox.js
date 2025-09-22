@@ -3,9 +3,6 @@ const LIGHT_POSITION = vec3.fromValues(0.0, 5.0, -5.0);
 
 var mCameraPosition = [0.0, 0.0, 10.0];
 
-var mPlaneTextureInfo = null;
-var mVertices = [];
-var mTexCoods = [];
 var mViewportWidth = 0;
 var mViewportHeight = 0;
 var mPitching = 0.0;
@@ -17,6 +14,8 @@ var mProjectionMatrix = mat4.create();
 var mModelMatrix = mat4.create();
 var mViewMatrix = mat4.create();
 var mMvpMatrix = mat4.create();
+
+var mSkyboxTexture;
 var mProgram = null;
 var mBuffers = null;
 var mGl = null;
@@ -65,10 +64,21 @@ function main() {
   mProjectionMatrix = mat4.create();
   mat4.perspective(mProjectionMatrix, fov, aspect, zNear, zFar);
 
-  mPlaneTextureInfo = loadTextureByUrl(mGl, './texture/lensFlare/lensflare0_alpha.png', requestRender);
   // init shader
   updateShader();
   mBuffers = initBuffers(mGl);
+  // 加载天空盒纹理
+  loadSkyboxTexture(mGl, {
+    posX: './texture/SkyBox/posX.png',
+    negX: './texture/SkyBox/negX.png',
+    posY: './texture/SkyBox/posY.png',
+    negY: './texture/SkyBox/negY.png',
+    posZ: './texture/SkyBox/posZ.png',
+    negZ: './texture/SkyBox/negZ.png',
+  }).then(texture => {
+    mSkyboxTexture = texture;
+    requestRender(); // 确保纹理就绪后再渲染
+  });
 
   mCubeBuffers = createCubeBuffers(mGl);
   loadCubeTextures(mGl);
@@ -144,6 +154,70 @@ function initMouseControls(canvas) {
     });
 }
 
+function loadSkyboxTexture(gl, urls) {
+    const texture = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_CUBE_MAP, texture);
+
+    // 1. 初始化所有面为1x1像素
+    const placeholder = new Uint8Array([0, 0, 255, 255]); // 蓝色占位
+    const targets = [
+        gl.TEXTURE_CUBE_MAP_POSITIVE_X, gl.TEXTURE_CUBE_MAP_NEGATIVE_X,
+        gl.TEXTURE_CUBE_MAP_POSITIVE_Y, gl.TEXTURE_CUBE_MAP_NEGATIVE_Y,
+        gl.TEXTURE_CUBE_MAP_POSITIVE_Z, gl.TEXTURE_CUBE_MAP_NEGATIVE_Z
+    ];
+    targets.forEach(target => {
+        gl.texImage2D(target, 0, gl.RGBA, 1024, 1024, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    });
+
+    // 2. 异步加载所有图片
+    const facePromises = targets.map((target, i) => {
+        const url = Object.values(urls)[i];
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.onload = () => resolve({ target, img });
+            img.onerror = () => reject(new Error(`Failed to load ${url}`));
+            img.src = url;
+        });
+    });
+
+    // 3. 统一处理所有面
+    return Promise.all(facePromises)
+        .then(faces => {
+            // 校验所有面尺寸一致
+            const baseWidth = faces[0].img.width;
+            const baseHeight = faces[0].img.height;
+            
+            faces.forEach(({ img }) => {
+                if (img.width !== baseWidth || img.height !== baseHeight) {
+                    throw new Error(`All cubemap faces must have same dimensions. 
+                        Found ${img.width}x${img.height} vs ${baseWidth}x${baseHeight}`);
+                }
+            });
+
+            // 更新纹理数据
+            faces.forEach(({ target, img }) => {
+                gl.bindTexture(gl.TEXTURE_CUBE_MAP, texture);
+                gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 0);
+                gl.texImage2D(target, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+                gl.generateMipmap(gl.TEXTURE_CUBE_MAP);
+            });
+
+            // 统一设置参数（仅在所有面就绪后执行一次）
+            gl.generateMipmap(gl.TEXTURE_CUBE_MAP);
+            gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+            // gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+            // gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+            // gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+            return texture;
+        })
+        .catch(error => {
+            console.error('Cubemap loading failed:', error);
+            gl.deleteTexture(texture);
+            throw error;
+        });
+}
+
 function updateShader() {
   // Vertex shader program
   const vsSource = document.getElementById('id_vertex_shader').value;
@@ -170,16 +244,11 @@ function updateShader() {
   mProgram = {
       program: shaderProgram,
       attribLocations: {
-          vertexPosition: mGl.getAttribLocation(shaderProgram, 'aPosition'),
-          textureCoord: mGl.getAttribLocation(shaderProgram, 'aTexCoord')
+          vertexPosition: mGl.getAttribLocation(shaderProgram, 'aPosition')
       },
       uniformLocations: {
-          uMVPMatrixHandle: mGl.getUniformLocation(shaderProgram, 'uMvpMatrix'),
-          uCenterHandle: mGl.getUniformLocation(shaderProgram, 'uCenter'),
-          uSizeHandle: mGl.getUniformLocation(shaderProgram, 'uSize'),
-          uResolutionHandle: mGl.getUniformLocation(shaderProgram, 'uResolution'),
-          uColorHandle: mGl.getUniformLocation(shaderProgram, 'uColor'),
-          uTextureHandle: mGl.getUniformLocation(shaderProgram, 'uTexture'),
+          uSkybox: mGl.getUniformLocation(shaderProgram, 'uSkybox'),
+          uViewDirectionProjectionInverse: mGl.getUniformLocation(shaderProgram, 'uViewDirectionProjectionInverse'),
       },
   };
 }
@@ -205,30 +274,23 @@ function loadShader(mGl, type, source) {
 }
 
 function initBuffers(gl) {
-  mVertices = createPlaneVertices();
-  mTexCoods = generateTexCoord();
+  const positions = [
+        -1, -1,
+        1, -1,
+        -1,  1,
+        -1,  1,
+        1, -1,
+        1,  1,
+    ];
 
-  // Create a buffer for the sphere's positions.
-  const positionBuffer = gl.createBuffer();
-  // Select the positionBuffer as the one to apply buffer operations to from here out.
-  gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(mVertices), gl.STATIC_DRAW);
+    const positionBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
 
-  // Create a buffer for the viewFrustum's color.
-  const uvBuffer = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, uvBuffer);
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(mTexCoods), gl.STATIC_DRAW);
-
-  // 创建裁剪框顶点缓冲区
-  const cropBoxBuffer = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, cropBoxBuffer);
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([]), gl.DYNAMIC_DRAW); // 初始为空
-
-  return {
-      position: positionBuffer,
-      uv: uvBuffer,
-      cropBox: cropBoxBuffer
-  };
+    return {
+        position: positionBuffer,
+        vertexCount: positions.length / 2,
+    };
 }
 
 function loadTextureByImage(gl, image) {
@@ -446,8 +508,8 @@ function drawScene(gl, programInfo, buffers, deltaTime) {
     // 更新视图矩阵
     mat4.lookAt(mViewMatrix, mCameraPosition, cameraTarget, [0.0, 1.0, 0.0]);
 
-    drawCube(gl, mCubeProgramInfo, mCubeBuffers);
-    drawLensFlare(gl, programInfo, buffers, deltaTime);
+    drawSkybox(gl, mProgram, mBuffers);
+    // drawCube(gl, mCubeProgramInfo, mCubeBuffers);
 
      // 如果鼠标未拖拽，应用惯性旋转
     if (!mIsDragging) {
@@ -467,111 +529,55 @@ function drawScene(gl, programInfo, buffers, deltaTime) {
     }
 }
 
-function drawLensFlare(gl, programInfo, buffers, deltaTime) {
-// 启用 Alpha 混合
-  gl.enable(gl.BLEND);
-  gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+function drawSkybox(gl, programInfo, buffers) {
+    if (null == programInfo || !mSkyboxTexture) {
+        console.log('drawSkybox, No program info or no skybox texture.');
+        return;
+    }
 
-  // Set the drawing position to the "identity" point, which is the center of the scene.
-  mModelMatrix = mat4.create();
-  
-  mat4.translate(mModelMatrix,     // destination matrix
-                 mModelMatrix,     // matrix to translate
-                 [mTransX, mTransY, 0.0]);  // amount to translate
+    gl.enable(gl.CULL_FACE);
+    gl.enable(gl.DEPTH_TEST);
 
-  mat4.rotate(mModelMatrix,  // destination matrix
-              mModelMatrix,  // matrix to rotate
-              mPitching,     // amount to rotate in radians
-              [1, 0, 0]);    // axis to rotate around
-  mat4.rotate(mModelMatrix,  // destination matrix
-              mModelMatrix,  // matrix to rotate
-              mYawing,       // amount to rotate in radians
-              [0, 1, 0]);    // axis to rotate around
+    gl.useProgram(programInfo.program);
 
-  const rollRotation = mRolling * DEGREE_TO_RADIUS;
-  mat4.rotate(mModelMatrix, 
-              mModelMatrix,
-              rollRotation,
-              [0, 0, 1]);
+    // 绑定顶点缓冲区
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffers.position);
+    gl.vertexAttribPointer(programInfo.attribLocations.vertexPosition, 2, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(programInfo.attribLocations.vertexPosition);
 
-  // Tell WebGL how to pull out the positions from the position
-  // buffer into the vertexPosition attribute.
-  {
-      const numComponents = 3;
-      const type = gl.FLOAT;
-      const normalize = false;
-      const stride = 0;
-      const offset = 0;
-      gl.bindBuffer(gl.ARRAY_BUFFER, buffers.position);
-      gl.vertexAttribPointer(
-          programInfo.attribLocations.vertexPosition,
-          numComponents,
-          type,
-          normalize,
-          stride,
-          offset);
-      gl.enableVertexAttribArray(
-          programInfo.attribLocations.vertexPosition);
-  }
+    // 绑定天空盒纹理
+    gl.activeTexture(gl.TEXTURE0);
+    // gl.bindTexture(gl.TEXTURE_CUBE_MAP, mSkyboxTexture.texture); // bug2
+    gl.uniform1i(programInfo.uniformLocations.uSkybox, 0);
 
-  // Tell WebGL how to pull out the texture coordinates from the texture 
-  // coordinate buffer into the textureCoord attribute.
-  {
-      const numComponents = 2;
-      const type = gl.FLOAT;
-      const normalize = false;
-      const stride = 0;
-      const offset = 0;
-      gl.bindBuffer(gl.ARRAY_BUFFER, buffers.uv);
-      gl.vertexAttribPointer(
-          programInfo.attribLocations.textureCoord,
-          numComponents,
-          type,
-          normalize,
-          stride,
-          offset);
-      gl.enableVertexAttribArray(
-          programInfo.attribLocations.textureCoord);
-  }
-  
-  // Tell WebGL to use our program when drawing
-  gl.useProgram(programInfo.program);
+    // 矩阵计算（移除平移部分）
+    const viewMatrix = mat4.clone(mViewMatrix);
+    viewMatrix[12] = viewMatrix[13] = viewMatrix[14] = 0; // 清零平移分量
 
-  // Specify the diffuseTexture to map onto the faces.
-  // Tell WebGL we want to affect diffuseTexture unit 0
-  gl.activeTexture(gl.TEXTURE0);
-  // Bind the diffuseTexture to diffuseTexture unit 0
-  gl.bindTexture(gl.TEXTURE_2D, mPlaneTextureInfo.texture);
-  // Tell the shader we bound the diffuseTexture to diffuseTexture unit 0
-  gl.uniform1i(programInfo.uniformLocations.uTextureHandle, 0);
-  gl.uniform2fv(programInfo.uniformLocations.uCenter, [0, 0]);
-  gl.uniform1f(programInfo.uniformLocations.uSize, 512);
-  gl.uniform2fv(programInfo.uniformLocations.uResolution, [mViewportWidth, mViewportHeight]);
-  gl.uniform4fv(programInfo.uniformLocations.uColor, [1,1,1,1]);
+    const viewInverseMatrix = mat4.create();
+    mat4.invert(viewInverseMatrix, mViewMatrix);
+    viewInverseMatrix[12] = 0;
+    viewInverseMatrix[13] = 0;
+    viewInverseMatrix[14] = 0;
 
-  const tempMatrix = mat4.create();
-  mat4.multiply(tempMatrix, mViewMatrix, mModelMatrix);
-  mat4.multiply(mMvpMatrix, mProjectionMatrix, tempMatrix);
-  updateHtmlMvpMatrixByRender();
+    var viewDirectionProjectionMatrix = mat4.create();
+    mat4.multiply(viewDirectionProjectionMatrix, mProjectionMatrix, viewInverseMatrix);
+    var viewDirectionProjectionInverseMatrix = mat4.create();
+    mat4.invert(viewDirectionProjectionInverseMatrix, viewDirectionProjectionMatrix);
+    gl.uniformMatrix4fv(programInfo.uniformLocations.uViewDirectionProjectionInverse, false, viewDirectionProjectionInverseMatrix);
 
-  // Set the shader uniforms
-  gl.uniformMatrix4fv(
-      programInfo.uniformLocations.uMVPMatrixHandle,
-      false, mMvpMatrix);
+    // let our quad pass the depth test at 1.0
+    gl.depthFunc(gl.LEQUAL);
 
-  const offset = 0;
-  gl.drawArrays(gl.TRIANGLE_STRIP, offset, mVertices.length / 3);
+    // 绘制天空盒
+    gl.drawArrays(gl.TRIANGLES, 0, buffers.vertexCount);
 
-  gl.disableVertexAttribArray(programInfo.attribLocations.vertexPosition);
-  gl.disableVertexAttribArray(programInfo.attribLocations.textureCoord);
-
-  // 禁用 Alpha 混合
-  gl.disable(gl.BLEND);
+    gl.disableVertexAttribArray(programInfo.attribLocations.vertexPosition);
 }
 
 function drawCube(gl, programInfo, buffers) {
     if (null == programInfo) {
-        console.log('drawPlane, No program info.');
+        console.log('drawCube, No program info.');
         return;
     }
     gl.useProgram(programInfo.program);

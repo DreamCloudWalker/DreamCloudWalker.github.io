@@ -5,6 +5,6 @@ uniform samplerCube uSkybox;
 uniform mat4 uViewDirectionProjectionInverse;
 
 void main() {
-    vec4 t = uViewDirectionProjectionInverse * v_position;
+    vec4 t = uViewDirectionProjectionInverse * vTexCoord;
     gl_FragColor = textureCube(uSkybox, normalize(t.xyz / t.w));
 }

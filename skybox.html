@@ -82,35 +82,28 @@
             <div id="vertical">
                 <b>VertexShader</b>
                 <textarea spellcheck="false" rows="33" cols="70" id="id_vertex_shader">
-attribute vec2 aPosition;
-attribute vec2 aTexCoord;
-varying vec2 vTexCoord;
-
-uniform vec2   uCenter;
-uniform float  uSize;
-uniform vec2   uResolution;
-
-uniform mat4   uMvpMatrix;
+attribute vec4 aPosition;
+varying vec4 vTexCoord;
 
 void main() {
-    gl_Position = uMvpMatrix * vec4(aPosition, 0, 1);
-
-    vTexCoord = aTexCoord;
+    vTexCoord = aPosition;      // 直接使用顶点坐标作为采样坐标
+    gl_Position = aPosition;
+    gl_Position.z = 1.0;
 }
                 </textarea>
             </div>
             <div id="vertical">
                 <b>FragmentShader</b>
                 <textarea spellcheck="false" rows="33" cols="70" id="id_fragment_shader">
-precision mediump float;
+precision highp float;
+varying vec4 vTexCoord;
 
-uniform sampler2D uTexture;
-uniform vec4 uColor;
-varying vec2 vTexCoord;
+uniform samplerCube uSkybox;
+uniform mat4 uViewDirectionProjectionInverse;
 
 void main() {
-    vec4 texColor = texture2D(uTexture, vTexCoord);
-    gl_FragColor = texColor;
+    vec4 t = uViewDirectionProjectionInverse * vTexCoord;
+    gl_FragColor = textureCube(uSkybox, normalize(t.xyz / t.w));
 }
                 </textarea>
             </div>

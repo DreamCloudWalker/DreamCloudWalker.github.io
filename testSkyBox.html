@@ -1,0 +1,508 @@
+<!-- Licensed under a BSD license. See license.html for license -->
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+<title>WebGL2- Skybox</title>
+</head>
+<body>
+<div class="description">
+Skybox using a cubemap.<br/>
+</div>
+<canvas id="canvas" width="800" height="600"></canvas>
+</body>
+<!--
+for most samples webgl-utils only provides shader compiling/linking and
+canvas resizing because why clutter the examples with code that's the same in every sample.
+See https://webgl2fundamentals.org/webgl/lessons/webgl-boilerplate.html
+and https://webgl2fundamentals.org/webgl/lessons/webgl-resizing-the-canvas.html
+-->
+<script src="public/gl-matrix.js"></script>
+<!-- <script src="public/webgl-utils.js"></script> -->
+<script>
+"use strict";
+
+var vertexShaderSource = `
+attribute vec4 aPosition;
+varying vec4 vTexCoord;
+
+uniform mat4 uViewMatrix;
+uniform mat4 uProjectionMatrix;
+
+void main() {
+    // mat4 viewMatrix = mat4(mat3(uViewMatrix)); // 移除平移部分
+    vTexCoord = aPosition;  // 直接使用顶点坐标作为采样坐标
+    gl_Position = aPosition;    // uProjectionMatrix * uViewMatrix * 
+    gl_Position.z = 1.0;
+    // gl_Position.z = gl_Position.w; // 确保天空盒在最远处
+}
+`;
+
+var fragmentShaderSource = `
+precision highp float;
+varying vec4 vTexCoord;
+
+uniform samplerCube uSkybox;
+uniform mat4 uViewDirectionProjectionInverse;
+
+void main() {
+    vec4 t = uViewDirectionProjectionInverse * vTexCoord;
+    gl_FragColor = textureCube(uSkybox, normalize(t.xyz / t.w));
+}
+`;
+
+let isDragging = false;
+let lastMouseX = 0;
+let lastMouseY = 0;
+let yaw = 0;   // 水平角度
+let pitch = 0; // 垂直角度
+let radius = 2; // 相机到目标点的距离
+
+
+function main() {
+  // Get A WebGL context
+  /** @type {HTMLCanvasElement} */
+  var canvas = document.querySelector("#canvas");
+  var gl = canvas.getContext("webgl2");
+  if (!gl) {
+    return;
+  }
+  canvas.addEventListener('mousedown', (event) => {
+    isDragging = true;
+    lastMouseX = event.clientX;
+    lastMouseY = event.clientY;
+});
+canvas.addEventListener('mousemove', (event) => {
+    if (isDragging) {
+        const deltaX = event.clientX - lastMouseX;
+        const deltaY = event.clientY - lastMouseY;
+
+        // 调整 yaw 和 pitch
+        yaw += deltaX * 0.01; // 水平旋转速度
+        pitch += deltaY * 0.01; // 垂直旋转速度
+
+        // 限制 pitch 的范围，避免翻转
+        pitch = Math.max(-Math.PI / 2 + 0.1, Math.min(Math.PI / 2 - 0.1, pitch));
+
+        lastMouseX = event.clientX;
+        lastMouseY = event.clientY;
+    }
+});
+canvas.addEventListener('mouseup', () => {
+    isDragging = false;
+});
+
+canvas.addEventListener('mouseleave', () => {
+    isDragging = false;
+});
+canvas.addEventListener('wheel', (event) => {
+    event.preventDefault(); // 阻止页面滚动
+
+    const zoomSpeed = 0.1; // 缩放速度
+    const delta = event.deltaY < 0 ? -1 : 1; // 滚轮方向
+
+    radius += delta * zoomSpeed;
+    radius = Math.max(1.0, Math.min(10.0, radius)); // 限制缩放范围
+});
+
+  // Use our boilerplate utils to compile the shaders and link into a program
+  var program = updateSkyBoxShader(gl, vertexShaderSource, fragmentShaderSource);
+
+// loadSkyBoxShaderByPath(gl, './shader/skybox.vs', './shader/skybox.fs');
+
+// var program = webglUtils.createProgramFromSources(gl,
+//       [vertexShaderSource, fragmentShaderSource]);
+
+  // look up where the vertex data needs to go.
+//   var positionLocation = gl.getAttribLocation(program, "aPosition");
+
+  // lookup uniforms
+//   var skyboxLocation = gl.getUniformLocation(program, "uSkybox");
+//   var viewDirectionProjectionInverseLocation =
+//       gl.getUniformLocation(program, "uViewDirectionProjectionInverse");
+
+  // Create a vertex array object (attribute state)
+  var vao = gl.createVertexArray();
+
+  // and make it the one we're currently working with
+  gl.bindVertexArray(vao);
+
+  // Create a buffer for positions
+  // var positionBuffer = gl.createBuffer();
+  // // Bind it to ARRAY_BUFFER (think of it as ARRAY_BUFFER = positionBuffer)
+  // gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+  // // Put the positions in the buffer
+  // setGeometry(gl);
+
+  var positionBuffer = createSkyboxBuffers(gl);
+
+  // Turn on the position attribute
+  gl.enableVertexAttribArray(program.attribLocations.vertexPosition);   // positionLocation
+
+  // Bind the position buffer.
+  gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer.position); // positionBuffer
+
+  // Tell the position attribute how to get data out of positionBuffer (ARRAY_BUFFER)
+  var size = 2;          // 2 components per iteration
+  var type = gl.FLOAT;   // the data is 32bit floats
+  var normalize = false; // don't normalize the data
+  var stride = 0;        // 0 = move forward size * sizeof(type) each iteration to get the next position
+  var offset = 0;        // start at the beginning of the buffer
+  gl.vertexAttribPointer(
+    program.attribLocations.vertexPosition, size, type, normalize, stride, offset); // positionLocation
+
+  // Create a texture.
+  // var texture = gl.createTexture();
+  // gl.bindTexture(gl.TEXTURE_CUBE_MAP, texture);
+
+  // const faceInfos = [
+  //   {
+  //     target: gl.TEXTURE_CUBE_MAP_POSITIVE_X,
+  //     url: 'texture/SkyBox/posX.png',
+  //   },
+  //   {
+  //     target: gl.TEXTURE_CUBE_MAP_NEGATIVE_X,
+  //     url: 'texture/SkyBox/negX.png',
+  //   },
+  //   {
+  //     target: gl.TEXTURE_CUBE_MAP_POSITIVE_Y,
+  //     url: 'texture/SkyBox/posY.png',
+  //   },
+  //   {
+  //     target: gl.TEXTURE_CUBE_MAP_NEGATIVE_Y,
+  //     url: 'texture/SkyBox/negY.png',
+  //   },
+  //   {
+  //     target: gl.TEXTURE_CUBE_MAP_POSITIVE_Z,
+  //     url: 'texture/SkyBox/posZ.png',
+  //   },
+  //   {
+  //     target: gl.TEXTURE_CUBE_MAP_NEGATIVE_Z,
+  //     url: 'texture/SkyBox/negZ.png',
+  //   },
+  // ];
+  // faceInfos.forEach((faceInfo) => {
+  //   const {target, url} = faceInfo;
+
+  //   // Upload the canvas to the cubemap face.
+  //   const level = 0;
+  //   const internalFormat = gl.RGBA;
+  //   const width = 1024;
+  //   const height = 1024;
+  //   const format = gl.RGBA;
+  //   const type = gl.UNSIGNED_BYTE;
+
+  //   // setup each face so it's immediately renderable
+  //   gl.texImage2D(target, level, internalFormat, width, height, 0, format, type, null);
+
+  //   // Asynchronously load an image
+  //   const image = new Image();
+  //   image.src = url;
+  //   image.addEventListener('load', function() {
+  //     // Now that the image has loaded make copy it to the texture.
+  //     gl.bindTexture(gl.TEXTURE_CUBE_MAP, texture);
+  //     gl.texImage2D(target, level, internalFormat, format, type, image);
+  //     gl.generateMipmap(gl.TEXTURE_CUBE_MAP);
+  //   });
+  // });
+  // gl.generateMipmap(gl.TEXTURE_CUBE_MAP);
+  // gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+
+  // 加载天空盒纹理
+  loadSkyboxTexture(gl, {
+      posX: './texture/SkyBox/posX.png',
+      negX: './texture/SkyBox/negX.png',
+      posY: './texture/SkyBox/posY.png',
+      negY: './texture/SkyBox/negY.png',
+      posZ: './texture/SkyBox/posZ.png',
+      negZ: './texture/SkyBox/negZ.png',
+  }).then(texture => {
+      
+  });
+
+  function degToRad(d) {
+    return d * Math.PI / 180;
+  }
+
+  var fieldOfViewRadians = degToRad(60);
+
+  requestAnimationFrame(drawScene);
+
+  /**
+   * Resize a canvas to match the size its displayed.
+   * @param {HTMLCanvasElement} canvas The canvas to resize.
+   * @param {number} [multiplier] amount to multiply by.
+   *    Pass in window.devicePixelRatio for native pixels.
+   * @return {boolean} true if the canvas was resized.
+   * @memberOf module:webgl-utils
+   */
+   function resizeCanvasToDisplaySize(canvas, multiplier) {
+    multiplier = multiplier || 1;
+    const width  = canvas.clientWidth  * multiplier | 0;
+    const height = canvas.clientHeight * multiplier | 0;
+    if (canvas.width !== width ||  canvas.height !== height) {
+      canvas.width  = width;
+      canvas.height = height;
+      return true;
+    }
+    return false;
+  }
+
+  // Draw the scene.
+  function drawScene(time) {
+    // convert to seconds
+    time *= 0.001;
+
+    resizeCanvasToDisplaySize(gl.canvas);
+    // webglUtils.resizeCanvasToDisplaySize(gl.canvas);
+
+    // Tell WebGL how to convert from clip space to pixels
+    gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+
+    gl.enable(gl.CULL_FACE);
+    gl.enable(gl.DEPTH_TEST);
+
+    // Clear the canvas AND the depth buffer.
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+    // Tell it to use our program (pair of shaders)
+    gl.useProgram(program.program);    // program
+
+    // Bind the attribute/buffer set we want.
+    gl.bindVertexArray(vao);
+
+    // Compute the projection matrix
+    var aspect = gl.canvas.clientWidth / gl.canvas.clientHeight;
+    var projectionMatrix = mat4.create();
+    mat4.perspective(projectionMatrix, fieldOfViewRadians, aspect, 1, 2000);
+
+    // camera going in circle 2 units from origin looking at origin
+    // var cameraPosition = [Math.cos(time * .1), 0, Math.sin(time * .1)];
+    // var target = [0, 0, 0];
+    // var up = [0, 1, 0];
+    // // Compute the camera's matrix using look at.
+    // var cameraMatrix = mat4.create();
+    // mat4.lookAt(cameraMatrix, cameraPosition, target, up);
+
+    // 计算相机位置
+    const cameraPosition = [
+        radius * Math.cos(pitch) * Math.sin(yaw), // x
+        radius * Math.sin(pitch),                // y
+        radius * Math.cos(pitch) * Math.cos(yaw) // z
+    ];
+    const target = [0, 0, 0];
+    const up = [0, 1, 0];
+
+    // 计算视图矩阵
+    const cameraMatrix = mat4.create();
+    mat4.lookAt(cameraMatrix, cameraPosition, target, up);
+
+    // Make a view matrix from the camera matrix.
+    const viewMatrix = mat4.create();
+    mat4.invert(viewMatrix, cameraMatrix);
+
+    // We only care about direciton so remove the translation
+    viewMatrix[12] = 0;
+    viewMatrix[13] = 0;
+    viewMatrix[14] = 0;
+
+    var viewDirectionProjectionMatrix = mat4.create();
+    mat4.multiply(viewDirectionProjectionMatrix, projectionMatrix, viewMatrix);
+    var viewDirectionProjectionInverseMatrix = mat4.create();
+    mat4.invert(viewDirectionProjectionInverseMatrix, viewDirectionProjectionMatrix);
+
+    // Set the uniforms
+    gl.uniformMatrix4fv(
+        program.uniformLocations.uViewProjInverse, false,
+        viewDirectionProjectionInverseMatrix);  // viewDirectionProjectionInverseLocation
+
+    // Tell the shader to use texture unit 0 for uSkybox
+    gl.uniform1i(program.uniformLocations.uSkyBox, 0);  // skyboxLocation
+
+    // let our quad pass the depth test at 1.0
+    gl.depthFunc(gl.LEQUAL);
+
+    // Draw the geometry.
+    gl.drawArrays(gl.TRIANGLES, 0, 1 * 6);
+
+    requestAnimationFrame(drawScene);
+  }
+}
+
+// creates a shader of the given type, uploads the source and compiles it.
+function loadShader(mGl, type, source) {
+  const shader = mGl.createShader(type);
+
+  // Send the source to the shader object
+  mGl.shaderSource(shader, source);
+
+  // Compile the shader program
+  mGl.compileShader(shader);
+
+  // See if it compiled successfully
+  if (!mGl.getShaderParameter(shader, mGl.COMPILE_STATUS)) {
+      alert('An error occurred compiling the shaders: ' + mGl.getShaderInfoLog(shader));
+      mGl.deleteShader(shader);
+      return null;
+  }
+
+  return shader;
+}
+
+function updateSkyBoxShader(mGl, vsSource, fsSource) { 
+    // Initialize a shader program
+    const vertexShader = loadShader(mGl, mGl.VERTEX_SHADER, vsSource);
+    const fragmentShader = loadShader(mGl, mGl.FRAGMENT_SHADER, fsSource);
+
+    // Create the shader program
+    const skyboxProgram = mGl.createProgram();
+    mGl.attachShader(skyboxProgram, vertexShader);
+    mGl.attachShader(skyboxProgram, fragmentShader);
+    mGl.linkProgram(skyboxProgram);
+
+    // If creating the shader program failed, alert
+    if (!mGl.getProgramParameter(skyboxProgram, mGl.LINK_STATUS)) {
+        alert('Unable to initialize the shader program: ' + mGl.getProgramInfoLog(skyboxProgram));
+        return null;
+    }
+
+    return {
+        program: skyboxProgram,
+        attribLocations: {
+            vertexPosition: mGl.getAttribLocation(skyboxProgram, 'aPosition')
+        },
+        uniformLocations: {
+            uSkyBox: mGl.getUniformLocation(skyboxProgram, 'uSkybox'),
+            uViewProjInverse: mGl.getUniformLocation(skyboxProgram, 'uViewDirectionProjectionInverse')
+        },
+    };
+}
+
+// Fill the buffer with the values that define a quad.
+function setGeometry(gl) {
+  var positions = new Float32Array(
+    [
+      -1, -1,
+       1, -1,
+      -1,  1,
+      -1,  1,
+       1, -1,
+       1,  1,
+    ]);
+  gl.bufferData(gl.ARRAY_BUFFER, positions, gl.STATIC_DRAW);
+}
+
+function createSkyboxBuffers(gl) {
+    const positions = [
+        -1, -1,
+        1, -1,
+        -1,  1,
+        -1,  1,
+        1, -1,
+        1,  1,
+    ];
+
+    const positionBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
+
+    return {
+        position: positionBuffer,
+        vertexCount: positions.length / 2,
+    };
+}
+
+function loadSkyBoxShaderByPath(gl, vertexShaderPath, fragmentShaderPath) {
+    // 同时加载顶点和片段着色器
+    Promise.all([
+        fetch(vertexShaderPath).then(handleShaderResponse),
+        fetch(fragmentShaderPath).then(handleShaderResponse)
+    ])
+    .then(([vertexShaderCode, fragmentShaderCode]) => {
+        console.log('Shaders loaded successfully:');
+        console.log(`Vertex shader from ${vertexShaderPath} (${vertexShaderCode.length} chars)`);
+        console.log(`Fragment shader from ${fragmentShaderPath} (${fragmentShaderCode.length} chars)`);
+        
+        // 直接将源码传递给更新函数
+        updateSkyBoxShader(gl, vertexShaderCode, fragmentShaderCode);
+    })
+    .catch(error => {
+        console.error('Shader loading failed:', error);
+    });
+
+    // 统一的响应处理函数
+    function handleShaderResponse(response) {
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.text();
+    }
+}
+
+function loadSkyboxTexture(gl, urls) {
+    const texture = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_CUBE_MAP, texture);
+
+    // 1. 初始化所有面为1x1像素
+    const placeholder = new Uint8Array([0, 0, 255, 255]); // 蓝色占位
+    const targets = [
+        gl.TEXTURE_CUBE_MAP_POSITIVE_X, gl.TEXTURE_CUBE_MAP_NEGATIVE_X,
+        gl.TEXTURE_CUBE_MAP_POSITIVE_Y, gl.TEXTURE_CUBE_MAP_NEGATIVE_Y,
+        gl.TEXTURE_CUBE_MAP_POSITIVE_Z, gl.TEXTURE_CUBE_MAP_NEGATIVE_Z
+    ];
+    targets.forEach(target => {
+        gl.texImage2D(target, 0, gl.RGBA, 1024, 1024, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    });
+
+    // 2. 异步加载所有图片
+    const facePromises = targets.map((target, i) => {
+        const url = Object.values(urls)[i];
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.onload = () => resolve({ target, img });
+            img.onerror = () => reject(new Error(`Failed to load ${url}`));
+            img.src = url;
+        });
+    });
+
+    // 3. 统一处理所有面
+    return Promise.all(facePromises)
+        .then(faces => {
+            // 校验所有面尺寸一致
+            const baseWidth = faces[0].img.width;
+            const baseHeight = faces[0].img.height;
+            
+            faces.forEach(({ img }) => {
+                if (img.width !== baseWidth || img.height !== baseHeight) {
+                    throw new Error(`All cubemap faces must have same dimensions. 
+                        Found ${img.width}x${img.height} vs ${baseWidth}x${baseHeight}`);
+                }
+            });
+
+            // 更新纹理数据
+            faces.forEach(({ target, img }) => {
+                gl.bindTexture(gl.TEXTURE_CUBE_MAP, texture);
+                gl.texImage2D(target, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+                gl.generateMipmap(gl.TEXTURE_CUBE_MAP);
+            });
+
+            // 统一设置参数（仅在所有面就绪后执行一次）
+            gl.generateMipmap(gl.TEXTURE_CUBE_MAP);
+            gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+            // gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+            // gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+            // gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+            return texture;
+        })
+        .catch(error => {
+            console.error('Cubemap loading failed:', error);
+            gl.deleteTexture(texture);
+            throw error;
+        });
+}
+
+main();
+</script>
+</html>
