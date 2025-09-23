@@ -2,6 +2,7 @@ const AMBIENT_COLOR = vec4.fromValues(0.5, 0.5, 0.5, 1.0);
 const DIFFUSE_COLOR = vec4.fromValues(1.0, 1.0, 1.0, 1.0);
 const SPECULAR_COLOR = vec4.fromValues(1.0, 1.0, 1.0, 1.0);
 const LIGHT_POSITION = vec3.fromValues(-1.0, 1.0, 1.0);
+// vec3.normalize(LIGHT_POSITION, LIGHT_POSITION); // 确保方向向量归一化
 const LIGHT_COLOR = vec3.fromValues(1.0, 1.0, 1.0);
 const DEFAULT_EMISSIVE_FACTOR = vec3.fromValues(0.0, 0.0, 0.0);
 const DEFAULT_BASECOLOR_FACTOR = vec4.fromValues(1.0, 1.0, 1.0, 1.0);
@@ -384,6 +385,8 @@ class GLScene extends GLCanvas {
 
         // Here's where we call the routine that builds all the objects we'll be drawing.
         initFighterBuffers(gl);
+
+        // adjustLensFlareLightDir();
         mLensFlareVBOBuffer = initLensFlareBuffers(gl);
         // init terrain
         mTerrainBuffer = initTerrainBuffer(gl);
@@ -2665,6 +2668,23 @@ function updateBackgroundBuffer(gl) {
     };
 }
 
+// TODO 暂定太阳画在posY.png的右上角，UV坐标为(0.85, 0.85的位置)
+function adjustLensFlareLightDir() {
+    const u = 0.85; // 水平位置
+    const v = 0.85; // 垂直位置
+
+    // 将纹理坐标转换为天空盒的方向向量
+    const x = -1 + 2 * u;
+    const y = 1; // posY 面固定 y = 1
+    const z = -1 + 2 * v;
+
+    // 归一化方向向量
+    const length = Math.sqrt(x * x + y * y + z * z);
+    LIGHT_POSITION.set(x / length, y / length, z / length);
+
+    console.log('Light Direction:', LIGHT_POSITION);
+}
+
 function initLensFlareBuffers(gl) {
     const positionBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
@@ -2876,7 +2896,6 @@ function switchDemo(demoId) {
             resumeMVPMatrix(true);
             mNeedDrawFighter = true;
             mNeedDrawBackground = true;
-            mNeedDrawLensFlare = true;
             mNeedDrawSkyBox = true;
             if (null == mUIConclusion) {
                 mUIConclusion = document.getElementById("id_conclusion");
@@ -2895,7 +2914,6 @@ function switchDemo(demoId) {
             resumeMVPMatrix(true);
             mNeedDrawFighter = true;
             mNeedDrawBackground = true;
-            mNeedDrawLensFlare = true;
             mNeedDrawSkyBox = true;
             if (null == mUINormalMapping) {
                 mUINormalMapping = document.getElementById("id_normal_mapping");
@@ -2920,6 +2938,7 @@ function switchDemo(demoId) {
             mNeedDrawGimbal = true;
             mNeedDrawFighter = true;
             mNeedDrawBackground = true;
+            mNeedDrawSkyBox = true;
             document.getElementById("id_rotatematrix").style.display = 'flex';
             if (null == mUIEulerAngle) {
                 mUIEulerAngle = document.getElementById("id_euler_angle_blog");
@@ -2937,6 +2956,7 @@ function switchDemo(demoId) {
             mNeedDrawAngleAxis = true;
             mNeedDrawFighter = true;
             mNeedDrawBackground = true;
+            mNeedDrawSkyBox = true;
             document.getElementById("id_axisangle").style.display = 'flex';
             if (null == mUIAxisAngle) {
                 mUIAxisAngle = document.getElementById("id_axis_angle_blog");
@@ -2953,6 +2973,7 @@ function switchDemo(demoId) {
         case 'Quaternion':
             mNeedDrawFighter = true;
             mNeedDrawBackground = true;
+            mNeedDrawSkyBox = true;
             document.getElementById("id_quaternion").style.display = 'flex';
             if (null == mUIQuaternion) {
                 mUIQuaternion = document.getElementById("id_quaternion_blog");
@@ -2977,7 +2998,6 @@ function switchDemo(demoId) {
             resumeMVPMatrix(true);
             mNeedDrawFighter = true;
             mNeedDrawBackground = true;
-            mNeedDrawLensFlare = true;
             mNeedDrawSkyBox = true;
             document.getElementById("id_modelmatrix").style.display = 'flex';
             mUIModelMatrix.style.display = 'block';
@@ -2985,7 +3005,6 @@ function switchDemo(demoId) {
         case 'ViewMatrix':
             mNeedDrawFighter = true;
             mNeedDrawBackground = true;
-            mNeedDrawLensFlare = true;
             mNeedDrawSkyBox = true;
             document.getElementById("id_viewmatrix").style.display = 'flex';
             if (null == mUIViewMatrix) {
@@ -3003,7 +3022,6 @@ function switchDemo(demoId) {
         case 'ProjectionMatrix':
             mNeedDrawFighter = true;
             mNeedDrawBackground = true;
-            mNeedDrawLensFlare = true;
             mNeedDrawSkyBox = true;
             document.getElementById("id_projmatrix").style.display = 'flex';
             if (null == mUIProjectionMatrix) {
@@ -3020,7 +3038,6 @@ function switchDemo(demoId) {
             break;
         case 'UV':
             mNeedDrawUVDemoPlane = true;
-            mNeedDrawLensFlare = true;
             mNeedDrawSkyBox = true;
             resumeMVPMatrix(false);
             document.getElementById("id_uv_demo").style.display = 'flex';
@@ -3039,14 +3056,12 @@ function switchDemo(demoId) {
         case 'PerVertexOrFragLighting':
             mNeedDrawSphere = true;
             mNeedDrawBackground = true;
-            mNeedDrawLensFlare = true;
             mNeedDrawSkyBox = true;
             document.getElementById("id_per_vertex_or_frag_lighting").style.display = 'flex';
             break;
         case 'Light':
             mNeedDrawFighter = true;
             mNeedDrawBackground = true;
-            mNeedDrawLensFlare = true;
             mNeedDrawSkyBox = true;
             document.getElementById("id_lightdemo").style.display = 'flex';
             break;
@@ -3056,6 +3071,15 @@ function switchDemo(demoId) {
             mNeedDrawBackground = true;
             mNeedDrawShadow = true;
             mNeedDrawTerrain = true;
+            document.getElementById("id_shadowdemo").style.display = 'flex';
+            updateLightShader("shadowDemo");
+            break;
+        case 'LensFlare':
+            resumeMVPMatrix(true);
+            mNeedDrawFighter = true;
+            mNeedDrawBackground = true;
+            mNeedDrawSkyBox = true;
+            mNeedDrawLensFlare = true;
             document.getElementById("id_shadowdemo").style.display = 'flex';
             updateLightShader("shadowDemo");
             break;
@@ -4707,6 +4731,25 @@ function worldToScreenNDC(pos, modelViewMatrix, projectionMatrix) {
     ];
 }
 
+function directionToScreenEdge(lightDir, viewMatrix, projMatrix) {
+    // 1. 创建足够远的虚拟光源位置（确保在视锥体外）
+    const farDistance = 1000;
+    const virtualLightPos = [
+        -lightDir[0] * farDistance,
+        -lightDir[1] * farDistance, 
+        -lightDir[2] * farDistance
+    ];
+    
+    // 2. 投影到屏幕空间
+    const ndc = worldToScreenNDC(virtualLightPos, viewMatrix, projMatrix);
+    
+    // 3. 将NDC坐标缩放到屏幕边缘
+    const maxComponent = Math.max(Math.abs(ndc[0]), Math.abs(ndc[1]));
+    const scale = 1.0 / maxComponent * 0.9; // 0.9确保在边缘内
+    
+    return [ndc[0] * scale, ndc[1] * scale];
+}
+
 function drawSkybox(gl, programInfo, buffers, skyboxTexture, isGodView) {
     if (null == programInfo || !buffers || !skyboxTexture) {
         console.log('drawSkybox, No program info or no skybox buffers or texture.');
@@ -4763,14 +4806,21 @@ function drawSkybox(gl, programInfo, buffers, skyboxTexture, isGodView) {
 }
 
 function drawLensFlare(gl, lensFlareProgram, lightWorldPos, modelViewMatrix, projectionMatrix) {
-    // 计算光源屏幕坐标
-    const lightScreen = worldToScreenNDC(lightWorldPos, modelViewMatrix, projectionMatrix);
+    // 计算点光源屏幕坐标
+    // const lightScreen = worldToScreenNDC(lightWorldPos, modelViewMatrix, projectionMatrix);
+    // 计算方向光源屏幕坐标
+    const lightScreen = directionToScreenEdge(lightWorldPos, modelViewMatrix, projectionMatrix);
     const screenCenter = [0.5, 0.5];   // [mViewportWidth / 2, mViewportHeight / 2];
     const flareVec = [screenCenter[0] - lightScreen[0], screenCenter[1] - lightScreen[1]];
-    const distance = Math.sqrt(flareVec[0] * flareVec[0] + flareVec[1] * flareVec[1]);
+    // const distance = Math.sqrt(flareVec[0] * flareVec[0] + flareVec[1] * flareVec[1]);
+    const distance = Math.min(
+        Math.sqrt(flareVec[0]*flareVec[0] + flareVec[1]*flareVec[1]),
+        1.0
+    );
     // 计算亮度
-    const maxDistance = 0.7; // 最大距离
-    let brightness = 1 - (distance / maxDistance);
+    // const maxDistance = 0.7; // 最大距离
+    // let brightness = 1 - (distance / maxDistance);
+    let brightness = 1.5 * (1 - distance);
     // console.log('Brightness:', brightness);
 
     // 绘制光源
