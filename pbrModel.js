@@ -4,12 +4,27 @@ var mCameraPosition = [0.0, 5.0, 5.0];
 let mCameraAnimationTarget = null; // 动画目标位置
 let mCameraAnimationVelocity = vec3.create(); // 动画速度
   
+var mFbxBuffer = [];
+var mFbxM1BaseTextureInfo = null;
+var mFbxM1NormalTexture = null;
+var mFbxM1MetalnessTexture = null;
+var mFbxM1EmissivesTexture = null;
+var mFbxM2BaseTextureInfo = null;
+var mFbxM2NormalTexture = null;
+var mFbxM2MetalnessTexture = null;
+var mFbxM2EmissivesTexture = null;
+var mFbxM3BaseTextureInfo = null;
+var mFbxM3NormalTexture = null;
+var mFbxM3MetalnessTexture = null;
+var mFbxM3EmissivesTexture = null;
+
 var mObjectBuffer = [];
-var mBaseTextureInfo = null;
+var mObjectBaseTextureInfo = null;
 var mObjectNormalTexture = null;
 var mObjectMetalnessTexture = null;
 // var mObjectEmissiveTexture = null;
 var mObjectRoughnessTexture = null;
+
 var mViewportWidth = 0;
 var mViewportHeight = 0;
 var mPitching = 0.0;
@@ -65,7 +80,20 @@ function main() {
   mProjectionMatrix = mat4.create();
   mat4.perspective(mProjectionMatrix, fov, aspect, zNear, zFar);
 
-  mBaseTextureInfo = loadTextureByUrl(mGl, './model/pbr/fire_hydrant_Base_Color.png');
+  mFbxM1BaseTextureInfo = loadTextureByUrl(mGl, './model/PBR_XiLou/XiLou_m1_C.jpg');
+  mFbxM1NormalTexture = loadTextureByUrl(mGl, './model/PBR_XiLou/XiLou_m1_N.jpg');
+  mFbxM1MetalnessTexture = loadTextureByUrl(mGl, './model/PBR_XiLou/XiLou_m2_Ao.jpg');
+  mFbxM1EmissivesTexture = loadTextureByUrl(mGl, './model/PBR_XiLou/XiLou_m1_S.png');
+  mFbxM2BaseTextureInfo = loadTextureByUrl(mGl, './model/PBR_XiLou/XiLou_m2_C.jpg');
+  mFbxM2NormalTexture = loadTextureByUrl(mGl, './model/PBR_XiLou/XiLou_m2_N.jpg');
+  mFbxM2MetalnessTexture = loadTextureByUrl(mGl, './model/PBR_XiLou/XiLou_m2_Ao.jpg');
+  mFbxM2EmissivesTexture = loadTextureByUrl(mGl, './model/PBR_XiLou/XiLou_m2_S.png');
+  mFbxM3BaseTextureInfo = loadTextureByUrl(mGl, './model/PBR_XiLou/XiLou_m3_C.jpg');
+  mFbxM3NormalTexture = loadTextureByUrl(mGl, './model/PBR_XiLou/XiLou_m3_N.jpg');
+  mFbxM3MetalnessTexture = loadTextureByUrl(mGl, './model/PBR_XiLou/XiLou_m3_Ao.jpg');
+  mFbxM3EmissivesTexture = loadTextureByUrl(mGl, './model/PBR_XiLou/XiLou_m3_S.png');
+
+  mObjectBaseTextureInfo = loadTextureByUrl(mGl, './model/pbr/fire_hydrant_Base_Color.png');
   mObjectNormalTexture = loadTextureByUrl(mGl, './model/pbr/fire_hydrant_Normal.png');
   mObjectMetalnessTexture = loadTextureByUrl(mGl, './model/pbr/fire_hydrant_Metallic.png');
 //   mObjectEmissiveTexture = loadTextureByUrl(mGl, './model/pbr/fire_hydrant_Mixed_AO.png');
@@ -268,6 +296,70 @@ function initModelBuffers(gl) {
     function onError(xhr) {
         console.log('load error!' + xhr.message);
     }
+    
+    var fbxLoader = new THREE.FBXLoader();
+    fbxLoader.setCrossOrigin("Anonymous");
+    fbxLoader.load("./model/PBR_XiLou/XiLou.fbx", function(object) {
+        for (var i = 0; i < object.children.length; i++) {
+            const geometry = object.children[i].geometry;
+            const vertices = geometry.attributes.position;
+            const normals = geometry.attributes.normal;
+            const uvCoords = geometry.attributes.uv;
+            // const indices = geometry.index;
+
+            // 1. 检查索引是否存在，若不存在则生成默认索引（0,1,2,3,...）
+            let indexArray;
+            // let drawCnt;
+            // if (indices !== null) {
+            //     indexArray = indices.array;
+            //     drawCnt = indices.count;
+            // } else {
+            //     // 如果没有索引，则直接使用顶点顺序作为索引（0,1,2,3,...）
+            //     indexArray = new Uint16Array(vertices.count);
+            //     for (let j = 0; j < vertices.count; j++) {
+            //         indexArray[j] = j;
+            //     }
+                drawCnt = vertices.count;
+            // }
+
+            // 2. 初始化顶点缓冲区
+            const positionBuffer = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+            gl.bufferData(gl.ARRAY_BUFFER, vertices.array, gl.STATIC_DRAW);
+
+            // 3. 初始化法线缓冲区（如果存在）
+            let normalBuffer = null;
+            if (normals !== undefined) {
+                normalBuffer = gl.createBuffer();
+                gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer);
+                gl.bufferData(gl.ARRAY_BUFFER, normals.array, gl.STATIC_DRAW);
+            }
+
+            // 4. 初始化UV缓冲区（如果存在）
+            let uvBuffer = null;
+            if (uvCoords !== undefined) {
+                uvBuffer = gl.createBuffer();
+                gl.bindBuffer(gl.ARRAY_BUFFER, uvBuffer);
+                gl.bufferData(gl.ARRAY_BUFFER, uvCoords.array, gl.STATIC_DRAW);
+            }
+
+            // 5. 初始化索引缓冲区
+            // const indexBuffer = gl.createBuffer();
+            // gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+            // gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indexArray, gl.STATIC_DRAW);
+
+            // 6. 存储缓冲区对象
+            var fbxGroupBuffer = {
+                position: positionBuffer,
+                normal: normalBuffer,
+                uv: uvBuffer,
+                // indices: indexBuffer,
+                drawCnt: drawCnt, // 索引的数量
+            };
+            mFbxBuffer.push(fbxGroupBuffer);
+        }
+        requestRender();
+    })
 
     var loader = new THREE.OBJLoader();
     loader.load('./model/pbr/FireHydrantMesh.obj', function(object) {
@@ -472,7 +564,7 @@ function drawScene(gl, programInfo, deltaTime) {
 
     // 绑定纹理
     gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, mBaseTextureInfo.texture);
+    gl.bindTexture(gl.TEXTURE_2D, mObjectBaseTextureInfo.texture);
     gl.uniform1i(programInfo.uniformLocations.uBaseColorMap, 0);
 
     if (null != mObjectNormalTexture) {
