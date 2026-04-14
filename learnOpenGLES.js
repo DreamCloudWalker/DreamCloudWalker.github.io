@@ -2787,7 +2787,8 @@ function cullVertex(vertices, indices) {
 function handleMouseDown(event) {
     mMouseDown = true;
     mLastMouseX = event.clientX;
-    if (mLastMouseX < mViewportWidth + 230) {   // plus left tab width
+    var canvasLeft = mGLView ? mGLView.getBoundingClientRect().left : 0;
+    if (mLastMouseX < canvasLeft + mViewportWidth) {
         mDragMainView = true;
     } else {
         mDragMainView = false;
