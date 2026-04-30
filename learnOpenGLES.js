@@ -43,14 +43,7 @@ const FALLING_LEAF4_FRAME_CNT = 30;
 const COBRA_STEP2_FRAME_CNT = 50;
 const COBRA_Z_OFFSET = 1.3;
 const COBRA_Y_OFFSET = 1.3;
-// video filter mode
-const VideoFilter = {
-    NORMAL: 0, 
-    INVERSE: 1, 
-    SNOW_REMINISCENCE: 2, 
-    LUT_ILLUSION: 3, 
-    SOUL_OUT: 4,
-};
+
 const DEFAULT_RTT_RESOLUTION = 256;
 // basic
 var mGLCanvas = null;
@@ -83,43 +76,14 @@ var mUseDiffuseColor = true;
 var mUseSpecularColor = true;
 // lens flare
 var mNeedDrawLensFlare = false;
-var mLensFlareTextures = [];
-var mLensFlareElements = [];
-var mLensFlareVBOBuffer = null;
-const mLensFlareQuadVerts = new Float32Array([
-    -0.5, -0.5,
-     0.5, -0.5,
-    -0.5,  0.5,
-     0.5,  0.5
-]);
-var mLensFlareProgram = null;
-var mLensFlareModelViewMatrix = mat4.create();
-// skybox 
+// skybox
 var mNeedDrawSkyBox = true;
-var mSkyBoxTexture = null;
-var mSkyBoxVBOBuffer = null;
-const mSkyBoxQuadVerts = [
-    -1, -1,
-    1, -1,
-    -1,  1,
-    -1,  1,
-    1, -1,
-    1,  1,
-];
-var mSkyBoxProgram = null;
 // shadow
 var mNeedDrawShadow = false;
-var mShadowProgram = null;
-var mShadowFBO = null;
 var mVpMatrixByLightCoord = mat4.create();
 var mMvpMatrixByLightCoord = mat4.create();
-// pbr lighting
-var mDefines = {'HAS_UV': 1, 'USE_IBL': 1}; 
-var mPBRLightProgram = null;
 // terrain
 var mNeedDrawTerrain = false;
-var mTerrainBuffer = null;
-var mTerrainTexture = null;
 // draw background
 var mNeedDrawBackground = true;
 var mBackgroundProgram = null;
@@ -133,6 +97,7 @@ var mIsWrapSRepeat = true;
 var mIsWrapTRepeat = true;
 // draw UV demo plane
 var mNeedDrawUVDemoPlane = false;
+var mTerrainTexture = null;  // reused for UV demo visualization
 var mUVDemoPlaneBuffer = null;
 var mUVDemoPlaneVertices = [];
 var mUVDemoPlaneUvs = [];
@@ -150,35 +115,8 @@ var mUVDemoAssistUVAxisVertices = [];
 var mUVDemoAssistUVAxisColor = [];
 // draw YUV Video
 var mYUVInited = false;
-var mVideoFilter = VideoFilter.NORMAL;
-var mVideo = null;
-var mYUVVideoProgram = null;
-// var mYUVVideoCurFrameProgram = null;mYUVNotFirstFrame
-var mCopyVideo = false;
-var mIntervalID = null;
 var mNeedDrawYUVVideo = false;
-var mYUVVideoPlaneBuffer = null;
-var mYUVVideoPlaneRot180Buffer = null;
-var mYUVVideoTexture = null;
-var mYUVVideoPlaneVertices = [];
-var mYUVVideoPlaneRot180Vertices = [];
-var mYUVVideoPlaneUvs = [];
-var mYUVVideoPlaneUvsRot90 = [];
-// var mYUVVideoPlaneUvRot90Buffer = null;
-var mSouloutModifyTime = 0
-// var mLutTexture = null;
-// var mNotFirstFrame = false;
 var mIdentityMatrix = mat4.create();
-var mFrameBufferObject = null;
-// var mFrameBufferObject1 = null;
-// var mFrameBufferObject2 = null;
-// var mFrameBufferObject3 = null;
-// draw cloud anim plane
-var mCloudProgram = null;
-var mCloudPlaneBuffer = null;
-var mCloudTexture = null;
-var mCloudPlaneVertices = [];
-var mCloudPlaneUvs = [];
 // draw Gimbal
 var mNeedDrawGimbal = false;
 var mPivotBuffer = null;
@@ -207,8 +145,6 @@ var mNearFarPlaneColors = [];
 // draw per-vertex and per-frag lighting
 var mNeedDrawSphere = false;
 var mSphereBuffer = null;
-var mSphereProgram = null;
-var mIsPerFrag = false;
 // draw axis
 var mAxisVertices = [];
 var mAxisBuffer = null;
@@ -386,12 +322,6 @@ class GLScene extends GLCanvas {
         // Here's where we call the routine that builds all the objects we'll be drawing.
         initFighterBuffers(gl);
 
-        // adjustLensFlareLightDir();
-        mLensFlareVBOBuffer = initLensFlareBuffers(gl);
-        // init terrain
-        mTerrainBuffer = initTerrainBuffer(gl);
-        mSkyBoxVBOBuffer = initSkyBoxBuffer(gl);
-
         // texture
         mObjectDiffuseTexture = loadTexture(gl, './texture/J-15_diffuse.jpg', requestRender);
         mObjectNormalTexture = loadTexture(gl, './texture/J-15_normal.jpg', requestRender); // FixMe
@@ -401,64 +331,24 @@ class GLScene extends GLCanvas {
         mBrdfLutTexture = loadTexture(gl, './texture/brdfLUT.png', requestRender);
         mBackgroundTexture = loadTexture(gl, './texture/bg_sky.jpg', requestRender);
         mTerrainTexture = loadTextureByParams(gl, './texture/terrain.jpg', false, false, false, true, true, requestRender);
-        mYUVVideoTexture = createTexture(gl);
-        // mLutTexture = loadTexture(gl, './texture/lookup_vertigo.png', requestRender);
-        mLensFlareTextures = [
-            loadTextureByUrl(gl, './texture/LensFlare1/sun.png', requestRender),
-            loadTextureByUrl(gl, './texture/LensFlare1/tex1.png', requestRender),
-            loadTextureByUrl(gl, './texture/LensFlare1/tex2.png', requestRender),
-            loadTextureByUrl(gl, './texture/LensFlare1/tex3.png', requestRender),
-            loadTextureByUrl(gl, './texture/LensFlare1/tex4.png', requestRender),
-            loadTextureByUrl(gl, './texture/LensFlare1/tex5.png', requestRender),
-            loadTextureByUrl(gl, './texture/LensFlare1/tex6.png', requestRender),
-            loadTextureByUrl(gl, './texture/LensFlare1/tex7.png', requestRender),
-            loadTextureByUrl(gl, './texture/LensFlare1/tex8.png', requestRender),
-            loadTextureByUrl(gl, './texture/LensFlare1/tex9.png', requestRender)
-        ];
-        mLensFlareElements = [
-            {texture: mLensFlareTextures[6], scale: 0.5}, 
-            {texture: mLensFlareTextures[4], scale: 0.23}, 
-            {texture: mLensFlareTextures[2], scale: 0.1}, 
-            {texture: mLensFlareTextures[7], scale: 0.05}, 
-            {texture: mLensFlareTextures[1], scale: 0.02}, 
-            {texture: mLensFlareTextures[3], scale: 0.06}, 
-            {texture: mLensFlareTextures[9], scale: 0.12}, 
-            {texture: mLensFlareTextures[5], scale: 0.07}, 
-            {texture: mLensFlareTextures[1], scale: 0.012}, 
-            {texture: mLensFlareTextures[7], scale: 0.2}, 
-            {texture: mLensFlareTextures[9], scale: 0.1}, 
-            {texture: mLensFlareTextures[3], scale: 0.07}, 
-            {texture: mLensFlareTextures[5], scale: 0.3}, 
-            {texture: mLensFlareTextures[4], scale: 0.4}, 
-            {texture: mLensFlareTextures[8], scale: 0.6}, 
-        ];
-        // skybox
-        loadCubeMapTexture(gl, {
-            posX: './texture/SkyBox/posX.png',
-            negX: './texture/SkyBox/negX.png',
-            posY: './texture/SkyBox/posY.png',
-            negY: './texture/SkyBox/negY.png',
-            posZ: './texture/SkyBox/posZ.png',
-            negZ: './texture/SkyBox/negZ.png',
-        }).then(texture => {
-            mSkyBoxTexture = texture;
-            requestRender(); // 确保纹理就绪后再渲染
-        });
+
+        // init scene modules
+        App.SkyBox.init(gl, requestRender);
+        App.LensFlare.init(gl, requestRender);
+        App.Shadow.init(gl);
+        App.Terrain.init(gl, requestRender);
+        App.Video.init(gl);
+        App.Cloud.init(gl, requestRender);
+        App.Sphere.init(gl);
 
         // init shader
         updateBackgroundShader();
         updateLightShader();
-        updateSphereShader();
         updateYUVVideoShader();
         initPBRLightingShader();
         mBasicProgram = initBasicShader(gl);
-        mLensFlareProgram = initLensFlareShader(gl);
-        mShadowProgram = updateShadowProgram();
         mBasicTexProgram = initBasicTexShader(gl);
         mDiffuseLightingProgram = initDiffuseLightingShader(gl);
-        mSkyBoxProgram = initSkyBoxShader(gl);
-
-        mShadowFBO = new FrameBufferObject(gl, gl.TEXTURE2, DEFAULT_RTT_RESOLUTION, DEFAULT_RTT_RESOLUTION);
         updateViewFrustum();
         setViewFrustumColor();
         updateNearPlane();
@@ -476,13 +366,6 @@ class GLScene extends GLCanvas {
         mGimbalYBuffer = initTubeBuffers(gl, 1.4 ,1.5, 0.1, 30, vec4.fromValues(0.0, 1.0, 0.0, 1.0), TubeDir.DIR_Y);
         mGimbalZBuffer = initTubeBuffers(gl, 1.6 ,1.7, 0.1, 30, vec4.fromValues(0.0, 0.0, 1.0, 1.0), TubeDir.DIR_Z);
 
-        // init cloud
-        mCloudPlaneBuffer = initCloudBuffer(gl);
-        mCloudProgram = initCloudAnimShader(gl);
-        mCloudTexture = loadTexture(gl, './texture/cloud.png', requestRender);
-
-        // init sphere
-        mSphereBuffer = initSphereBuffers(gl, 1.0, 20, vec4.fromValues(1.0, 1.0, 1.0, 1.0));
         // background
         initBackground();
         initUVDemo();
@@ -551,9 +434,7 @@ class GLScene extends GLCanvas {
         let gl = this.getGL();
 
         // update video texture
-        if (mCopyVideo) {
-            updateYUVTextureFromVideo(gl, mYUVVideoTexture, mVideo);
-        }
+        App.Video.updateTextureFromVideo(gl);
 
         // draw scene
         drawScene(gl, mBasicProgram, mBasicTexProgram, mDiffuseLightingProgram, now, deltaTime);
@@ -674,117 +555,6 @@ function onKeyPress(event) {
     requestRender();
 }
 
-function initCloudAnimShader(gl) {
-    // Vertex shader program
-    const vsSource = `
-        attribute vec4 aPosition;
-        attribute vec2 aTexCoord;
-        uniform mat4 uMVPMatrix;
-        varying lowp vec2 vTexCoord;
-
-        void main() {
-            gl_Position = uMVPMatrix * aPosition;
-            vTexCoord = aTexCoord;
-        }
-    `;
-
-    // Fragment shader program
-    const fsSource = `
-        precision mediump float;
-        uniform sampler2D uTexSampler;
-        uniform float uFogNear;
-        uniform float uFogFar;
-        varying lowp vec2 vTexCoord;
-
-        void main() {
-            vec3 fogColor = vec3(0.27, 0.52, 0.71);
-            float depth = gl_FragCoord.z / gl_FragCoord.w;
-            float fogFactor = smoothstep(uFogNear, uFogFar, depth);
-            gl_FragColor = texture2D(uTexSampler, vTexCoord);
-            gl_FragColor.w *= pow(gl_FragCoord.z, 20.0);
-            gl_FragColor = vec4(fogColor, gl_FragColor.w); // mix(gl_FragColor, vec4(fogColor, gl_FragColor.w), fogFactor);
-        }
-    `;
-
-    // Initialize a shader program
-    const vertexShader = loadShader(gl, gl.VERTEX_SHADER, vsSource);
-    const fragmentShader = loadShader(gl, gl.FRAGMENT_SHADER, fsSource);
-  
-    // Create the shader program
-    const shaderProgram = gl.createProgram();
-    gl.attachShader(shaderProgram, vertexShader);
-    gl.attachShader(shaderProgram, fragmentShader);
-    gl.linkProgram(shaderProgram);
-
-    // If creating the shader program failed, alert
-    if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
-        alert('Unable to initialize the shader program: ' + gl.getProgramInfoLog(shaderProgram));
-        return null;
-    }
-
-    // Collect all the info needed to use the shader program
-    const programInfo = {
-        program: shaderProgram,
-        attribLocations: {
-            vertexPosition: gl.getAttribLocation(shaderProgram, 'aPosition'),
-            textureCoord: gl.getAttribLocation(shaderProgram, 'aTexCoord'),
-        },
-        uniformLocations: {
-            uMVPMatrixHandle: gl.getUniformLocation(shaderProgram, 'uMVPMatrix'),
-            uTexSamplerHandle: gl.getUniformLocation(shaderProgram, 'uTexSampler'),
-            uFogNearHandle: gl.getUniformLocation(shaderProgram, 'uFogNear'),
-            uFogFarHandle: gl.getUniformLocation(shaderProgram, 'uFogFar'),
-        },
-    };
-
-    return programInfo;
-}
-
-function initCloudBuffer(gl) {
-    // init uv demo plane
-    const vertexCoords = [
-        [-1.0, -1.0, -3.0],
-        [ 1.0, -1.0, -3.0],
-        [-1.0,  1.0, -3.0],
-        [ 1.0,  1.0, -3.0],
-    ];
-    for (var j = 0; j < vertexCoords.length; ++j) {
-        const v = vertexCoords[j];
-    
-        // Repeat each color four times for the four vertices of the face
-        mCloudPlaneVertices = mCloudPlaneVertices.concat(v);  // merge arrays to one
-    }
-
-    const uvCoords = [
-        0.0,    1.0, 
-        1.0,    1.0, 
-        0.0,    0.0, 
-        1.0,    0.0
-    ];
-    mCloudPlaneUvs.splice(0, mUVDemoPlaneUvs);
-    for (var i = 0; i < uvCoords.length; i++) {
-        mCloudPlaneUvs.push(uvCoords[i]);
-    }
-
-    /* create buffer */
-    // Create a buffer for the sphere's positions.
-    const positionBuffer = gl.createBuffer();
-    // Select the positionBuffer as the one to apply buffer operations to from here out.
-    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(mCloudPlaneVertices), gl.STATIC_DRAW); 
-
-    // Create a buffer for the viewFrustum's color.
-    const uvBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, uvBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(mCloudPlaneUvs), gl.STATIC_DRAW);
-
-    return {
-        position: positionBuffer,
-        uv: uvBuffer,
-        drawCnt: mCloudPlaneVertices.length / 3,
-    };
-}
-
 function initBasicTexShader(gl) {
     // Vertex shader program
     const vsSource = `
@@ -840,131 +610,6 @@ function initBasicTexShader(gl) {
         uniformLocations: {
             uMVPMatrixHandle: gl.getUniformLocation(shaderProgram, 'uMVPMatrix'),
             uTexSamplerHandle: gl.getUniformLocation(shaderProgram, 'uTexSampler'),
-        },
-    };
-
-    return programInfo;
-}
-
-function initSkyBoxShader(gl) { 
-    const vsSource = `
-        attribute vec4 aPosition;
-        varying vec4 vTexCoord;
-
-        void main() {
-            vTexCoord = aPosition;      // 直接使用顶点坐标作为采样坐标
-            gl_Position = aPosition;
-            gl_Position.z = 1.0;
-        }
-    `;
-
-    const fsSource = `
-        precision highp float;
-        varying vec4 vTexCoord;
-
-        uniform samplerCube uSkybox;
-        uniform mat4 uViewDirectionProjectionInverse;
-
-        void main() {
-            vec4 t = uViewDirectionProjectionInverse * vTexCoord;
-            gl_FragColor = textureCube(uSkybox, normalize(t.xyz / t.w));
-        }
-    `;
-
-    // Initialize a shader program
-    const vertexShader = loadShader(gl, gl.VERTEX_SHADER, vsSource);
-    const fragmentShader = loadShader(gl, gl.FRAGMENT_SHADER, fsSource);
-  
-    // Create the shader program
-    const shaderProgram = gl.createProgram();
-    gl.attachShader(shaderProgram, vertexShader);
-    gl.attachShader(shaderProgram, fragmentShader);
-    gl.linkProgram(shaderProgram);
-  
-    // If creating the shader program failed, alert
-    if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
-        alert('Unable to initialize the shader program: ' + gl.getProgramInfoLog(shaderProgram));
-        return null;
-    }
-
-    // Collect all the info needed to use the shader program
-    const programInfo = {
-        program: shaderProgram,
-        attribLocations: {
-            vertexPosition: gl.getAttribLocation(shaderProgram, 'aPosition'),
-        },
-        uniformLocations: {
-            uSkybox: gl.getUniformLocation(shaderProgram, 'uSkybox'),
-            uViewDirectionProjectionInverse: gl.getUniformLocation(shaderProgram, 'uViewDirectionProjectionInverse'),
-        },
-    };
-
-    return programInfo;
-}
-
-function initLensFlareShader(gl) {
-    const vsSource = `
-        attribute vec2 aPosition;
-        attribute vec2 aTexCoord;
-        varying vec2 vTexCoord;
-
-        uniform vec2   uCenter;
-        uniform vec2   uScale;
-        uniform vec2   uResolution;
-
-        void main() {
-            vec2 screenPosition = aPosition * uScale + uCenter;
-            // convert to OpenGL coordinate system (with (0,0) in center of screen)
-            screenPosition.x = screenPosition.x * 2.0 - 1.0;
-            screenPosition.y = screenPosition.y * -2.0 + 1.0;
-
-            gl_Position = vec4(screenPosition, 0.0, 1.0);
-
-            vTexCoord = aTexCoord;
-        }
-    `;
-
-    const fsSource = `
-        precision mediump float;
-        uniform sampler2D uTexture;
-        uniform float uBrightness;
-        varying vec2 vTexCoord;
-
-        void main() {
-            vec4 texColor = texture2D(uTexture, vTexCoord);
-            gl_FragColor = texColor * uBrightness;
-        }
-    `;
-
-    // Initialize a shader program
-    const vertexShader = loadShader(gl, gl.VERTEX_SHADER, vsSource);
-    const fragmentShader = loadShader(gl, gl.FRAGMENT_SHADER, fsSource);
-  
-    // Create the shader program
-    const shaderProgram = gl.createProgram();
-    gl.attachShader(shaderProgram, vertexShader);
-    gl.attachShader(shaderProgram, fragmentShader);
-    gl.linkProgram(shaderProgram);
-  
-    // If creating the shader program failed, alert
-    if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
-        alert('Unable to initialize the shader program: ' + gl.getProgramInfoLog(shaderProgram));
-        return null;
-    }
-
-    // Collect all the info needed to use the shader program
-    const programInfo = {
-        program: shaderProgram,
-        attribLocations: {
-            vertexPosition: gl.getAttribLocation(shaderProgram, 'aPosition'),
-            textureCoord: gl.getAttribLocation(shaderProgram, 'aTexCoord'),
-        },
-        uniformLocations: {
-            uCenterHandle: gl.getUniformLocation(shaderProgram, 'uCenter'),
-            uScaleHandle: gl.getUniformLocation(shaderProgram, 'uScale'),
-            uResolutionHandle: gl.getUniformLocation(shaderProgram, 'uResolution'),
-            uTextureHandle: gl.getUniformLocation(shaderProgram, 'uTexture'),
-            uBrightnessHandle: gl.getUniformLocation(shaderProgram, 'uBrightness'),
         },
     };
 
@@ -1214,114 +859,6 @@ function updateInitQuatHtmlValue() {
 function updateAnimQuatHtmlValue() {
     document.getElementById("id_cobra_interpolate_quat").innerHTML = "[" + mCobraAnimInterpolateQuat[0].toFixed(2) + ", " + mCobraAnimInterpolateQuat[1].toFixed(2) + ", " 
         + mCobraAnimInterpolateQuat[2].toFixed(2) + ", " + mCobraAnimInterpolateQuat[3].toFixed(2) + "]";
-}
-
-function initPBRLightingShader(demoType) {
-    var vertTextArea = document.getElementById('id_light_vertex_shader')
-    var fragTextArea = document.getElementById('id_light_fragment_shader')
-    if (demoType == "shadowDemo") {
-        vertTextArea = document.getElementById('id_shadow_vertex_shader')
-        fragTextArea = document.getElementById('id_shadow_fragment_shader')
-    }
-    var vertReader = new XMLHttpRequest();
-    var fragReader = new XMLHttpRequest();
-    vertReader.open('get', './shader/pbr_lighting.vs', false);
-    fragReader.open('get', './shader/pbr_lighting.fs', false);
-    vertReader.send();
-    fragReader.send();
-    vertTextArea.innerHTML = vertReader.responseText;
-    fragTextArea.innerHTML = fragReader.responseText;
-
-    mDefines.HAS_NORMALS = 1;
-    if (null != mObjectDiffuseTexture) {
-        mDefines.HAS_BASECOLORMAP = 1;
-    }
-    if (null != mObjectNormalTexture) {
-        mDefines.HAS_NORMALMAP = 1;
-    }
-    if (null != mObjectEmissiveTexture) {
-        mDefines.HAS_EMISSIVEMAP = 1;
-    }
-    if (null != mObjectMetalnessTexture) {
-        mDefines.HAS_METALMAP = 1;
-    }
-    if (null != mObjectRoughnessTexture) {
-        mDefines.HAS_ROUGHNESSMAP = 1;
-    }
-
-    var definesToString = function(defines) {
-        var outStr = '';
-        for (var def in defines) {
-            outStr += '#define ' + def + ' ' + defines[def] + '\n';
-        }
-        return outStr;
-    };
-    var shaderDefines = definesToString(mDefines);
-    if (false) {
-        shaderDefines += '#define USE_TEX_LOD 1\n';
-    }
-
-    // Initialize the GL context
-    let gl = mGLCanvas.getGL();
-    // Vertex shader program
-    var vsSource = shaderDefines + vertTextArea.value;
-    // Fragment shader program
-    var fsSource = shaderDefines + fragTextArea.value;
-
-    // Initialize a shader program
-    var vertexShader = loadShader(gl, gl.VERTEX_SHADER, vsSource);
-    var fragmentShader = loadShader(gl, gl.FRAGMENT_SHADER, fsSource);
-
-    // Create the shader program
-    var shaderProgram = gl.createProgram();
-    gl.attachShader(shaderProgram, vertexShader);
-    gl.attachShader(shaderProgram, fragmentShader);
-    gl.linkProgram(shaderProgram);
-
-    // If creating the shader program failed, alert
-    if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
-        alert('Unable to initialize the shader program: ' + gl.getProgramInfoLog(shaderProgram));
-        return null;
-    }
-
-    mPBRLightProgram = {
-        program: shaderProgram,
-        attribLocations: {
-            vertexPosition: gl.getAttribLocation(shaderProgram, 'aPosition'),
-            textureCoord: gl.getAttribLocation(shaderProgram, 'aUV'),
-            normalPosition: gl.getAttribLocation(shaderProgram, 'aNormal'),
-            tangentVector: gl.getAttribLocation(shaderProgram, 'aTangent'),
-        },
-        uniformLocations: {
-            uMITHandle: gl.getUniformLocation(shaderProgram, 'uMITMatrix'),
-            uMVPMatrixHandle: gl.getUniformLocation(shaderProgram, 'uMVPMatrix'),
-            uModelMatrixHandle: gl.getUniformLocation(shaderProgram, 'uModelMatrix'),
-            uVIMatrixHandle: gl.getUniformLocation(shaderProgram, 'uVIMatrix'),
-            uLightDirHandle: gl.getUniformLocation(shaderProgram, 'uLightDirection'),
-            uLightColorHandle: gl.getUniformLocation(shaderProgram, 'uLightColor'),
-            uDiffuseEnvHandle: gl.getUniformLocation(shaderProgram, 'uDiffuseEnvSampler'),
-            uSpecularEnvHandle: gl.getUniformLocation(shaderProgram, 'uSpecularEnvSampler'),
-            uBrdfLUTHandle: gl.getUniformLocation(shaderProgram, 'uBrdfLUT'),
-            uBaseColorSamplerHandle: gl.getUniformLocation(shaderProgram, 'uBaseColorSampler'),
-            uNormalSamplerHandle: gl.getUniformLocation(shaderProgram, 'uNormalSampler'),
-            uNormalScaleHandle: gl.getUniformLocation(shaderProgram, 'uNormalScale'),
-            uEmissiveSamplerHandle: gl.getUniformLocation(shaderProgram, 'uEmissiveSampler'),
-            uEmissiveFactorHandle: gl.getUniformLocation(shaderProgram, 'uEmissiveFactor'),
-            uMetallicSamplerHandle: gl.getUniformLocation(shaderProgram, 'uMetallicSampler'),
-            uRoughnessSamplerHandle: gl.getUniformLocation(shaderProgram, 'uRoughnessSampler'),
-            uOcclusionSamplerHandle: gl.getUniformLocation(shaderProgram, 'uOcclusionSampler'),
-            uOcclusionStrengthHandle: gl.getUniformLocation(shaderProgram, 'uOcclusionStrength'),
-            uMetallicValuesHandle: gl.getUniformLocation(shaderProgram, 'uMetallicValues'),
-            uRoughnessValuesHandle: gl.getUniformLocation(shaderProgram, 'uRoughnessValues'),
-            uBaseColorFactorHandle: gl.getUniformLocation(shaderProgram, 'uBaseColorFactor'),
-            uScaleDiffBaseMRHandle: gl.getUniformLocation(shaderProgram, 'uScaleDiffBaseMR'),
-            uScaleFGDSpecHandle: gl.getUniformLocation(shaderProgram, 'uScaleFGDSpec'),
-            uScaleIBLAmbientHandle: gl.getUniformLocation(shaderProgram, 'uScaleIBLAmbient'),
-            uCameraHandle: gl.getUniformLocation(shaderProgram, 'uCamera'),
-        },
-    }
-
-    requestRender();
 }
 
 function updateLightShader(demoType) {
@@ -1800,586 +1337,6 @@ function updateViewFrustumBuffer(gl) {
     };
 }
 
-function updatePerVflSwitch() {
-    var perVertexChecked = document.getElementById("id_per_vertex_rb").checked;
-    var perFragChecked = document.getElementById("id_per_frag_rb").checked;
-    mIsPerFrag = (perFragChecked && !perVertexChecked);
-    if (mIsPerFrag) {
-        document.getElementById("id_per_vertex_shader").style.display = 'none';
-        document.getElementById("id_per_frag_shader").style.display = 'flex';
-    } else {
-        document.getElementById("id_per_vertex_shader").style.display = 'flex';
-        document.getElementById("id_per_frag_shader").style.display = 'none';
-    }
-    updateSphereShader();
-
-    requestRender();
-}
-
-function updateSphereShader() {
-    let gl = mGLCanvas.getGL();
-    var vsSource;
-    var fsSource;
-    if (mIsPerFrag) {
-        // Vertex shader program
-        vsSource = document.getElementById('id_per_frag_vertex_shader').value;
-        // Fragment shader program
-        fsSource = document.getElementById('id_per_frag_fragment_shader').value;
-    } else {
-        // Vertex shader program
-        vsSource = document.getElementById('id_per_vertex_vertex_shader').value;
-        // Fragment shader program
-        fsSource = document.getElementById('id_per_vertex_fragment_shader').value;
-    }
-
-    // Initialize a shader program
-    var vertexShader = loadShader(gl, gl.VERTEX_SHADER, vsSource);
-    var fragmentShader = loadShader(gl, gl.FRAGMENT_SHADER, fsSource);
-  
-    // Create the shader program
-    var shaderProgram = gl.createProgram();
-    gl.attachShader(shaderProgram, vertexShader);
-    gl.attachShader(shaderProgram, fragmentShader);
-    gl.linkProgram(shaderProgram);
-  
-    // If creating the shader program failed, alert
-    if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
-        alert('Unable to initialize the shader program: ' + gl.getProgramInfoLog(shaderProgram));
-        return null;
-    }
-
-    mSphereProgram = {
-        program: shaderProgram,
-        attribLocations: {
-            vertexPosition: gl.getAttribLocation(shaderProgram, 'aPosition'),
-            vertexColor: gl.getAttribLocation(shaderProgram, 'aColor'),
-            normalPosition: gl.getAttribLocation(shaderProgram, 'aNormal'),
-        },
-        uniformLocations: {
-            uProjectionMatrixHandle: gl.getUniformLocation(shaderProgram, 'uProjectionMatrix'),
-            uModelMatrixHandle: gl.getUniformLocation(shaderProgram, 'uModelMatrix'),
-            uViewMatrixHandle: gl.getUniformLocation(shaderProgram, 'uViewMatrix'),
-            uVIHandle: gl.getUniformLocation(shaderProgram, 'uVIMatrix'),
-            uMITHandle: gl.getUniformLocation(shaderProgram, 'uMITMatrix'),
-            uSpecularHandle: gl.getUniformLocation(shaderProgram, 'uSpecular'),
-            uKaHandle: gl.getUniformLocation(shaderProgram, 'uKa'),
-            uKdHandle: gl.getUniformLocation(shaderProgram, 'uKd'),
-            uKsHandle: gl.getUniformLocation(shaderProgram, 'uKs'),
-            uLightDirHandle: gl.getUniformLocation(shaderProgram, 'uLightDir'),
-        },
-    }
-}
-
-function setupVideo(url) {
-    const videoElement = document.createElement('video');
-    var playing = false;
-    var timeupdate = false;
-
-    videoElement.autoplay = true;
-    videoElement.src = url;
-    videoElement.muted = true;
-    videoElement.loop = true;
-
-    videoElement.addEventListener('playing', function() {
-        playing = true;
-        checkReady();
-    }, true);
-    videoElement.addEventListener('timeupdate', function() {
-        timeupdate = true;
-        checkReady();
-    }, true);
-    videoElement.addEventListener('canplaythrough', startVideo, true);
-    videoElement.addEventListener('ended', endVideo, true);
-
-    function checkReady() {
-        if (playing && timeupdate) {
-            mCopyVideo = true;
-        }
-    }
-
-    function startVideo() {
-        videoElement.play();
-    }
-    function endVideo() {
-        if (!videoElement.loop) {
-            clearInterval(mIntervalID);
-        }
-    }
-
-    return videoElement;
-}
-
-function resumeVideo(video) {
-    if (null != video) {
-        video.play();
-    }
-}
-
-function pauseVideo(video) {
-    if (null != video) {
-        video.pause();
-    }
-}
-
-function initYUVVideoDemo() {
-    // init uv demo plane, hard coded, choose a 16:9 video, rotate 180
-    const vertexCoords = [
-        [-1.0,  1.0, 3.0],
-        [ 1.0,  1.0, 3.0],
-        [-1.0, -1.0, 3.0],
-        [ 1.0, -1.0, 3.0],
-    ];
-    for (var j = 0; j < vertexCoords.length; ++j) {
-        const v = vertexCoords[j];
-    
-        // Repeat each color four times for the four vertices of the face
-        mYUVVideoPlaneVertices = mYUVVideoPlaneVertices.concat(v);  // merge arrays to one
-    }
-
-    const vertexCoordsRot180ForFBO = [
-        [-1.0,  1.0, 0.0],
-        [ 1.0,  1.0, 0.0],
-        [-1.0, -1.0, 0.0],
-        [ 1.0, -1.0, 0.0],
-    ];
-    for (var j = 0; j < vertexCoordsRot180ForFBO.length; ++j) {
-        const v = vertexCoordsRot180ForFBO[j];
-    
-        // Repeat each color four times for the four vertices of the face
-        mYUVVideoPlaneRot180Vertices = mYUVVideoPlaneRot180Vertices.concat(v);  // merge arrays to one
-    }
-
-    const uvCoords = [
-        0.0,  1.0,     // normal
-        1.0,  1.0, 
-        0.0,  0.0, 
-        1.0,  0.0
-    ];
-    mYUVVideoPlaneUvs.splice(0, mYUVVideoPlaneUvs);
-    for (var i = 0; i < uvCoords.length; i++) {
-        mYUVVideoPlaneUvs.push(uvCoords[i]);
-    }
-
-    const uvCoordsRot90 = [
-        1.0, 1.0,   // rotate 90
-        1.0, 0.0,
-        0.0, 1.0,
-        0.0, 0.0
-    ];
-    mYUVVideoPlaneUvsRot90.splice(0, mYUVVideoPlaneUvsRot90);
-    for (var i = 0; i < uvCoordsRot90.length; i++) {
-        mYUVVideoPlaneUvsRot90.push(uvCoordsRot90[i]);
-    }
-}
-
-function updateYUVVideoDemoBuffer(gl, vertices) {
-    const positionBuffer = gl.createBuffer();
-    // Select the positionBuffer as the one to apply buffer operations to from here out.
-    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
-
-    // Create a buffer for the viewFrustum's color.
-    const uvBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, uvBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(mYUVVideoPlaneUvs), gl.STATIC_DRAW);
-
-    return {
-        position: positionBuffer,
-        uv: uvBuffer,
-        drawCnt: vertices.length / 3,
-    };
-}
-
-// function updateYUVRot90VideoDemoUVBuffer(gl) {
-//     // Create a buffer for the viewFrustum's color.
-//     const uvBuffer = gl.createBuffer();
-//     gl.bindBuffer(gl.ARRAY_BUFFER, uvBuffer);
-//     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(mYUVVideoPlaneUvsRot90), gl.STATIC_DRAW);
-
-//     return {
-//         uv: uvBuffer,
-//         drawCnt: mYUVVideoPlaneVertices.length / 3,
-//     };
-// }
-
-function handleFileSelect(event, id) {
-    var files = event.target.files; // FileList object
-    for (var i = 0, f; f = files[i]; i++) {
-        var reader = new FileReader();
-        reader.onload = (function (theFile) {
-            return function (e) {
-                var textArea = document.getElementById(id);
-                textArea.value = e.target.result;
-            };
-        })(f);
-        reader.readAsText(f);
-    }
-    updateYUVVideoShader();
-}
-
-function updateYUVVideoFilterSwitch() {
-    // var vertTextArea = document.getElementById('id_video_filter_vertex_shader')
-    var fragTextArea = document.getElementById('id_video_filter_fragment_shader')
-    // var vertReader = new XMLHttpRequest();
-    var fragReader = new XMLHttpRequest();
-
-    if (document.getElementById("id_filter_normal_rb").checked) {
-        mVideoFilter = VideoFilter.NORMAL;
-        fragReader.open('get', './shader/filter/normal.fs', false);
-    } else if (document.getElementById("id_filter_inverse_rb").checked) {
-        mVideoFilter = VideoFilter.INVERSE;
-        fragReader.open('get', './shader/filter/inverse.fs', false);
-    } else if (document.getElementById("id_filter_reminiscence_rb").checked) {
-        mVideoFilter = VideoFilter.SNOW_REMINISCENCE;
-        fragReader.open('get', './shader/filter/reminiscence.fs', false);
-    } else if (document.getElementById("id_filter_lut_illusion_rb").checked) {
-        mVideoFilter = VideoFilter.LUT_ILLUSION;
-        fragReader.open('get', './shader/filter/illusion.fs', false);
-    } else if (document.getElementById("id_filter_soul_out_rb").checked) {
-        mVideoFilter = VideoFilter.SOUL_OUT;
-        fragReader.open('get', './shader/filter/soulout.fs', false);
-    } else {
-        mVideoFilter = VideoFilter.NORMAL;
-        fragReader.open('get', './shader/filter/normal.fs', false);
-    }
-
-    // vertReader.send();
-    fragReader.send();
-    // vertTextArea.innerHTML = vertReader.responseText;
-    fragTextArea.innerHTML = fragReader.responseText;
-
-    updateYUVVideoShader();
-}
-
-function updateYUVVideoShader() {
-    // Initialize the GL context
-    const gl = mGLCanvas.getGL();
-    var vsSource;
-    var fsSource;
-    var curFrameFsSource;
-    // Vertex shader program
-    vsSource = document.getElementById('id_video_filter_vertex_shader').value;
-    // Fragment shader program
-    fsSource = document.getElementById('id_video_filter_fragment_shader').value;
-    // if (VideoFilter.LUT_ILLUSION == mVideoFilter) {
-    //     curFrameFsSource = document.getElementById('id_video_filter_fragment_shader').value;
-    //     // recover fsSource to normal fs
-    //     fsSource = `
-    //         precision mediump float;
-    //         uniform sampler2D uTexSampler;
-    //         varying lowp vec2 vTexCoord;
-    //         void main() {
-    //             gl_FragColor = texture2D(uTexSampler, vTexCoord);
-    //         }
-    //     `;
-    // }
-
-    // Initialize a shader program
-    var vertexShader = loadShader(gl, gl.VERTEX_SHADER, vsSource);
-    var fragmentShader = loadShader(gl, gl.FRAGMENT_SHADER, fsSource);
-  
-    // Create the shader program
-    var shaderProgram = gl.createProgram();
-    gl.attachShader(shaderProgram, vertexShader);
-    gl.attachShader(shaderProgram, fragmentShader);
-    gl.linkProgram(shaderProgram);
-  
-    // If creating the shader program failed, alert
-    if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
-        alert('Unable to initialize the shader program: ' + gl.getProgramInfoLog(shaderProgram));
-        return null;
-    }
-
-    // if (VideoFilter.LUT_ILLUSION == mVideoFilter) {
-    //     var curFrameFsShader = loadShader(gl, gl.FRAGMENT_SHADER, curFrameFsSource);
-    //     var curFrameProgram = gl.createProgram();
-    //     gl.attachShader(curFrameProgram, vertexShader);
-    //     gl.attachShader(curFrameProgram, curFrameFsShader);
-    //     gl.linkProgram(curFrameProgram);
-    //     // If creating the shader program failed, alert
-    //     if (!gl.getProgramParameter(curFrameProgram, gl.LINK_STATUS)) {
-    //         alert('Unable to initialize the shader program: ' + gl.getProgramInfoLog(curFrameProgram));
-    //         return null;
-    //     }
-    //     mYUVVideoCurFrameProgram = {
-    //         program: curFrameProgram,
-    //         attribLocations: {
-    //             vertexPosition: gl.getAttribLocation(curFrameProgram, 'aPosition'),
-    //             textureCoord: gl.getAttribLocation(curFrameProgram, 'aTexCoord'),
-    //         },
-    //         uniformLocations: {
-    //             uMVPMatrixHandle: gl.getUniformLocation(curFrameProgram, 'uMVPMatrix'),
-    //             uTexSamplerHandle: gl.getUniformLocation(curFrameProgram, 'uTexSampler'),
-    //             uLastInputTexHandle: gl.getUniformLocation(curFrameProgram, 'uLastInputTex'),
-    //             uLookUpTableTexHandle: gl.getUniformLocation(curFrameProgram, 'uLookUpTableTex'),
-    //         },
-    //     }
-    // }
-
-    mYUVVideoProgram = {
-        program: shaderProgram,
-        attribLocations: {
-            vertexPosition: gl.getAttribLocation(shaderProgram, 'aPosition'),
-            textureCoord: gl.getAttribLocation(shaderProgram, 'aTexCoord'),
-        },
-        uniformLocations: {
-            uMVPMatrixHandle: gl.getUniformLocation(shaderProgram, 'uMVPMatrix'),
-            uTexSamplerHandle: gl.getUniformLocation(shaderProgram, 'uTexSampler'),
-            uSouloutTexSamplerHandle: gl.getUniformLocation(shaderProgram, 'uSouloutTexSampler'),
-            uProgressHandle: gl.getUniformLocation(shaderProgram, 'uProgress'),
-            uDrawFBOHandle: gl.getUniformLocation(shaderProgram, 'uDrawFBO'),
-        },
-    }
-
-    requestRender();
-}
-
-function updateShadowProgram() {
-    let gl = mGLCanvas.getGL();
-    var vertTextArea = document.getElementById('id_fbo_vertex_shader')
-    var fragTextArea = document.getElementById('id_fbo_fragment_shader')
-    var vertReader = new XMLHttpRequest();
-    var fragReader = new XMLHttpRequest();
-    vertReader.open('get', './shader/shadow.vs', false);
-    fragReader.open('get', './shader/shadow.fs', false);
-    vertReader.send();
-    fragReader.send();
-    vertTextArea.innerHTML = vertReader.responseText;
-    fragTextArea.innerHTML = fragReader.responseText;
-    var vsSource = vertReader.responseText;
-    var fsSource = fragReader.responseText;
-
-    // Initialize a shader program
-    var vertexShader = loadShader(gl, gl.VERTEX_SHADER, vsSource);
-    var fragmentShader = loadShader(gl, gl.FRAGMENT_SHADER, fsSource);
-  
-    // Create the shader program
-    var shaderProgram = gl.createProgram();
-    gl.attachShader(shaderProgram, vertexShader);
-    gl.attachShader(shaderProgram, fragmentShader);
-    gl.linkProgram(shaderProgram);
-
-    // If creating the shader program failed, alert
-    if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
-        alert('Unable to initialize the shader program: ' + gl.getProgramInfoLog(shaderProgram));
-        return null;
-    }
-
-    // Collect all the info needed to use the shader program
-    const programInfo = {
-        program: shaderProgram,
-        attribLocations: {
-            vertexPosition: gl.getAttribLocation(shaderProgram, 'aPosition'),
-        },
-        uniformLocations: {
-            uMVPMatrixHandle: gl.getUniformLocation(shaderProgram, 'uMVPMatrix'),
-        },
-    };
-
-    return programInfo;
-}
-
-function initTerrainBuffer(gl) {
-    const vertexCoords = [
-        [-50.0,  -3.0, -50.0],
-        [ 50.0,  -3.0, -50.0],
-        [-50.0,  -3.0,  50.0],
-        [ 50.0,  -3.0,  50.0],
-    ];
-    let terrainPlaneVertices = [];
-    for (var j = 0; j < vertexCoords.length; ++j) {
-        const v = vertexCoords[j];
-    
-        // Repeat each color four times for the four vertices of the face
-        terrainPlaneVertices = terrainPlaneVertices.concat(v);  // merge arrays to one
-    }
-
-    const normalCoords = [
-        [0.0,  1.0, 0.0],
-        [0.0,  1.0, 0.0],
-        [0.0,  1.0, 0.0],
-        [0.0,  1.0, 0.0],
-    ];
-    let terrainPlaneNormals = [];
-    for (var j = 0; j < normalCoords.length; ++j) {
-        const v = normalCoords[j];
-    
-        // Repeat each color four times for the four vertices of the face
-        terrainPlaneNormals = terrainPlaneNormals.concat(v);  // merge arrays to one
-    }
-
-    const uvCoords = [
-        0.0,     10.0, 
-        10.0,    10.0, 
-        0.0,     0.0, 
-        10.0,    0.0
-    ];
-    let terrainPlaneUvs = [];
-    terrainPlaneUvs.splice(0, terrainPlaneUvs.length);  // clear
-    for (var i = 0; i < uvCoords.length; i++) {
-        terrainPlaneUvs.push(uvCoords[i]);
-    }
-
-    const positionBuffer = gl.createBuffer();
-    // Select the positionBuffer as the one to apply buffer operations to from here out.
-    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(terrainPlaneVertices), gl.STATIC_DRAW);
-
-    const normalBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(terrainPlaneNormals), gl.STATIC_DRAW);
-
-    // Create a buffer for the viewFrustum's color.
-    const uvBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, uvBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(terrainPlaneUvs), gl.STATIC_DRAW);
-
-    return {
-        position: positionBuffer,
-        normal: normalBuffer,
-        uv: uvBuffer,
-        drawCnt: terrainPlaneVertices.length / 3,
-    };
-}
-
-// share fighter object's mvp
-function drawTerrain(gl, lightingProgram, shadowProgram, buffers, diffuseTexture, drawCount, deltaTime, isDrawShadow, isGodView) {
-    if (isDrawShadow && null != shadowProgram) {
-        // Tell WebGL how to pull out the positions from the position buffer into the vertexPosition attribute.
-        {
-            const numComponents = 3;
-            const type = gl.FLOAT;
-            const normalize = false;
-            const stride = 0;
-            const offset = 0;
-            gl.bindBuffer(gl.ARRAY_BUFFER, buffers.position);
-            gl.vertexAttribPointer(
-                shadowProgram.attribLocations.vertexPosition,
-                numComponents,
-                type,
-                normalize,
-                stride,
-                offset);
-            gl.enableVertexAttribArray(
-                shadowProgram.attribLocations.vertexPosition);
-        }
-
-        gl.useProgram(shadowProgram.program);
-        mat4.multiply(mMvpMatrixByLightCoord, mVpMatrixByLightCoord, mModelMatrix);
-        
-        gl.uniformMatrix4fv(shadowProgram.uniformLocations.uMVPMatrixHandle, false, mMvpMatrixByLightCoord);
-    } else {
-        // Tell WebGL how to pull out the positions from the position buffer into the vertexPosition attribute.
-        {
-            const numComponents = 3;
-            const type = gl.FLOAT;
-            const normalize = false;
-            const stride = 0;
-            const offset = 0;
-            gl.bindBuffer(gl.ARRAY_BUFFER, buffers.position);
-            gl.vertexAttribPointer(
-                lightingProgram.attribLocations.vertexPosition,
-                numComponents,
-                type,
-                normalize,
-                stride,
-                offset);
-            gl.enableVertexAttribArray(
-                lightingProgram.attribLocations.vertexPosition);
-        }
-
-        // Tell WebGL how to pull out the normals from the normal
-        // buffer into the normal attribute.
-        {
-            const numComponents = 3;
-            const type = gl.FLOAT;
-            const normalize = false;
-            const stride = 0;
-            const offset = 0;
-            gl.bindBuffer(gl.ARRAY_BUFFER, buffers.normal);
-            gl.vertexAttribPointer(
-                lightingProgram.attribLocations.normalPosition,
-                numComponents,
-                type,
-                normalize,
-                stride,
-                offset);
-            gl.enableVertexAttribArray(
-                lightingProgram.attribLocations.normalPosition);
-        }
-
-        // Tell WebGL how to pull out the texture coordinates from
-        // the texture coordinate buffer into the textureCoord attribute.
-        {
-            const numComponents = 2;
-            const type = gl.FLOAT;
-            const normalize = false;
-            const stride = 0;
-            const offset = 0;
-            gl.bindBuffer(gl.ARRAY_BUFFER, buffers.uv);
-            gl.vertexAttribPointer(
-                lightingProgram.attribLocations.textureCoord,
-                numComponents,
-                type,
-                normalize,
-                stride,
-                offset);
-            gl.enableVertexAttribArray(
-                lightingProgram.attribLocations.textureCoord);
-        }
-
-        // Tell WebGL to use our lightingProgram when drawing
-        gl.useProgram(lightingProgram.program);
-
-        // Specify the diffuseTexture to map onto the faces.
-        // Tell WebGL we want to affect diffuseTexture unit 0
-        gl.activeTexture(gl.TEXTURE0);
-        // Bind the diffuseTexture to diffuseTexture unit 0
-        gl.bindTexture(gl.TEXTURE_2D, diffuseTexture);
-        // Tell the shader we bound the diffuseTexture to diffuseTexture unit 0
-        gl.uniform1i(lightingProgram.uniformLocations.uTexDiffuseSampler, 0);
-        gl.uniform1i(lightingProgram.uniformLocations.uUseNormalMapping, 0);
-
-        if (null != mShadowFBO) {
-            gl.activeTexture(gl.TEXTURE2);
-            gl.bindTexture(gl.TEXTURE_2D, mShadowFBO.getTextureId());
-            gl.uniform1i(lightingProgram.uniformLocations.uShadowSampler, 2);
-        }
-
-        // Set the shader uniforms
-        gl.uniformMatrix4fv(
-            lightingProgram.uniformLocations.uModelMatrixHandle,
-            false, mModelMatrix);
-        gl.uniformMatrix4fv(lightingProgram.uniformLocations.uMITHandle, false, mMITMatrix);
-        gl.uniformMatrix4fv(lightingProgram.uniformLocations.uVpMatrixByLightCoordHandle, false, mVpMatrixByLightCoord);
-
-        if (isGodView) {
-            gl.uniformMatrix4fv(lightingProgram.uniformLocations.uProjectionMatrixHandle, false, mGodProjectionMatrix);
-            gl.uniformMatrix4fv(lightingProgram.uniformLocations.uViewMatrixHandle, false, mGodViewMatrix);
-            gl.uniformMatrix4fv(lightingProgram.uniformLocations.uVIHandle, false, mGodVIMatrix); 
-        } else {
-            gl.uniformMatrix4fv(
-                lightingProgram.uniformLocations.uProjectionMatrixHandle,
-                false, mProjectionMatrix);
-            gl.uniformMatrix4fv(
-                lightingProgram.uniformLocations.uViewMatrixHandle,
-                false, mViewMatrix);
-            gl.uniformMatrix4fv(lightingProgram.uniformLocations.uVIHandle, false, mVIMatrix); 
-        }
-
-        gl.uniform1i(lightingProgram.uniformLocations.uUseAmbient, 1);
-        gl.uniform4fv(lightingProgram.uniformLocations.uKaHandle, mAmbientColor);
-        gl.uniform1i(lightingProgram.uniformLocations.uUseDiffuse, 1);
-        gl.uniform4fv(lightingProgram.uniformLocations.uKdHandle, mDiffuseColor);
-        gl.uniform1i(lightingProgram.uniformLocations.uUseSpecular, 1);
-        gl.uniform4fv(lightingProgram.uniformLocations.uKsHandle, mSpecularColor);
-        gl.uniform3fv(lightingProgram.uniformLocations.uLightDirHandle, LIGHT_POSITION);
-    }
-
-    const drawOffset = 0;
-    gl.drawArrays(gl.TRIANGLE_STRIP, drawOffset, drawCount);
-}
-
 function initUVDemo() {
     // init uv demo plane
     const vertexCoords = [
@@ -2685,39 +1642,6 @@ function adjustLensFlareLightDir() {
     console.log('Light Direction:', LIGHT_POSITION);
 }
 
-function initLensFlareBuffers(gl) {
-    const positionBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(mLensFlareQuadVerts), gl.STATIC_DRAW);
-
-    // 纹理坐标缓冲区
-    const texCoords = new Float32Array([
-        0.0, 0.0,
-        1.0, 0.0,
-        0.0, 1.0,
-        1.0, 1.0
-    ]);
-    const uvBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, uvBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(texCoords), gl.STATIC_DRAW);
-
-    return {
-      position: positionBuffer,
-      uv: uvBuffer,
-  };
-}
-
-function initSkyBoxBuffer(gl) {
-    const positionBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(mSkyBoxQuadVerts), gl.STATIC_DRAW);
-
-    return {
-        position: positionBuffer,
-        vertexCount: mSkyBoxQuadVerts.length / 2,
-    };
-}
-
 function initFighterBuffers(gl) {
     // read file
     function onProgress(xhr) {
@@ -2837,10 +1761,7 @@ function handleMouseMove(event) {
 }
 
 function switchDemo(demoId) {
-    pauseVideo(mVideo);
-    if (mIntervalID) {
-        clearInterval(mIntervalID);
-    }
+    App.Video.pauseVideo();
     mNeedDrawGimbal = false;
     mNeedDrawAngleAxis = false;
     mNeedDrawAssistObject = false;
@@ -3129,24 +2050,13 @@ function switchDemo(demoId) {
             fragDiv.addEventListener('change', function() {
                 handleFileSelect('id_video_filter_fragment_shader');
             }, false);
-            mIntervalID = setInterval(requestRender, 30);
+            setInterval(requestRender, 30);
 
-            // FBO
             if (!mYUVInited) {
-                let gl = mGLCanvas.getGL();
-                initYUVVideoDemo();
-                mYUVVideoPlaneBuffer = updateYUVVideoDemoBuffer(gl, mYUVVideoPlaneVertices);
-                mYUVVideoPlaneRot180Buffer = updateYUVVideoDemoBuffer(gl, mYUVVideoPlaneRot180Vertices);
-                // mYUVVideoPlaneUvRot90Buffer = updateYUVRot90VideoDemoUVBuffer(gl);
-                mVideo = setupVideo('./texture/The_Infernal_Battlefiel_720P.mp4')
-
-                mFrameBufferObject = new FrameBufferObject(gl, gl.TEXTURE1, 720, 1280);
-                // mFrameBufferObject1 = new FrameBufferObject(gl, gl.TEXTURE8, 720, 1280); // video's width and height
-                // mFrameBufferObject2 = new FrameBufferObject(gl, gl.TEXTURE9, 720, 1280);
-                // mFrameBufferObject3 = new FrameBufferObject(gl, gl.TEXTURE10, 720, 1280);
+                App.Video.setupVideo('./texture/The_Infernal_Battlefiel_720P.mp4');
                 mYUVInited = true;
             }
-            resumeVideo(mVideo);
+            App.Video.resumeVideo();
             resumeMVPMatrix(false);
             break;
         default:
@@ -3188,78 +2098,6 @@ function addEvent(obj, xEvent, fn) {
     } else {
         obj.addEventListener(xEvent, fn, false);
     }
-}
-
-function updateYUVTextureFromVideo(gl, texture, video) {
-    const level = 0;
-    const internalFormat = gl.RGBA;
-    const srcFormat = gl.RGBA;
-    const srcType = gl.UNSIGNED_BYTE;
-    gl.bindTexture(gl.TEXTURE_2D, texture);
-    gl.texImage2D(gl.TEXTURE_2D, level, internalFormat, srcFormat, srcType, video);
-}
-
-function drawCloud(gl, program, buffers, texture, drawCount, deltaTime, isGodView) {
-    // Tell WebGL how to pull out the positions from the position buffer into the vertexPosition attribute.
-    {
-        const numComponents = 3;
-        const type = gl.FLOAT;
-        const normalize = false;
-        const stride = 0;
-        const offset = 0;
-        gl.bindBuffer(gl.ARRAY_BUFFER, buffers.position);
-        gl.vertexAttribPointer(
-            program.attribLocations.vertexPosition,
-            numComponents,
-            type,
-            normalize,
-            stride,
-            offset);
-        gl.enableVertexAttribArray(
-            program.attribLocations.vertexPosition);
-    }
-
-    // Tell WebGL how to pull out the texture coordinates from the texture coordinate buffer into the textureCoord attribute.
-    {
-        const numComponents = 2;
-        const type = gl.FLOAT;
-        const normalize = false;
-        const stride = 0;
-        const offset = 0;
-        gl.bindBuffer(gl.ARRAY_BUFFER, buffers.uv);
-        gl.vertexAttribPointer(
-            program.attribLocations.textureCoord,
-            numComponents,
-            type,
-            normalize,
-            stride,
-            offset);
-        gl.enableVertexAttribArray(
-            program.attribLocations.textureCoord);
-    }
-
-    // Tell WebGL to use our program when drawing
-    gl.useProgram(program.program);
-
-    // Specify the texture to map onto the faces.
-    // Tell WebGL we want to affect texture unit 0
-    gl.activeTexture(gl.TEXTURE0);
-    // Bind the diffuseTexture to diffuseTexture unit 0
-    gl.bindTexture(gl.TEXTURE_2D, texture);
-    // Tell the shader we bound the diffuseTexture to diffuseTexture unit 0
-    gl.uniform1i(program.uniformLocations.uTexSamplerHandle, 0);
-
-    gl.uniform1f(program.uniformLocations.uFogNearHandle, -100);
-    gl.uniform1f(program.uniformLocations.uFogFarHandle, 3000);
-
-    if (isGodView) {
-        gl.uniformMatrix4fv(program.uniformLocations.uMVPMatrixHandle, false, mGodMvpMatrix);
-    } else {
-        gl.uniformMatrix4fv(program.uniformLocations.uMVPMatrixHandle, false, mMvpMatrix);
-    }
-
-    const drawOffset = 0;
-    gl.drawArrays(gl.TRIANGLE_STRIP, drawOffset, drawCount);
 }
 
 // function drawVideoCurFrame(gl, program, buffers, drawCount, isGodView) {
@@ -3404,79 +2242,6 @@ function drawCloud(gl, program, buffers, texture, drawCount, deltaTime, isGodVie
 //     gl.bindTexture(gl.TEXTURE_2D, mFrameBufferObject3.getTextureId());
 //     gl.activeTexture(gl.TEXTURE0);
 // }
-
-function drawYUVVideo(gl, program, buffers, buffersUvRot90, texture, drawCount, now, deltaTime, drawFBO, isGodView) {
-    // Tell WebGL how to pull out the positions from the position buffer into the vertexPosition attribute.
-    {
-        const numComponents = 3;
-        const type = gl.FLOAT;
-        const normalize = false;
-        const stride = 0;
-        const offset = 0;
-        gl.bindBuffer(gl.ARRAY_BUFFER, buffers.position);
-        gl.vertexAttribPointer(
-            program.attribLocations.vertexPosition,
-            numComponents,
-            type,
-            normalize,
-            stride,
-            offset);
-        gl.enableVertexAttribArray(
-            program.attribLocations.vertexPosition);
-    }
-
-    // Tell WebGL how to pull out the texture coordinates from the texture coordinate buffer into the textureCoord attribute.
-    {
-        const numComponents = 2;
-        const type = gl.FLOAT;
-        const normalize = false;
-        const stride = 0;
-        const offset = 0;
-        gl.bindBuffer(gl.ARRAY_BUFFER, buffers.uv);
-        gl.vertexAttribPointer(
-            program.attribLocations.textureCoord,
-            numComponents,
-            type,
-            normalize,
-            stride,
-            offset);
-        gl.enableVertexAttribArray(
-            program.attribLocations.textureCoord);
-    }
-
-    // Tell WebGL to use our program when drawing
-    gl.useProgram(program.program);
-
-    // Specify the texture to map onto the faces.
-    // Tell WebGL we want to affect texture unit 0
-    gl.activeTexture(gl.TEXTURE0);
-    // Bind the diffuseTexture to diffuseTexture unit 0
-    gl.bindTexture(gl.TEXTURE_2D, texture);
-    // Tell the shader we bound the diffuseTexture to diffuseTexture unit 0
-    gl.uniform1i(program.uniformLocations.uTexSamplerHandle, 0);
-
-    if (VideoFilter.SOUL_OUT == mVideoFilter && !drawFBO) {
-        gl.activeTexture(gl.TEXTURE1);
-        gl.bindTexture(gl.TEXTURE_2D, mFrameBufferObject.getTextureId());
-        gl.uniform1i(program.uniformLocations.uSouloutTexSamplerHandle, 1);
-        var progress = (now - mSouloutModifyTime) / 1000.0
-        // console.log('progress = ' + progress + ', now = ' + now + ', mSouloutModifyTime = ' + mSouloutModifyTime);
-        gl.uniform1f(program.uniformLocations.uProgressHandle, progress);
-        gl.uniform1i(program.uniformLocations.uDrawFBOHandle, drawFBO ? 1 : 0)
-    }
-
-    if (isGodView) {
-        gl.uniformMatrix4fv(program.uniformLocations.uMVPMatrixHandle, false, mGodMvpMatrix);
-    } else {
-        gl.uniformMatrix4fv(program.uniformLocations.uMVPMatrixHandle, false, drawFBO? mIdentityMatrix : mMvpMatrix);
-    }
-
-    const drawOffset = 0;
-    gl.drawArrays(gl.TRIANGLE_STRIP, drawOffset, drawCount);
-
-    gl.disableVertexAttribArray(program.attribLocations.vertexPosition);
-    gl.disableVertexAttribArray(program.attribLocations.textureCoord);
-}
 
 function drawUVDemo(gl, program, buffers, texture, drawCount, deltaTime, isGodView) {
     // Tell WebGL how to pull out the positions from the position buffer into the vertexPosition attribute.
@@ -3717,101 +2482,6 @@ function calcSquareProgress(progress) {
 }
 
 // share object's mvp
-function drawSphere(gl, lightingProgram, buffers, drawCount, deltaTime, isGodView) {
-    // Tell WebGL how to pull out the positions from the position
-    // buffer into the vertexPosition attribute.
-    {
-        const numComponents = 3;
-        const type = gl.FLOAT;
-        const normalize = false;
-        const stride = 0;
-        const offset = 0;
-        gl.bindBuffer(gl.ARRAY_BUFFER, buffers.position);
-        gl.vertexAttribPointer(
-            lightingProgram.attribLocations.vertexPosition,
-            numComponents,
-            type,
-            normalize,
-            stride,
-            offset);
-        gl.enableVertexAttribArray(
-            lightingProgram.attribLocations.vertexPosition);
-    }
-
-    // Tell WebGL how to pull out the normals from the normal
-    // buffer into the normal attribute.
-    {
-        const numComponents = 3;
-        const type = gl.FLOAT;
-        const normalize = false;
-        const stride = 0;
-        const offset = 0;
-        gl.bindBuffer(gl.ARRAY_BUFFER, buffers.normal);
-        gl.vertexAttribPointer(
-            lightingProgram.attribLocations.normalPosition,
-            numComponents,
-            type,
-            normalize,
-            stride,
-            offset);
-        gl.enableVertexAttribArray(
-            lightingProgram.attribLocations.normalPosition);
-    }
-
-    // Tell WebGL how to pull out the texture coordinates from
-    // the texture coordinate buffer into the textureCoord attribute.
-    {
-        const numComponents = 4;
-        const type = gl.FLOAT;
-        const normalize = false;
-        const stride = 0;
-        const offset = 0;
-        gl.bindBuffer(gl.ARRAY_BUFFER, buffers.color);
-        gl.vertexAttribPointer(
-            lightingProgram.attribLocations.vertexColor,
-            numComponents,
-            type,
-            normalize,
-            stride,
-            offset);
-        gl.enableVertexAttribArray(
-            lightingProgram.attribLocations.vertexColor);
-    }
-
-    // Tell WebGL to use our lightingProgram when drawing
-    gl.useProgram(lightingProgram.program);
-
-    // Set the shader uniforms
-    gl.uniformMatrix4fv(
-        lightingProgram.uniformLocations.uModelMatrixHandle,
-        false, mModelMatrix);
-    gl.uniformMatrix4fv(lightingProgram.uniformLocations.uMITHandle, false, mMITMatrix);
-
-    if (isGodView) {
-        gl.uniformMatrix4fv(lightingProgram.uniformLocations.uProjectionMatrixHandle, false, mGodProjectionMatrix);
-        gl.uniformMatrix4fv(lightingProgram.uniformLocations.uViewMatrixHandle, false, mGodViewMatrix);
-        gl.uniformMatrix4fv(lightingProgram.uniformLocations.uVIHandle, false, mGodVIMatrix); 
-    } else {
-        gl.uniformMatrix4fv(
-            lightingProgram.uniformLocations.uProjectionMatrixHandle,
-            false, mProjectionMatrix);
-        gl.uniformMatrix4fv(
-            lightingProgram.uniformLocations.uViewMatrixHandle,
-            false, mViewMatrix);
-        gl.uniformMatrix4fv(lightingProgram.uniformLocations.uVIHandle, false, mVIMatrix); 
-    }
-
-    gl.uniform1f(lightingProgram.uniformLocations.uSpecularHandle, mSpecularShininess);
-    gl.uniform4fv(lightingProgram.uniformLocations.uKaHandle, mAmbientColor);
-    gl.uniform4fv(lightingProgram.uniformLocations.uKdHandle, mDiffuseColor);
-    gl.uniform4fv(lightingProgram.uniformLocations.uKsHandle, mSpecularColor);
-    gl.uniform3fv(lightingProgram.uniformLocations.uLightDirHandle, LIGHT_POSITION);
-
-    const drawOffset = 0;
-    // gl.drawElements(gl.TRIANGLES, vertexCount, drawType, drawOffset);
-    gl.drawArrays(gl.TRIANGLES, drawOffset, drawCount);
-}
-
 function drawObject(gl, pbrLightingProgram, shadowProgram, buffers, 
     diffuseTexture, 
     normalTexture, 
@@ -4101,24 +2771,20 @@ function drawScene(gl, basicProgram, basicTexProgram, diffuseLightingProgram, no
     mat4.getRotation(mQuaternion, mRotateMatrix);
     updateHtmlRotateMatrixByRender();
 
-    if (null != mShadowFBO && mNeedDrawShadow) {
-        mShadowFBO.bind();
+    if (App.Shadow.getFBO() && mNeedDrawShadow) {
+        App.Shadow.getFBO().bind();
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
         gl.viewport(0, 0, DEFAULT_RTT_RESOLUTION, DEFAULT_RTT_RESOLUTION);
 
         if (mNeedDrawFighter && mObjectBuffer.length > 0) {
             for (var i = 0; i < mObjectBuffer.length; i++) {
-                drawObject(gl, mPBRLightProgram, mShadowProgram, mObjectBuffer[i], mObjectDiffuseTexture, 
-                    mObjectNormalTexture, mObjectMetalnessTexture, mObjectRoughnessTexture, mObjectEmissiveTexture, 
+                drawObject(gl, mPBRLightProgram, App.Shadow.getProgram(), mObjectBuffer[i], mObjectDiffuseTexture,
+                    mObjectNormalTexture, mObjectMetalnessTexture, mObjectRoughnessTexture, mObjectEmissiveTexture,
                     mBrdfLutTexture, mBackgroundTexture, mObjectBuffer[i].drawCnt, deltaTime, true, false);
             }
         }
-        // // draw terrain
-        // if (mNeedDrawTerrain) {
-        //     drawTerrain(gl, mLightProgram, mShadowProgram, mTerrainBuffer, mTerrainTexture, mTerrainBuffer.drawCnt, deltaTime, true, false);
-        // }
 
-        mShadowFBO.unbind();
+        App.Shadow.getFBO().unbind();
     }
 
     // Clear the canvas before we start drawing on it.
@@ -4136,29 +2802,25 @@ function drawScene(gl, basicProgram, basicTexProgram, diffuseLightingProgram, no
         drawBackground(gl, mBackgroundProgram, mBackgroundBuffer, mBackgroundTexture, mBackgroundBuffer.drawCnt, deltaTime);
     }
 
-    if (mNeedDrawSkyBox) 
-        drawSkybox(gl, mSkyBoxProgram, mSkyBoxVBOBuffer, mSkyBoxTexture);
+    if (mNeedDrawSkyBox)
+        App.SkyBox.draw(gl, false);
 
     if (mNeedDrawFighter && mObjectBuffer.length > 0) {
         for (var i = 0; i < mObjectBuffer.length; i++) {
-            drawObject(gl, mPBRLightProgram, mShadowProgram, mObjectBuffer[i], mObjectDiffuseTexture, 
-                mObjectNormalTexture, mObjectMetalnessTexture, mObjectRoughnessTexture, mObjectEmissiveTexture, 
+            drawObject(gl, mPBRLightProgram, App.Shadow.getProgram(), mObjectBuffer[i], mObjectDiffuseTexture,
+                mObjectNormalTexture, mObjectMetalnessTexture, mObjectRoughnessTexture, mObjectEmissiveTexture,
                 mBrdfLutTexture, mBackgroundTexture, mObjectBuffer[i].drawCnt, deltaTime, false, false);
         }
     }
     // draw terrain
     if (mNeedDrawTerrain) {
-        drawTerrain(gl, mLightProgram, mShadowProgram, mTerrainBuffer, mTerrainTexture, mTerrainBuffer.drawCnt, deltaTime, false, false);
+        App.Terrain.draw(gl, deltaTime, false, false);
     }
     if (mNeedDrawSphere) {
-        drawSphere(gl, mSphereProgram, mSphereBuffer, mSphereBuffer.drawCnt, deltaTime, false);
+        App.Sphere.draw(gl, deltaTime, false);
     }
-
-    mLensFlareModelViewMatrix = mat4.create();
-    mat4.multiply(mLensFlareModelViewMatrix, mViewMatrix, mLensFlareModelViewMatrix);
     if (mNeedDrawLensFlare)
-        drawLensFlare(gl, mLensFlareProgram, LIGHT_POSITION, mLensFlareModelViewMatrix, mProjectionMatrix);
-    // drawCloud(gl, mCloudProgram, mCloudPlaneBuffer, mCloudTexture, mCloudPlaneBuffer.drawCnt, deltaTime, false);
+        App.LensFlare.draw(gl);
     updateAnimQuatHtmlValue();
     mCobraAnimFrameEllapse++;
 
@@ -4183,39 +2845,7 @@ function drawScene(gl, basicProgram, basicTexProgram, diffuseLightingProgram, no
 
     // draw yuv video
     if (mNeedDrawYUVVideo) {
-        // if (VideoFilter.LUT_ILLUSION == mVideoFilter) {
-        //     mFrameBufferObject1.bind();  // draw video to first FBO mFrameBufferObject1
-        // }
-        // mFrameBufferObject.bind();  // draw video to first FBO mFrameBufferObject1
-        // drawYUVVideo(gl, mYUVVideoProgram, mYUVVideoPlaneRot180Buffer, null, mYUVVideoTexture, mYUVVideoPlaneRot180Buffer.drawCnt, now, deltaTime, true);
-        // mFrameBufferObject.unbind();
-        if ((VideoFilter.SOUL_OUT == mVideoFilter) && (now - mSouloutModifyTime > 1000)) {
-            mSouloutModifyTime = now;
-            mFrameBufferObject.bind();
-            drawYUVVideo(gl, mYUVVideoProgram, mYUVVideoPlaneRot180Buffer, null, mYUVVideoTexture, mYUVVideoPlaneRot180Buffer.drawCnt, now, deltaTime, true);
-            mFrameBufferObject.unbind();
-        }
-
-        drawYUVVideo(gl, mYUVVideoProgram, mYUVVideoPlaneBuffer, null, mYUVVideoTexture, mYUVVideoPlaneBuffer.drawCnt, now, deltaTime, false);
-
-        // if (VideoFilter.LUT_ILLUSION == mVideoFilter) {
-        //     mFrameBufferObject.unbind();
-
-        //     // // 在顶层画帧，真正画绘制的画面
-        //     // drawVideoCurFrame(gl, mYUVVideoCurFrameProgram, buffers, drawCount, false);
-
-        //     // // 绘制当前帧画到mFrameBufferObject3的fbo中
-        //     // mFrameBufferObject3.bind();
-        //     // drawVideoCurFrame(gl, mYUVVideoCurFrameProgram, buffers, drawCount, false);
-        //     // mFrameBufferObject3.unbind();
-
-        //     // // 使用mFrameBufferObject1的fbo，再绘制mFrameBufferObject2的纹理fbo中
-        //     // mFrameBufferObject2.bind();
-        //     // drawVideoToBuffer(gl, program, buffers, drawCount, false);
-        //     // mFrameBufferObject2.unbind();
-
-        //     // mNotFirstFrame = true;
-        // }
+        App.Video.draw(gl, now, deltaTime, false);
     }
     
     if (mNeedDrawAssistObject && null != mAssistObjectBuffer) {
@@ -4273,16 +2903,16 @@ function drawScene(gl, basicProgram, basicTexProgram, diffuseLightingProgram, no
     gl.viewport(mViewportWidth, 0, mViewportWidth, mViewportHeight);
     if (mNeedDrawFighter && mObjectBuffer.length > 0) {
         for (var i = 0; i < mObjectBuffer.length; i++) {
-            drawObject(gl, mPBRLightProgram, mShadowProgram, mObjectBuffer[i], mObjectDiffuseTexture, 
-                mObjectNormalTexture, mObjectMetalnessTexture, mObjectRoughnessTexture, mObjectEmissiveTexture, 
+            drawObject(gl, mPBRLightProgram, App.Shadow.getProgram(), mObjectBuffer[i], mObjectDiffuseTexture,
+                mObjectNormalTexture, mObjectMetalnessTexture, mObjectRoughnessTexture, mObjectEmissiveTexture,
                 mBrdfLutTexture, mBackgroundTexture, mObjectBuffer[i].drawCnt, deltaTime, false, true);
         }
     }
-    if (mNeedDrawSkyBox) 
-        drawSkybox(gl, mSkyBoxProgram, mSkyBoxVBOBuffer, mSkyBoxTexture, true);
+    if (mNeedDrawSkyBox)
+        App.SkyBox.draw(gl, true);
     // draw terrain
     if (mNeedDrawTerrain) {
-        drawTerrain(gl, mLightProgram, mShadowProgram, mTerrainBuffer, mTerrainTexture, mTerrainBuffer.drawCnt, deltaTime, false, true);
+        App.Terrain.draw(gl, deltaTime, false, true);
     }
     // draw uv demo
     if (mNeedDrawUVDemoPlane) {
@@ -4290,10 +2920,10 @@ function drawScene(gl, basicProgram, basicTexProgram, diffuseLightingProgram, no
     }
     // draw yuv video
     if (mNeedDrawYUVVideo) {
-        drawYUVVideo(gl, mYUVVideoProgram, mYUVVideoPlaneBuffer, null, mYUVVideoTexture, mYUVVideoPlaneBuffer.drawCnt, now, deltaTime, false, true)
+        App.Video.draw(gl, now, deltaTime, true);
     }
     if (mNeedDrawSphere) {
-        drawSphere(gl, mSphereProgram, mSphereBuffer, mSphereBuffer.drawCnt, deltaTime, true);
+        App.Sphere.draw(gl, deltaTime, true);
     }
     drawArrays(gl, basicProgram, mAxisBuffer, mAxisVertices.length / 3, mGodViewProjectMatrix, gl.LINES, deltaTime);
     if (null != mViewFrustumBuffer) {
@@ -4751,127 +3381,3 @@ function directionToScreenEdge(lightDir, viewMatrix, projMatrix) {
     return [ndc[0] * scale, ndc[1] * scale];
 }
 
-function drawSkybox(gl, programInfo, buffers, skyboxTexture, isGodView) {
-    if (null == programInfo || !buffers || !skyboxTexture) {
-        console.log('drawSkybox, No program info or no skybox buffers or texture.');
-        return;
-    }
-
-    // gl.enable(gl.CULL_FACE);
-    // gl.enable(gl.DEPTH_TEST);
-
-    gl.useProgram(programInfo.program);
-
-    // 绑定顶点缓冲区
-    gl.bindBuffer(gl.ARRAY_BUFFER, buffers.position);
-    gl.vertexAttribPointer(programInfo.attribLocations.vertexPosition, 2, gl.FLOAT, false, 0, 0);
-    gl.enableVertexAttribArray(programInfo.attribLocations.vertexPosition);
-
-    // 绑定天空盒纹理
-    gl.activeTexture(gl.TEXTURE0);
-    // gl.bindTexture(gl.TEXTURE_CUBE_MAP, skyboxTexture.texture); // bug2
-    gl.uniform1i(programInfo.uniformLocations.uSkybox, 0);
-
-    // 矩阵计算（移除平移部分）
-    var viewMatrix = mat4.create();
-    var viewInverseMatrix = mat4.create();
-    var projMatrix = mat4.create();
-    if (isGodView) {
-        viewMatrix = mat4.clone(mGodViewMatrix);
-        mat4.invert(viewInverseMatrix, mGodViewMatrix);
-        projMatrix = mat4.clone(mGodProjectionMatrix);
-    } else {
-        viewMatrix = mat4.clone(mViewMatrix);
-        mat4.invert(viewInverseMatrix, mViewMatrix);
-        projMatrix = mat4.clone(mProjectionMatrix);
-    }
-
-    viewMatrix[12] = viewMatrix[13] = viewMatrix[14] = 0; // 清零平移分量
-    viewInverseMatrix[12] = 0;
-    viewInverseMatrix[13] = 0;
-    viewInverseMatrix[14] = 0;
-
-    var viewDirectionProjectionMatrix = mat4.create();
-    mat4.multiply(viewDirectionProjectionMatrix, projMatrix, viewInverseMatrix);
-    var viewDirectionProjectionInverseMatrix = mat4.create();
-    mat4.invert(viewDirectionProjectionInverseMatrix, viewDirectionProjectionMatrix);
-    gl.uniformMatrix4fv(programInfo.uniformLocations.uViewDirectionProjectionInverse, false, viewDirectionProjectionInverseMatrix);
-
-    // let our quad pass the depth test at 1.0
-    // gl.depthFunc(gl.LEQUAL);
-    
-    // 绘制天空盒
-    gl.drawArrays(gl.TRIANGLES, 0, buffers.vertexCount);
-
-    gl.disableVertexAttribArray(programInfo.attribLocations.vertexPosition);
-}
-
-function drawLensFlare(gl, lensFlareProgram, lightWorldPos, modelViewMatrix, projectionMatrix) {
-    // 计算点光源屏幕坐标
-    // const lightScreen = worldToScreenNDC(lightWorldPos, modelViewMatrix, projectionMatrix);
-    // 计算方向光源屏幕坐标
-    const lightScreen = directionToScreenEdge(lightWorldPos, modelViewMatrix, projectionMatrix);
-    const screenCenter = [0.5, 0.5];   // [mViewportWidth / 2, mViewportHeight / 2];
-    const flareVec = [screenCenter[0] - lightScreen[0], screenCenter[1] - lightScreen[1]];
-    // const distance = Math.sqrt(flareVec[0] * flareVec[0] + flareVec[1] * flareVec[1]);
-    const distance = Math.min(
-        Math.sqrt(flareVec[0]*flareVec[0] + flareVec[1]*flareVec[1]),
-        1.0
-    );
-    // 计算亮度
-    // const maxDistance = 0.7; // 最大距离
-    // let brightness = 1 - (distance / maxDistance);
-    let brightness = 1.5 * (1 - distance);
-    // console.log('Brightness:', brightness);
-
-    // 绘制光源
-    renderLensFlare(gl, lensFlareProgram, mLensFlareVBOBuffer, lightScreen, flareVec, 0, 1.0);
-    if (brightness > 0.0) {
-        for (let i = 1; i < mLensFlareElements.length; i++) {
-            const elementDir = [flareVec[0] * i * LENS_FLARE_SPACING, flareVec[1] * i * LENS_FLARE_SPACING];
-            const flarePos = [lightScreen[0] + elementDir[0], lightScreen[1] + elementDir[1]];
-            renderLensFlare(gl, lensFlareProgram, mLensFlareVBOBuffer, flarePos, elementDir, i, brightness);
-        }
-    }
-}
-
-function renderLensFlare(gl, lensFlareProgram, buffers, lightScreen, flareVec, index, brightness) {
-    // 启用 Alpha 混合
-    gl.enable(gl.BLEND);
-    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-    
-    // 绑定顶点坐标缓冲区,绘制一个屏幕对齐的四边形（两个三角形）
-    gl.bindBuffer(gl.ARRAY_BUFFER, buffers.position);
-    gl.vertexAttribPointer(lensFlareProgram.attribLocations.vertexPosition, 2, gl.FLOAT, false, 0, 0);
-    gl.enableVertexAttribArray(lensFlareProgram.attribLocations.vertexPosition);
-
-    // 绑定纹理坐标缓冲区
-    gl.bindBuffer(gl.ARRAY_BUFFER, buffers.uv);
-    gl.vertexAttribPointer(lensFlareProgram.attribLocations.textureCoord, 2, gl.FLOAT, false, 0, 0);
-    gl.enableVertexAttribArray(lensFlareProgram.attribLocations.textureCoord);
-
-    gl.useProgram(lensFlareProgram.program);
-
-    gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, mLensFlareElements[index].texture.texture);
-    gl.uniform1i(lensFlareProgram.uniformLocations.uTextureHandle, 0);
-    
-    // 计算当前元素的中心点
-    const center = [
-        lightScreen[0] + flareVec[0] * 0.3, //  * elem.distance,
-        lightScreen[1] + flareVec[1] * 0.3  //  * elem.distance
-    ];
-    gl.uniform2fv(lensFlareProgram.uniformLocations.uCenterHandle, center);
-    gl.uniform2fv(lensFlareProgram.uniformLocations.uScaleHandle, [mLensFlareElements[index].scale, mLensFlareElements[index].scale]);
-    gl.uniform2fv(lensFlareProgram.uniformLocations.uResolutionHandle, [mViewportWidth, mViewportHeight]);
-    gl.uniform1f(lensFlareProgram.uniformLocations.uBrightnessHandle, brightness);
-
-
-    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-
-    gl.disableVertexAttribArray(lensFlareProgram.attribLocations.vertexPosition);
-    gl.disableVertexAttribArray(lensFlareProgram.attribLocations.textureCoord);
-
-    // 禁用 Alpha 混合
-    gl.disable(gl.BLEND);
-}

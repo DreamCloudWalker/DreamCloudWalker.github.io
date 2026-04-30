@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -E \"\\\\.\\(json|config|rc|sh|batch\\)$\")",
+      "Bash(awk '{print $9, $5}')"
+    ]
+  }
+}
