@@ -144,6 +144,7 @@ var mFarBuffer = null;
 var mNearFarPlaneColors = [];
 // draw per-vertex and per-frag lighting
 var mNeedDrawSphere = false;
+var mNeedDrawBlendSort = false;
 var mSphereBuffer = null;
 // draw axis
 var mAxisVertices = [];
@@ -251,6 +252,7 @@ var mUIMvpMatrix = null;
 var mUIFighterAnim = null;
 var mUIConclusion = null;
 var mUIUVMapping = null;
+var mUIBlendSort = null;
 var mUINormalMapping = null;
 // language
 var language_pack = {
@@ -340,6 +342,7 @@ class GLScene extends GLCanvas {
         App.Video.init(gl);
         App.Cloud.init(gl, requestRender);
         App.Sphere.init(gl);
+        App.BlendSort.init(gl);
 
         // init shader
         updateBackgroundShader();
@@ -1767,6 +1770,7 @@ function switchDemo(demoId) {
     mNeedDrawAssistObject = false;
     mNeedDrawCobraAnim = false;
     mNeedDrawSphere = false;
+    mNeedDrawBlendSort = false;
     mNeedDrawFighter = false;
     mNeedDrawBackground = false;
     mNeedDrawUVDemoPlane = false;
@@ -1785,8 +1789,12 @@ function switchDemo(demoId) {
     document.getElementById("id_quaternion").style.display = 'none';
     document.getElementById("id_cobramaneuvre").style.display = 'none';
     document.getElementById("id_uv_demo").style.display = 'none';
+    document.getElementById("id_blend_sort_demo").style.display = 'none';
     if (null != mUIUVMapping) {
         mUIUVMapping.style.display = 'none';
+    }
+    if (null != mUIBlendSort) {
+        mUIBlendSort.style.display = 'none';
     }
     if (null != mUIModelMatrix) {
         mUIModelMatrix.style.display = 'none';
@@ -1974,6 +1982,23 @@ function switchDemo(demoId) {
                 mUIUVMapping.innerHTML = htmlContent;
             }
             mUIUVMapping.style.display = 'block';
+            break;
+        case 'BlendSort':
+            mNeedDrawBlendSort = true;
+            mNeedDrawSkyBox = true;
+            resumeMVPMatrix(false);
+            document.getElementById("id_blend_sort_demo").style.display = 'flex';
+            if (null == mUIBlendSort) {
+                mUIBlendSort = document.getElementById("id_blend_sort_blog");
+                var markdownReader = new XMLHttpRequest();
+                markdownReader.open('get', './blog/blendSort.md', false);
+                markdownReader.send();
+
+                let convertor = new showdown.Converter();
+                let htmlContent = convertor.makeHtml(markdownReader.responseText);
+                mUIBlendSort.innerHTML = htmlContent;
+            }
+            mUIBlendSort.style.display = 'block';
             break;
         case 'PerVertexOrFragLighting':
             mNeedDrawSphere = true;
@@ -2819,6 +2844,9 @@ function drawScene(gl, basicProgram, basicTexProgram, diffuseLightingProgram, no
     if (mNeedDrawSphere) {
         App.Sphere.draw(gl, deltaTime, false);
     }
+    if (mNeedDrawBlendSort) {
+        App.BlendSort.draw(gl, false);
+    }
     if (mNeedDrawLensFlare)
         App.LensFlare.draw(gl);
     updateAnimQuatHtmlValue();
@@ -2924,6 +2952,9 @@ function drawScene(gl, basicProgram, basicTexProgram, diffuseLightingProgram, no
     }
     if (mNeedDrawSphere) {
         App.Sphere.draw(gl, deltaTime, true);
+    }
+    if (mNeedDrawBlendSort) {
+        App.BlendSort.draw(gl, true);
     }
     drawArrays(gl, basicProgram, mAxisBuffer, mAxisVertices.length / 3, mGodViewProjectMatrix, gl.LINES, deltaTime);
     if (null != mViewFrustumBuffer) {

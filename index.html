@@ -284,6 +284,7 @@
         <script src="scene/CloudModule.js"></script>
         <script src="scene/PBRModule.js"></script>
         <script src="scene/LightingModule.js"></script>
+        <script src="scene/BlendSortModule.js"></script>
         <script src="learnOpenGLES.js"></script>
     </head>
 
@@ -328,7 +329,7 @@
                         <li data-lang="texture">纹理</li>
                             <ul>
                                 <li><a href="#TOC2.1" onclick="switchDemo('UV')" data-lang="uv_coord">UV坐标</a></li>
-                                <li><a href="#TOC2.2" data-lang="blend_sort">混合与透明排序</a></li>
+                                <li><a href="#TOC2.2" onclick="switchDemo('BlendSort')" data-lang="blend_sort">混合与透明排序</a></li>
                                 <li><a href="#TOC2.3" data-lang="sample">采样器</a></li>
                                 <li><a href="#TOC2.4" data-lang="mipmap">Mipmap</a></li>
                                 <li><a href="#TOC2.4" onclick="switchDemo('YUVVideo')" data-lang="yuv_video">YUV视频渲染</a></li>
@@ -1209,6 +1210,15 @@ void main() {
             </div>
         </div>
         <div id="id_uv_mapping_blog"></div>
+        <div id="id_blend_sort_demo">
+            <h4 style="width: var(--sidebar-width); background: #ffffff" data-lang="blend_sort">混合与透明排序</h4>
+            <div style="border: 1px solid #cccccc; width: 22em;">
+                <input type="checkbox" id="id_blend_enable" checked onchange="updateBlendSortOptions()"/><span data-lang="blend_enable">开启混合（gl.BLEND）</span><br>
+                <input type="checkbox" id="id_blend_depth_mask" checked onchange="updateBlendSortOptions()"/><span data-lang="blend_depth_mask">写入深度（depthMask）</span><br>
+                <input type="checkbox" id="id_blend_sort_far_to_near" onchange="updateBlendSortOptions()"/><span data-lang="blend_sort_far_to_near">由远到近排序</span><br>
+            </div>
+        </div>
+        <div id="id_blend_sort_blog"></div>
         <div id="id_yuv_video">
             <div>
                 <button style="display:block; width: 200px; height: 30px" onclick="updateYUVVideoShader()" data-lang="compile_and_run">编译并运行</button>
