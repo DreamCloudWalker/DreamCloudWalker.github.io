@@ -145,6 +145,7 @@ var mNearFarPlaneColors = [];
 // draw per-vertex and per-frag lighting
 var mNeedDrawSphere = false;
 var mNeedDrawBlendSort = false;
+var mNeedDrawMipmap = false;
 var mSphereBuffer = null;
 // draw axis
 var mAxisVertices = [];
@@ -253,6 +254,7 @@ var mUIFighterAnim = null;
 var mUIConclusion = null;
 var mUIUVMapping = null;
 var mUIBlendSort = null;
+var mUIMipmap = null;
 var mUINormalMapping = null;
 // language
 var language_pack = {
@@ -343,6 +345,7 @@ class GLScene extends GLCanvas {
         App.Cloud.init(gl, requestRender);
         App.Sphere.init(gl);
         App.BlendSort.init(gl);
+        App.Mipmap.init(gl);
 
         // init shader
         updateBackgroundShader();
@@ -1771,6 +1774,7 @@ function switchDemo(demoId) {
     mNeedDrawCobraAnim = false;
     mNeedDrawSphere = false;
     mNeedDrawBlendSort = false;
+    mNeedDrawMipmap = false;
     mNeedDrawFighter = false;
     mNeedDrawBackground = false;
     mNeedDrawUVDemoPlane = false;
@@ -1790,11 +1794,15 @@ function switchDemo(demoId) {
     document.getElementById("id_cobramaneuvre").style.display = 'none';
     document.getElementById("id_uv_demo").style.display = 'none';
     document.getElementById("id_blend_sort_demo").style.display = 'none';
+    document.getElementById("id_mipmap_demo").style.display = 'none';
     if (null != mUIUVMapping) {
         mUIUVMapping.style.display = 'none';
     }
     if (null != mUIBlendSort) {
         mUIBlendSort.style.display = 'none';
+    }
+    if (null != mUIMipmap) {
+        mUIMipmap.style.display = 'none';
     }
     if (null != mUIModelMatrix) {
         mUIModelMatrix.style.display = 'none';
@@ -1999,6 +2007,23 @@ function switchDemo(demoId) {
                 mUIBlendSort.innerHTML = htmlContent;
             }
             mUIBlendSort.style.display = 'block';
+            break;
+        case 'Mipmap':
+            mNeedDrawMipmap = true;
+            mNeedDrawSkyBox = true;
+            resumeMVPMatrix(true);
+            document.getElementById("id_mipmap_demo").style.display = 'flex';
+            if (null == mUIMipmap) {
+                mUIMipmap = document.getElementById("id_mipmap_blog");
+                var markdownReader = new XMLHttpRequest();
+                markdownReader.open('get', './blog/mipmap.md', false);
+                markdownReader.send();
+
+                let convertor = new showdown.Converter();
+                let htmlContent = convertor.makeHtml(markdownReader.responseText);
+                mUIMipmap.innerHTML = htmlContent;
+            }
+            mUIMipmap.style.display = 'block';
             break;
         case 'PerVertexOrFragLighting':
             mNeedDrawSphere = true;
@@ -2847,6 +2872,9 @@ function drawScene(gl, basicProgram, basicTexProgram, diffuseLightingProgram, no
     if (mNeedDrawBlendSort) {
         App.BlendSort.draw(gl, false);
     }
+    if (mNeedDrawMipmap) {
+        App.Mipmap.draw(gl, false);
+    }
     if (mNeedDrawLensFlare)
         App.LensFlare.draw(gl);
     updateAnimQuatHtmlValue();
@@ -2955,6 +2983,9 @@ function drawScene(gl, basicProgram, basicTexProgram, diffuseLightingProgram, no
     }
     if (mNeedDrawBlendSort) {
         App.BlendSort.draw(gl, true);
+    }
+    if (mNeedDrawMipmap) {
+        App.Mipmap.draw(gl, true);
     }
     drawArrays(gl, basicProgram, mAxisBuffer, mAxisVertices.length / 3, mGodViewProjectMatrix, gl.LINES, deltaTime);
     if (null != mViewFrustumBuffer) {

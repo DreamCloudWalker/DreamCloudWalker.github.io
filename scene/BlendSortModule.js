@@ -7,10 +7,11 @@ App.BlendSort = (function () {
     var _program = null;
     var _sphereBuffer = null;
 
-    // 三个开关（默认：开混合、开深度写入、不排序 —— 先呈现"穿帮"错误效果）
+    // 三个开关默认即"正确组合"：开混合、不写深度、由远到近排序。
+    // 用户取消勾选才会看到异常效果。
     var _enableBlend = true;
-    var _depthMask = true;
-    var _sortByDepth = false;
+    var _depthMask = false;
+    var _sortByDepth = true;
 
     // 5 个半透明球：斜向交错排列，x/y/z 同向递增，深度各不相同且互不相交。
     // 相机在 (0,0,5) 沿 -z 看，half-fov=25°，这里把球收在 z_world 0→-4
@@ -22,6 +23,9 @@ App.BlendSort = (function () {
         { pos: vec3.fromValues( 0.225,  0.225, -3.0), color: vec4.fromValues(0.2, 0.6, 1.0, 0.5) }, // 蓝
         { pos: vec3.fromValues( 0.45,  0.45, -4.0), color: vec4.fromValues(0.8, 0.3, 1.0, 0.5) }, // 紫，最远
     ];
+
+    // 球组几何中心，整体旋转绕此点进行（5 个球心的平均位置）
+    var _groupCenter = vec3.fromValues(0.0, 0.0, -2.0);
 
     function _initShader(gl) {
         var vsSource = `
@@ -82,13 +86,23 @@ App.BlendSort = (function () {
         var viewMatrix = isGodView ? mGodViewMatrix : mViewMatrix;
         var projMatrix = isGodView ? mGodProjectionMatrix : mProjectionMatrix;
 
-        // 计算每个球在相机空间的深度（到相机的距离），用于排序
+        // 把 5 个球当作一个整体绕球组中心旋转：拖动主窗口累加的 mYawing/mPitching
+        // 已被每帧重建为全局 mRotateMatrix（纯绕原点旋转）。这里平移到球组中心再旋转，
+        // 使整组绕自身中心转动。两个视角共用同一 groupMatrix，姿态保持一致。
+        var groupMatrix = mat4.create();
+        mat4.translate(groupMatrix, groupMatrix, _groupCenter);
+        mat4.multiply(groupMatrix, groupMatrix, mRotateMatrix);
+        mat4.translate(groupMatrix, groupMatrix, [-_groupCenter[0], -_groupCenter[1], -_groupCenter[2]]);
+
+        // 计算每个球旋转后在相机空间的深度（到相机的距离），用于排序
         var order = [];
+        var worldPos = vec4.create();
         for (var i = 0; i < _spheres.length; i++) {
-            var viewPos = vec4.fromValues(_spheres[i].pos[0], _spheres[i].pos[1], _spheres[i].pos[2], 1.0);
-            vec4.transformMat4(viewPos, viewPos, viewMatrix);
-            // 相机看向 -z，viewPos[2] 越小越远；记录 -z 作为"到相机距离"
-            order.push({ index: i, dist: -viewPos[2] });
+            vec4.set(worldPos, _spheres[i].pos[0], _spheres[i].pos[1], _spheres[i].pos[2], 1.0);
+            vec4.transformMat4(worldPos, worldPos, groupMatrix);   // 应用整体旋转
+            vec4.transformMat4(worldPos, worldPos, viewMatrix);
+            // 相机看向 -z，worldPos[2] 越小越远；记录 -z 作为"到相机距离"
+            order.push({ index: i, dist: -worldPos[2] });
         }
         if (_sortByDepth) {
             // 由远到近：dist 大的（远）先画
@@ -128,8 +142,8 @@ App.BlendSort = (function () {
         var modelMatrix = mat4.create();
         for (var k = 0; k < order.length; k++) {
             var sphere = _spheres[order[k].index];
-            mat4.identity(modelMatrix);
-            mat4.translate(modelMatrix, modelMatrix, sphere.pos);
+            // model = groupMatrix(整体旋转) * translate(球心)
+            mat4.translate(modelMatrix, groupMatrix, sphere.pos);
             gl.uniformMatrix4fv(programInfo.uniformLocations.uModelMatrix, false, modelMatrix);
             gl.uniform4fv(programInfo.uniformLocations.uColor, sphere.color);
             gl.drawArrays(gl.TRIANGLES, 0, buffer.drawCnt);
@@ -159,7 +173,8 @@ App.BlendSort = (function () {
 // ── 全局包装函数，供 HTML checkbox 的 onchange 调用 ──
 function updateBlendSortOptions() {
     App.BlendSort.setEnableBlend(document.getElementById('id_blend_enable').checked);
-    App.BlendSort.setDepthMask(document.getElementById('id_blend_depth_mask').checked);
+    // 勾选"不写入深度"表示 depthMask=false，所以取反
+    App.BlendSort.setDepthMask(!document.getElementById('id_blend_no_depth_write').checked);
     App.BlendSort.setSortByDepth(document.getElementById('id_blend_sort_far_to_near').checked);
     requestRender();
 }
