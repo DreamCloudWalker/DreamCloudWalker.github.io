@@ -148,6 +148,7 @@ var mNearFarPlaneColors = [];
 var mNeedDrawSphere = false;
 var mNeedDrawBlendSort = false;
 var mNeedDrawMipmap = false;
+var mNeedDrawFresnel = false;
 var mSphereBuffer = null;
 // draw axis
 var mAxisVertices = [];
@@ -260,6 +261,7 @@ var mUIMipmap = null;
 var mUISkyBox = null;
 var mUINormalMapping = null;
 var mUILight = null;
+var mUIFresnel = null;
 // language
 var language_pack = {
     now_lang : 0, // 0:ch,1:en
@@ -350,6 +352,7 @@ class GLScene extends GLCanvas {
         App.Sphere.init(gl);
         App.BlendSort.init(gl);
         App.Mipmap.init(gl);
+        App.Fresnel.init(gl);
 
         // init shader
         updateBackgroundShader();
@@ -1876,6 +1879,7 @@ function switchDemo(demoId) {
     mNeedDrawSphere = false;
     mNeedDrawBlendSort = false;
     mNeedDrawMipmap = false;
+    mNeedDrawFresnel = false;
     mUsePhongForFighter = false;
     mNeedDrawFighter = false;
     mNeedDrawBackground = false;
@@ -1898,6 +1902,7 @@ function switchDemo(demoId) {
     document.getElementById("id_blend_sort_demo").style.display = 'none';
     document.getElementById("id_mipmap_demo").style.display = 'none';
     document.getElementById("id_skybox_demo").style.display = 'none';
+    document.getElementById("id_fresnel_demo").style.display = 'none';
     if (null != mUIUVMapping) {
         mUIUVMapping.style.display = 'none';
     }
@@ -1912,6 +1917,9 @@ function switchDemo(demoId) {
     }
     if (null != mUILight) {
         mUILight.style.display = 'none';
+    }
+    if (null != mUIFresnel) {
+        mUIFresnel.style.display = 'none';
     }
     // 离开任何 demo 时关闭天空盒边界线，避免状态残留
     App.SkyBox.setShowEdge(false);
@@ -2177,6 +2185,24 @@ function switchDemo(demoId) {
                 mUILight.innerHTML = htmlContent;
             }
             mUILight.style.display = 'block';
+            break;
+        case 'Fresnel':
+            mNeedDrawFresnel = true;
+            mNeedDrawSkyBox = true;
+            resumeMVPMatrix(false);
+            document.getElementById("id_fresnel_demo").style.display = 'flex';
+            if (null == mUIFresnel) {
+                mUIFresnel = document.getElementById("id_fresnel_blog");
+
+                var markdownReader = new XMLHttpRequest();
+                markdownReader.open('get', './blog/fresnel.md', false);
+                markdownReader.send();
+
+                let convertor = new showdown.Converter();
+                let htmlContent = convertor.makeHtml(markdownReader.responseText);
+                mUIFresnel.innerHTML = htmlContent;
+            }
+            mUIFresnel.style.display = 'block';
             break;
         case 'Shadow':
             resumeMVPMatrix(true);
@@ -3086,6 +3112,9 @@ function drawScene(gl, basicProgram, basicTexProgram, diffuseLightingProgram, no
     if (mNeedDrawMipmap) {
         App.Mipmap.draw(gl, false);
     }
+    if (mNeedDrawFresnel) {
+        App.Fresnel.draw(gl, false);
+    }
     if (mNeedDrawLensFlare)
         App.LensFlare.draw(gl);
     updateAnimQuatHtmlValue();
@@ -3201,6 +3230,9 @@ function drawScene(gl, basicProgram, basicTexProgram, diffuseLightingProgram, no
     }
     if (mNeedDrawMipmap) {
         App.Mipmap.draw(gl, true);
+    }
+    if (mNeedDrawFresnel) {
+        App.Fresnel.draw(gl, true);
     }
     drawArrays(gl, basicProgram, mAxisBuffer, mAxisVertices.length / 3, mGodViewProjectMatrix, gl.LINES, deltaTime);
     if (null != mViewFrustumBuffer) {

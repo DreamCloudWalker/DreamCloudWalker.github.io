@@ -286,6 +286,7 @@
         <script src="scene/LightingModule.js"></script>
         <script src="scene/BlendSortModule.js"></script>
         <script src="scene/MipmapModule.js"></script>
+        <script src="scene/FresnelModule.js"></script>
         <script src="learnOpenGLES.js"></script>
     </head>
 
@@ -341,7 +342,7 @@
                                 <li><a href="#TOC3.1" onclick="switchDemo('Light')" data-lang="basic_light">基本光照</a></li>
                                 <li><a href="#TOC3.2" onclick="switchDemo('PerVertexOrFragLighting')" data-lang="per_vertex_frag_lighting">逐顶点&逐像素光照</a></li>
                                 <li><a href="#TOC3.3" onclick="switchDemo('Shadow')" data-lang="fbo_shadow">FBO、RTT、阴影</a></li>
-                                <li><a href="#TOC3.4" data-lang="fresnel_reflection">菲涅尔效果</a></li>
+                                <li><a href="#TOC3.4" onclick="switchDemo('Fresnel')" data-lang="fresnel_reflection">菲涅尔效果</a></li>
                                 <li><a href="#TOC3.5" onclick="switchDemo('NormalMapping')" data-lang="normal_mapping">法线贴图</a></li>
                                 <li><a href="#TOC3.5">分形着色器</a></li>
                                 <li><a href="#TOC3.6" onclick="switchDemo('LensFlare')" data-lang="lens_flare">镜头光晕</a></li>
@@ -1242,6 +1243,31 @@ void main() {
             </div>
         </div>
         <div id="id_skybox_blog"></div>
+        <div id="id_fresnel_demo">
+            <h4 style="width: var(--sidebar-width); background: #ffffff" data-lang="fresnel_reflection">菲涅尔效果</h4>
+            <div style="border: 1px solid #cccccc; width: 24em;">
+                <input type="checkbox" id="id_fresnel_enable" checked onchange="updateFresnelOptions()"/><span data-lang="fresnel_enable">启用菲涅尔</span><br>
+            </div>
+            <div style="border: 1px solid #cccccc; width: 24em; margin: 1px;">
+                <span>F0（基础反射率）</span><br/>
+                <input id="id_fresnel_f0" style="width: 180px;" type="range" value="0.04" min="0.0" max="1.0" step="0.01" oninput="updateFresnelOptions()"/>
+                <label id="label_fresnel_f0"></label><br>
+                <span style="font-size:smaller; color:#888">水~0.02 | 塑料/玻璃~0.04 | 钻石~0.17 | 金属0.5~1.0</span>
+            </div>
+            <div style="border: 1px solid #cccccc; width: 24em; margin: 1px;">
+                <span>Power（边缘光宽度）</span><br/>
+                <input id="id_fresnel_power" style="width: 180px;" type="range" value="5.0" min="0.5" max="8.0" step="0.1" oninput="updateFresnelOptions()"/>
+                <label id="label_fresnel_power"></label><br>
+                <span style="font-size:smaller; color:#888">1=宽光晕 | 5=经典Schlick | 8=极细边缘</span>
+            </div>
+            <div style="border: 1px solid #cccccc; width: 24em; margin: 1px;">
+                <span data-lang="fresnel_rim_color">边缘光颜色</span><br/>
+                R:<input id="id_fresnel_rim_r" style="width: 160px;" type="range" value="0.3" min="0.0" max="1.0" step="0.01" oninput="updateFresnelOptions()"/><br>
+                G:<input id="id_fresnel_rim_g" style="width: 160px;" type="range" value="0.7" min="0.0" max="1.0" step="0.01" oninput="updateFresnelOptions()"/><br>
+                B:<input id="id_fresnel_rim_b" style="width: 160px;" type="range" value="1.0" min="0.0" max="1.0" step="0.01" oninput="updateFresnelOptions()"/>
+            </div>
+        </div>
+        <div id="id_fresnel_blog"></div>
         <div id="id_yuv_video">
             <div>
                 <button style="display:block; width: 200px; height: 30px" onclick="updateYUVVideoShader()" data-lang="compile_and_run">编译并运行</button>
