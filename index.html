@@ -288,6 +288,7 @@
         <script src="scene/MipmapModule.js"></script>
         <script src="scene/FresnelModule.js"></script>
         <script src="scene/NormalMapModule.js"></script>
+        <script src="scene/ParallaxModule.js"></script>
         <script src="learnOpenGLES.js"></script>
     </head>
 
@@ -345,9 +346,10 @@
                                 <li><a href="#TOC3.3" onclick="switchDemo('Shadow')" data-lang="fbo_shadow">FBO、RTT、阴影</a></li>
                                 <li><a href="#TOC3.4" onclick="switchDemo('Fresnel')" data-lang="fresnel_reflection">菲涅尔效果</a></li>
                                 <li><a href="#TOC3.5" onclick="switchDemo('NormalMapping')" data-lang="normal_mapping">法线贴图</a></li>
-                                <li><a href="#TOC3.5">分形着色器</a></li>
-                                <li><a href="#TOC3.6" onclick="switchDemo('LensFlare')" data-lang="lens_flare">镜头光晕</a></li>
-                                <li><a href="#TOC3.7" data-lang="pbr_rending">PBR</a></li>
+                                <li><a href="#TOC3.6" onclick="switchDemo('Parallax')" data-lang="parallax_mapping">视差贴图</a></li>
+                                <li><a href="#TOC3.7">分形着色器</a></li>
+                                <li><a href="#TOC3.8" onclick="switchDemo('LensFlare')" data-lang="lens_flare">镜头光晕</a></li>
+                                <li><a href="#TOC3.9" data-lang="pbr_rending">PBR</a></li>
                             </ul>
                         </li>
                         <!-- <li data-lang="scene_management">场景管理</li>
@@ -1312,6 +1314,24 @@ void main() {
             </div>
         </div>
         <div id="id_normal_mapping"></div>
+        <div id="id_parallax_demo">
+            <h4 style="width: var(--sidebar-width); background: #ffffff" data-lang="parallax_mapping">视差贴图</h4>
+            <div style="border: 1px solid #cccccc; width: 24em;">
+                <input type="checkbox" id="id_parallax_enable" checked onchange="updateParallaxOptions()"/><span data-lang="parallax_enable">启用视差贴图（右墙）</span><br>
+                <span style="font-size:smaller; color:#888">左：漫反射 | 中：+法线 | 右：+法线+视差</span>
+            </div>
+            <div style="border: 1px solid #cccccc; width: 24em; margin: 1px;">
+                <span data-lang="parallax_scale">偏移强度(scale)</span><br/>
+                <input id="id_parallax_scale" style="width: 180px;" type="range" value="0.06" min="0.0" max="0.15" step="0.001" oninput="updateParallaxOptions()"/>
+                <label id="label_parallax_scale"></label>
+            </div>
+            <div style="border: 1px solid #cccccc; width: 24em; margin: 1px;">
+                <span data-lang="parallax_bias">偏移偏置(bias)</span><br/>
+                <input id="id_parallax_bias" style="width: 180px;" type="range" value="0.03" min="0.0" max="0.08" step="0.001" oninput="updateParallaxOptions()"/>
+                <label id="label_parallax_bias"></label>
+            </div>
+        </div>
+        <div id="id_parallax_blog"></div>
         <div id="id_normalmap_demo">
             <h4 style="width: var(--sidebar-width); background: #ffffff" data-lang="normal_mapping">法线贴图</h4>
             <div style="border: 1px solid #cccccc; width: 22em;">

@@ -150,6 +150,7 @@ var mNeedDrawBlendSort = false;
 var mNeedDrawMipmap = false;
 var mNeedDrawFresnel = false;
 var mNeedDrawNormalMap = false;
+var mNeedDrawParallax = false;
 var mSphereBuffer = null;
 // draw axis
 var mAxisVertices = [];
@@ -263,6 +264,7 @@ var mUISkyBox = null;
 var mUINormalMapping = null;
 var mUILight = null;
 var mUIFresnel = null;
+var mUIParallax = null;
 // language
 var language_pack = {
     now_lang : 0, // 0:ch,1:en
@@ -355,6 +357,7 @@ class GLScene extends GLCanvas {
         App.Mipmap.init(gl);
         App.Fresnel.init(gl);
         App.NormalMap.init(gl);
+        App.Parallax.init(gl);
 
         // init shader
         updateBackgroundShader();
@@ -1883,6 +1886,7 @@ function switchDemo(demoId) {
     mNeedDrawMipmap = false;
     mNeedDrawFresnel = false;
     mNeedDrawNormalMap = false;
+    mNeedDrawParallax = false;
     mUsePhongForFighter = false;
     mNeedDrawFighter = false;
     mNeedDrawBackground = false;
@@ -1907,6 +1911,7 @@ function switchDemo(demoId) {
     document.getElementById("id_skybox_demo").style.display = 'none';
     document.getElementById("id_fresnel_demo").style.display = 'none';
     document.getElementById("id_normalmap_demo").style.display = 'none';
+    document.getElementById("id_parallax_demo").style.display = 'none';
     if (null != mUIUVMapping) {
         mUIUVMapping.style.display = 'none';
     }
@@ -1924,6 +1929,9 @@ function switchDemo(demoId) {
     }
     if (null != mUIFresnel) {
         mUIFresnel.style.display = 'none';
+    }
+    if (null != mUIParallax) {
+        mUIParallax.style.display = 'none';
     }
     // 离开任何 demo 时关闭天空盒边界线，避免状态残留
     App.SkyBox.setShowEdge(false);
@@ -1987,6 +1995,21 @@ function switchDemo(demoId) {
                 mUINormalMapping.innerHTML = htmlContent;
             }
             mUINormalMapping.style.display = 'block';
+            break;
+        case 'Parallax':
+            resumeMVPMatrix(false);
+            mNeedDrawParallax = true;
+            mNeedDrawSkyBox = true;
+            document.getElementById("id_parallax_demo").style.display = 'flex';
+            if (null == mUIParallax) {
+                mUIParallax = document.getElementById("id_parallax_blog");
+                var mr = new XMLHttpRequest();
+                mr.open('get', './blog/parallaxMapping.md', false);
+                mr.send();
+                let c = new showdown.Converter();
+                mUIParallax.innerHTML = c.makeHtml(mr.responseText);
+            }
+            mUIParallax.style.display = 'block';
             break;
         case 'Shader':
             resumeMVPMatrix(false);
@@ -3122,6 +3145,9 @@ function drawScene(gl, basicProgram, basicTexProgram, diffuseLightingProgram, no
     if (mNeedDrawNormalMap) {
         App.NormalMap.draw(gl, false);
     }
+    if (mNeedDrawParallax) {
+        App.Parallax.draw(gl, false);
+    }
     if (mNeedDrawLensFlare)
         App.LensFlare.draw(gl);
     updateAnimQuatHtmlValue();
@@ -3243,6 +3269,9 @@ function drawScene(gl, basicProgram, basicTexProgram, diffuseLightingProgram, no
     }
     if (mNeedDrawNormalMap) {
         App.NormalMap.draw(gl, true);
+    }
+    if (mNeedDrawParallax) {
+        App.Parallax.draw(gl, true);
     }
     drawArrays(gl, basicProgram, mAxisBuffer, mAxisVertices.length / 3, mGodViewProjectMatrix, gl.LINES, deltaTime);
     if (null != mViewFrustumBuffer) {
