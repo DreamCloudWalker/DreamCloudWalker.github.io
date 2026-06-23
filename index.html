@@ -287,6 +287,7 @@
         <script src="scene/BlendSortModule.js"></script>
         <script src="scene/MipmapModule.js"></script>
         <script src="scene/FresnelModule.js"></script>
+        <script src="scene/NormalMapModule.js"></script>
         <script src="learnOpenGLES.js"></script>
     </head>
 
@@ -1311,6 +1312,13 @@ void main() {
             </div>
         </div>
         <div id="id_normal_mapping"></div>
+        <div id="id_normalmap_demo">
+            <h4 style="width: var(--sidebar-width); background: #ffffff" data-lang="normal_mapping">法线贴图</h4>
+            <div style="border: 1px solid #cccccc; width: 22em;">
+                <input type="checkbox" id="id_normalmap_enable" checked onchange="updateNormalMapOptions()"/><span data-lang="normalmap_enable">启用法线贴图（右墙）</span><br>
+                <span style="font-size:smaller; color:#888">左墙：仅漫反射贴图 | 右墙：漫反射 + 法线贴图</span>
+            </div>
+        </div>
         <div id="id_conclusion"></div>
                 </div>
             </div>

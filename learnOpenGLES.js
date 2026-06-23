@@ -149,6 +149,7 @@ var mNeedDrawSphere = false;
 var mNeedDrawBlendSort = false;
 var mNeedDrawMipmap = false;
 var mNeedDrawFresnel = false;
+var mNeedDrawNormalMap = false;
 var mSphereBuffer = null;
 // draw axis
 var mAxisVertices = [];
@@ -353,6 +354,7 @@ class GLScene extends GLCanvas {
         App.BlendSort.init(gl);
         App.Mipmap.init(gl);
         App.Fresnel.init(gl);
+        App.NormalMap.init(gl);
 
         // init shader
         updateBackgroundShader();
@@ -1880,6 +1882,7 @@ function switchDemo(demoId) {
     mNeedDrawBlendSort = false;
     mNeedDrawMipmap = false;
     mNeedDrawFresnel = false;
+    mNeedDrawNormalMap = false;
     mUsePhongForFighter = false;
     mNeedDrawFighter = false;
     mNeedDrawBackground = false;
@@ -1903,6 +1906,7 @@ function switchDemo(demoId) {
     document.getElementById("id_mipmap_demo").style.display = 'none';
     document.getElementById("id_skybox_demo").style.display = 'none';
     document.getElementById("id_fresnel_demo").style.display = 'none';
+    document.getElementById("id_normalmap_demo").style.display = 'none';
     if (null != mUIUVMapping) {
         mUIUVMapping.style.display = 'none';
     }
@@ -1968,10 +1972,10 @@ function switchDemo(demoId) {
             mUIConclusion.style.display = 'block';
             break;
         case 'NormalMapping':
-            resumeMVPMatrix(true);
-            mNeedDrawFighter = true;
-            mNeedDrawBackground = true;
+            resumeMVPMatrix(false);
+            mNeedDrawNormalMap = true;
             mNeedDrawSkyBox = true;
+            document.getElementById("id_normalmap_demo").style.display = 'flex';
             if (null == mUINormalMapping) {
                 mUINormalMapping = document.getElementById("id_normal_mapping");
                 var markdownReader = new XMLHttpRequest();
@@ -3115,6 +3119,9 @@ function drawScene(gl, basicProgram, basicTexProgram, diffuseLightingProgram, no
     if (mNeedDrawFresnel) {
         App.Fresnel.draw(gl, false);
     }
+    if (mNeedDrawNormalMap) {
+        App.NormalMap.draw(gl, false);
+    }
     if (mNeedDrawLensFlare)
         App.LensFlare.draw(gl);
     updateAnimQuatHtmlValue();
@@ -3233,6 +3240,9 @@ function drawScene(gl, basicProgram, basicTexProgram, diffuseLightingProgram, no
     }
     if (mNeedDrawFresnel) {
         App.Fresnel.draw(gl, true);
+    }
+    if (mNeedDrawNormalMap) {
+        App.NormalMap.draw(gl, true);
     }
     drawArrays(gl, basicProgram, mAxisBuffer, mAxisVertices.length / 3, mGodViewProjectMatrix, gl.LINES, deltaTime);
     if (null != mViewFrustumBuffer) {

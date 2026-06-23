@@ -2,6 +2,11 @@
   "permissions": {
     "allow": [
       "Bash(echo \"exit: $?\")",
+      "Bash(*)",
+      "Read(*)",
+      "Edit(*)",
+      "Write(*)",
+      "Skill(*)",
       "Bash(node --check scene/SkyBoxModule.js)",
       "Bash(curl -s -o /dev/null -w \"skybox.md %{http_code}\\\\n\" http://localhost:8080/blog/skybox.md)",
       "Bash(grep -oP \"\\(?<=uniform \\)[^ ]+ \\\\w+\\(?=;|$\\)\")",
@@ -9,7 +14,8 @@
       "Bash(curl -s -o /dev/null -w \"basicLighting.md %{http_code}\\\\n\" http://localhost:8080/blog/basicLighting.md)",
       "Bash(node --check scene/FresnelModule.js)",
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8080/scene/FresnelModule.js)",
-      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8080/blog/fresnel.md)"
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8080/blog/fresnel.md)",
+      "Bash(node --check scene/NormalMapModule.js)"
     ]
   }
 }
