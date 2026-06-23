@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(echo \"exit: $?\")",
+      "Bash(node --check scene/SkyBoxModule.js)",
+      "Bash(curl -s -o /dev/null -w \"skybox.md %{http_code}\\\\n\" http://localhost:8080/blog/skybox.md)"
+    ]
+  }
+}

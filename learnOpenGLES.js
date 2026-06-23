@@ -255,6 +255,7 @@ var mUIConclusion = null;
 var mUIUVMapping = null;
 var mUIBlendSort = null;
 var mUIMipmap = null;
+var mUISkyBox = null;
 var mUINormalMapping = null;
 // language
 var language_pack = {
@@ -1795,6 +1796,7 @@ function switchDemo(demoId) {
     document.getElementById("id_uv_demo").style.display = 'none';
     document.getElementById("id_blend_sort_demo").style.display = 'none';
     document.getElementById("id_mipmap_demo").style.display = 'none';
+    document.getElementById("id_skybox_demo").style.display = 'none';
     if (null != mUIUVMapping) {
         mUIUVMapping.style.display = 'none';
     }
@@ -1804,6 +1806,11 @@ function switchDemo(demoId) {
     if (null != mUIMipmap) {
         mUIMipmap.style.display = 'none';
     }
+    if (null != mUISkyBox) {
+        mUISkyBox.style.display = 'none';
+    }
+    // 离开任何 demo 时关闭天空盒边界线，避免状态残留
+    App.SkyBox.setShowEdge(false);
     if (null != mUIModelMatrix) {
         mUIModelMatrix.style.display = 'none';
     }
@@ -2024,6 +2031,23 @@ function switchDemo(demoId) {
                 mUIMipmap.innerHTML = htmlContent;
             }
             mUIMipmap.style.display = 'block';
+            break;
+        case 'SkyBox':
+            resumeMVPMatrix(true);
+            mNeedDrawSkyBox = true;
+            App.SkyBox.setShowEdge(!document.getElementById('id_skybox_hide_edge').checked);
+            document.getElementById("id_skybox_demo").style.display = 'flex';
+            if (null == mUISkyBox) {
+                mUISkyBox = document.getElementById("id_skybox_blog");
+                var markdownReader = new XMLHttpRequest();
+                markdownReader.open('get', './blog/skybox.md', false);
+                markdownReader.send();
+
+                let convertor = new showdown.Converter();
+                let htmlContent = convertor.makeHtml(markdownReader.responseText);
+                mUISkyBox.innerHTML = htmlContent;
+            }
+            mUISkyBox.style.display = 'block';
             break;
         case 'PerVertexOrFragLighting':
             mNeedDrawSphere = true;
