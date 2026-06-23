@@ -83,7 +83,7 @@ App.LensFlare = (function () {
         return { position: positionBuffer, uv: uvBuffer };
     }
 
-    function _renderOne(gl, buffers, lightScreen, flareVec, index, brightness) {
+    function _renderOne(gl, buffers, flarePos, index, brightness) {
         gl.enable(gl.BLEND);
         gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
@@ -101,11 +101,8 @@ App.LensFlare = (function () {
         gl.bindTexture(gl.TEXTURE_2D, _elements[index].texture.texture);
         gl.uniform1i(_program.uniformLocations.uTextureHandle, 0);
 
-        const center = [
-            lightScreen[0] + flareVec[0] * 0.3,
-            lightScreen[1] + flareVec[1] * 0.3
-        ];
-        gl.uniform2fv(_program.uniformLocations.uCenterHandle, center);
+        // flarePos 已经是该元素在屏幕上的正确中心位置
+        gl.uniform2fv(_program.uniformLocations.uCenterHandle, flarePos);
         gl.uniform2fv(_program.uniformLocations.uScaleHandle, [_elements[index].scale, _elements[index].scale]);
         gl.uniform2fv(_program.uniformLocations.uResolutionHandle, [mViewportWidth, mViewportHeight]);
         gl.uniform1f(_program.uniformLocations.uBrightnessHandle, brightness);
@@ -131,12 +128,12 @@ App.LensFlare = (function () {
         );
         let brightness = 1.5 * (1 - distance);
 
-        _renderOne(gl, _vboBuffer, lightScreen, flareVec, 0, 1.0);
+        _renderOne(gl, _vboBuffer, lightScreen, 0, 1.0);
         if (brightness > 0.0) {
             for (let i = 1; i < _elements.length; i++) {
                 const elementDir = [flareVec[0] * i * LENS_FLARE_SPACING, flareVec[1] * i * LENS_FLARE_SPACING];
                 const flarePos = [lightScreen[0] + elementDir[0], lightScreen[1] + elementDir[1]];
-                _renderOne(gl, _vboBuffer, flarePos, elementDir, i, brightness);
+                _renderOne(gl, _vboBuffer, flarePos, i, brightness);
             }
         }
     }

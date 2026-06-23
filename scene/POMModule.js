@@ -230,7 +230,7 @@ App.POM = (function () {
         gl.uniform1f(p.uniformLocations.uHeightScale, _heightScale);
         gl.uniform1f(p.uniformLocations.uMinLayers, _minLayers);
         gl.uniform1f(p.uniformLocations.uMaxLayers, _maxLayers);
-        gl.uniform3fv(p.uniformLocations.uLightDir, [0.45, 0.75, 0.35]);
+        gl.uniform3fv(p.uniformLocations.uLightDir, [-0.38, 0.77, 0.51]);
         gl.uniform3fv(p.uniformLocations.uViewPos, vP);
         gl.uniform1f(p.uniformLocations.uAmbientStrength, 0.12);
         gl.uniform1f(p.uniformLocations.uDiffuseStrength, 0.88);

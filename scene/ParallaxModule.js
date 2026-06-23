@@ -205,7 +205,7 @@ App.Parallax = (function () {
         gl.uniform1f(p.uniformLocations.uUseParallax, useParallax ? 1.0 : 0.0);
         gl.uniform1f(p.uniformLocations.uParallaxScale, _parallaxScale);
         gl.uniform1f(p.uniformLocations.uParallaxBias, _parallaxBias);
-        gl.uniform3fv(p.uniformLocations.uLightDir, [0.45, 0.75, 0.35]);
+        gl.uniform3fv(p.uniformLocations.uLightDir, [-0.38, 0.77, 0.51]);
         gl.uniform3fv(p.uniformLocations.uViewPos, vPos);
         gl.uniform1f(p.uniformLocations.uAmbientStrength, 0.12);
         gl.uniform1f(p.uniformLocations.uDiffuseStrength, 0.88);

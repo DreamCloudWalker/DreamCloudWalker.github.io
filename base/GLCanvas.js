@@ -22,6 +22,7 @@ class GLCanvas {
             this.mGLView          = glView;
             this.mIsGLValid       = true;
             this.mRenderTime      = new Date().getTime();
+            this.mRenderPending   = false;
             console.log('[GLCanvas] create GLCanvas instance');
         } catch (exp) {
             console.error("WebGL isn't support!");
@@ -72,10 +73,16 @@ class GLCanvas {
     }
   
     requestRender() {
-        if (!instance.mIsGLValid) 
+        if (!instance.mIsGLValid)
             return;
+        // 防止多个 requestAnimationFrame 回调同时排队 —— 否则在每帧都调用
+        // requestRender 的连续渲染（如惯性、拖动）场景下回调会指数级堆积，导致卡顿。
+        if (instance.mRenderPending)
+            return;
+        instance.mRenderPending = true;
         requestAnimationFrame(function () {
-            let time      = new Date().getTime();   
+            instance.mRenderPending = false;
+            let time      = new Date().getTime();
             let deltaTime = time - instance.mRenderTime;
             deltaTime *= 0.001; // convert to seconds
             instance.mRenderTime = time;

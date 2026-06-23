@@ -1,7 +1,7 @@
 const AMBIENT_COLOR = vec4.fromValues(0.5, 0.5, 0.5, 1.0);
 const DIFFUSE_COLOR = vec4.fromValues(1.0, 1.0, 1.0, 1.0);
 const SPECULAR_COLOR = vec4.fromValues(1.0, 1.0, 1.0, 1.0);
-const LIGHT_POSITION = vec3.fromValues(-1.0, 1.0, 1.0);
+const LIGHT_POSITION = vec3.fromValues(-1.5, 3.0, 2.0);
 // vec3.normalize(LIGHT_POSITION, LIGHT_POSITION); // 确保方向向量归一化
 const LIGHT_COLOR = vec3.fromValues(1.0, 1.0, 1.0);
 const DEFAULT_EMISSIVE_FACTOR = vec3.fromValues(0.0, 0.0, 0.0);
@@ -156,6 +156,7 @@ var mSphereBuffer = null;
 // draw axis
 var mAxisVertices = [];
 var mAxisBuffer = null;
+var mLightGizmoBuffer = null;   // 上帝视角的光源标志
 // viewport
 var mViewportWidth = 0;
 var mViewportHeight = 0;
@@ -229,9 +230,17 @@ var mQuatRatateMatrix = mat4.create();
 var mMouseDown = false;
 var mLastMouseX = null;
 var mLastMouseY = null;
-let mVelocityX = 0; // 鼠标释放后的惯性速度
-let mVelocityY = 0;
-let mDamping = 0.95; // 阻尼系数，控制旋转逐步变慢
+// 旋转交互：增量累积 + 每帧阻尼（three.js OrbitControls 风格）。
+// 拖动累积"待应用的旋转增量"，每帧消耗其中一部分 —— 拖动时平滑跟手，
+// 松手后剩余增量继续衰减形成惯性，二者用同一机制，手感一致。
+// 上帝视角轨道相机
+let mOrbitDeltaYaw = 0;
+let mOrbitDeltaPitch = 0;
+const ORBIT_DAMPING_FACTOR = 0.12;  // 越小越"飘"越顺滑，越大越跟手（three 默认 0.05）
+const ORBIT_EPS = 0.00001;          // 增量小于此值视为停止
+// 左窗口物体旋转（同样的增量累积 + 阻尼机制）
+let mObjDeltaYaw = 0;
+let mObjDeltaPitch = 0;
 var mDragMainView = true;
 // cobra anim
 var mNeedDrawCobraAnim = false;
@@ -267,6 +276,7 @@ var mUILight = null;
 var mUIFresnel = null;
 var mUIParallax = null;
 var mUIPOM = null;
+var mUILensFlare = null;
 // language
 var language_pack = {
     now_lang : 0, // 0:ch,1:en
@@ -377,6 +387,7 @@ class GLScene extends GLCanvas {
         updateFarPlane();
         setNearFarPlaneColor();
         mAxisBuffer = initAxisBuffers(gl);
+        mLightGizmoBuffer = initLightGizmoBuffer(gl);
         mAngleAxisBuffer = initAngleAxisBuffers(gl);
         mAssistObjectBuffer = initCylinderBuffers(gl, 0.05, 0.5, 10, vec4.fromValues(1.0, 0.0, 0.0, 1.0), mAssistCoord, TubeDir.DIR_Z);
         // mPivotBuffer = initCylinderBuffers(gl, 0.05, 2.4, 10, vec4.fromValues(1.0, 1.0, 0.0, 1.0), vec3.fromValues(0.0, 0.0, 0.0), TubeDir.DIR_Y);
@@ -461,19 +472,29 @@ class GLScene extends GLCanvas {
         // draw scene
         drawScene(gl, mBasicProgram, mBasicTexProgram, mDiffuseLightingProgram, now, deltaTime);
 
-        // 如果鼠标未拖拽，应用惯性旋转
-        // if (!mMouseDown) {
-        //     if (Math.abs(mVelocityX) > 0.01 || Math.abs(mVelocityY) > 0.01) {
-        //         mYawing += mVelocityX;
-        //         mPitching += mVelocityY;
+        // 上帝视角轨道相机：每帧消耗一部分待应用的旋转增量（three.js OrbitControls 阻尼模型）。
+        // 拖动时跟手平滑，松手后剩余增量继续衰减形成惯性 —— 同一机制，手感连续一致。
+        if (Math.abs(mOrbitDeltaYaw) > ORBIT_EPS || Math.abs(mOrbitDeltaPitch) > ORBIT_EPS) {
+            var stepYaw = mOrbitDeltaYaw * ORBIT_DAMPING_FACTOR;
+            var stepPitch = mOrbitDeltaPitch * ORBIT_DAMPING_FACTOR;
+            mEyePosYawing += stepYaw;
+            mEyePosPitching += stepPitch;
+            mOrbitDeltaYaw -= stepYaw;
+            mOrbitDeltaPitch -= stepPitch;
+            updateViewMatrixByMouse();
+            requestRender();   // 持续渲染直到增量耗尽
+        }
 
-        //         // 应用阻尼
-        //         mVelocityX *= mDamping;
-        //         mVelocityY *= mDamping;
-
-        //         requestRender(); // 持续渲染
-        //     }
-        // }
+        // 左窗口物体旋转：同样的增量衰减机制
+        if (Math.abs(mObjDeltaYaw) > ORBIT_EPS || Math.abs(mObjDeltaPitch) > ORBIT_EPS) {
+            var objStepYaw = mObjDeltaYaw * ORBIT_DAMPING_FACTOR;
+            var objStepPitch = mObjDeltaPitch * ORBIT_DAMPING_FACTOR;
+            mYawing += objStepYaw;
+            mPitching += objStepPitch;
+            mObjDeltaYaw -= objStepYaw;
+            mObjDeltaPitch -= objStepPitch;
+            requestRender();   // 持续渲染直到增量耗尽
+        }
 
         if (now - mOneSecThen > 1000) {
             mOneSecThen = now;
@@ -1142,6 +1163,73 @@ function initAxisBuffers(gl) {
         position: positionBuffer,
         color: colorBuffer,
     };
+}
+
+// ── 上帝视角光源标志：太阳图标 + 方向指示线 ──
+function initLightGizmoBuffer(gl) {
+    var ld = vec3.normalize(vec3.create(), vec3.clone(LIGHT_POSITION));
+    var sun = vec3.create();
+    vec3.scale(sun, ld, -4.0);             // 太阳位置
+    var sp = [sun[0], sun[1], sun[2]];
+
+    // 两个垂直于 ld 的向量，构成太阳圆面所在平面
+    var u = vec3.create(); vec3.cross(u, ld, [0,1,0]);
+    if (vec3.len(u) < 0.01) vec3.cross(u, ld, [0,0,1]);
+    vec3.normalize(u, u);
+    var v = vec3.create(); vec3.cross(v, u, ld);  // u⊥v⊥ld, uv 组成圆面
+
+    var pos = [], col = [];
+    var gold   = [1.0, 0.88, 0.15, 1.0];
+    var bright = [1.0, 0.95, 0.55, 1.0];
+
+    function pt(out, base, du, dv) {
+        out[0] = base[0] + du*u[0] + dv*v[0];
+        out[1] = base[1] + du*u[1] + dv*v[1];
+        out[2] = base[2] + du*u[2] + dv*v[2];
+    }
+    function L(fx,fy,fz, tx,ty,tz, c) {
+        pos.push(fx,fy,fz, tx,ty,tz);
+        col.push(c[0],c[1],c[2],c[3], c[0],c[1],c[2],c[3]);
+    }
+
+    // ── 圆环（太阳本体）：32 段线段 ──
+    var r = 0.45;           // 太阳半径
+    var N = 32;
+    var a0 = [0,0,0], a1 = [0,0,0], b0 = [0,0,0], b1 = [0,0,0];
+    for (var i = 0; i < N; i++) {
+        var ang = (i / N) * Math.PI * 2;
+        var nxt = ((i + 1) / N) * Math.PI * 2;
+        pt(a0, sp, Math.cos(ang)*r, Math.sin(ang)*r);
+        pt(a1, sp, Math.cos(nxt)*r, Math.sin(nxt)*r);
+        L(a0[0],a0[1],a0[2], a1[0],a1[1],a1[2], gold);
+    }
+
+    // ── 光芒射线：8 长 + 8 短，交替 ──
+    var M = 8;
+    var rLong  = 1.15;   // 长射线尖端
+    var rShort = 0.72;   // 短射线尖端
+    for (var j = 0; j < M; j++) {
+        var angR = (j / M) * Math.PI * 2;
+        // 长射线
+        pt(a0, sp, Math.cos(angR)*r, Math.sin(angR)*r);
+        pt(b0, sp, Math.cos(angR)*rLong, Math.sin(angR)*rLong);
+        L(a0[0],a0[1],a0[2], b0[0],b0[1],b0[2], bright);
+        // 短射线（偏移半个间隔）
+        var angMid = angR + Math.PI / M;
+        pt(a0, sp, Math.cos(angMid)*r, Math.sin(angMid)*r);
+        pt(b0, sp, Math.cos(angMid)*rShort, Math.sin(angMid)*rShort);
+        L(a0[0],a0[1],a0[2], b0[0],b0[1],b0[2], bright);
+    }
+
+    // ── 光方向指示线：从太阳中心沿光方向射出一根长线 ──
+    L(sp[0], sp[1], sp[2],
+      sp[0] + ld[0] * 2.5, sp[1] + ld[1] * 2.5, sp[2] + ld[2] * 2.5, bright);
+
+    var pb = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, pb);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(pos), gl.STATIC_DRAW);
+    var cb = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, cb);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(col), gl.STATIC_DRAW);
+    return { position: pb, color: cb, vertexCount: pos.length / 3 };
 }
 
 function initAngleAxisBuffers(gl) {
@@ -1843,6 +1931,11 @@ function handleMouseDown(event) {
 
 function handleMouseUp() {
     mMouseDown = false;
+    // 松手后若仍有残余增量，继续渲染让惯性自然衰减（上帝视角 + 左窗口物体）
+    if (Math.abs(mOrbitDeltaYaw) > ORBIT_EPS || Math.abs(mOrbitDeltaPitch) > ORBIT_EPS ||
+        Math.abs(mObjDeltaYaw) > ORBIT_EPS || Math.abs(mObjDeltaPitch) > ORBIT_EPS) {
+        requestRender();
+    }
 }
 
 function handleMouseOut() {
@@ -1856,22 +1949,17 @@ function handleMouseMove(event) {
     var deltaX = event.clientX - mLastMouseX;
     var deltaY = event.clientY - mLastMouseY;
     if (mDragMainView) {
-        // mYawing = deltaX / 100;
-        // mPitching = deltaY / 100;
-        mYawing += deltaX * 0.01;
-        mPitching += deltaY * 0.01;
-        // console.log('yawing: ' + mYawing + ' pitch: ' + mPitching);
+        // 左窗口物体旋转：累积增量，每帧消耗（与上帝视角同一机制，跟手 + 惯性）
+        mObjDeltaYaw   += deltaX * 0.01;
+        mObjDeltaPitch += deltaY * 0.01;
     } else {
-        // mEyePosYawing = deltaX / 100;
-        // mEyePosPitching = -deltaY / 100;
-        mEyePosYawing += deltaX * 0.01;
-        mEyePosPitching += deltaY * 0.01;
-        updateViewMatrixByMouse();
+        // 上帝视角：把本次拖动按视口尺寸归一化成角度增量，累积到待消耗的增量上。
+        // 用视口宽高归一化 → 与 three.js 一致，拖过整个屏幕约旋转一定角度。
+        // 方向：拖动→视角"抓着场景走"（grab），与 three.js OrbitControls 同向。
+        mOrbitDeltaYaw   -= (deltaX / mViewportWidth) * Math.PI * 2.0;
+        mOrbitDeltaPitch -= (deltaY / mViewportHeight) * Math.PI;
     }
 
-    // 更新惯性速度
-    mVelocityX = deltaX * 0.1;
-    mVelocityY = deltaY * 0.1;
     mLastMouseX = event.clientX;
     mLastMouseY = event.clientY;
 
@@ -1940,6 +2028,9 @@ function switchDemo(demoId) {
     }
     if (null != mUIPOM) {
         mUIPOM.style.display = 'none';
+    }
+    if (null != mUILensFlare) {
+        mUILensFlare.style.display = 'none';
     }
     // 离开任何 demo 时关闭天空盒边界线，避免状态残留
     App.SkyBox.setShowEdge(false);
@@ -2270,6 +2361,14 @@ function switchDemo(demoId) {
             mNeedDrawLensFlare = true;
             document.getElementById("id_shadowdemo").style.display = 'flex';
             updateLightShader("shadowDemo");
+            if (null == mUILensFlare) {
+                mUILensFlare = document.getElementById("id_lensflare_blog");
+                var mr = new XMLHttpRequest();
+                mr.open('get', './blog/lensFlare.md', false);
+                mr.send();
+                mUILensFlare.innerHTML = new showdown.Converter().makeHtml(mr.responseText);
+            }
+            mUILensFlare.style.display = 'block';
             break;
         case 'CobraManeuvre':
             mNeedDrawCobraAnim = true;
@@ -3302,6 +3401,8 @@ function drawScene(gl, basicProgram, basicTexProgram, diffuseLightingProgram, no
         App.POM.draw(gl, true);
     }
     drawArrays(gl, basicProgram, mAxisBuffer, mAxisVertices.length / 3, mGodViewProjectMatrix, gl.LINES, deltaTime);
+    // 光源标志（太阳图标 + 方向指示线）
+    drawArrays(gl, basicProgram, mLightGizmoBuffer, mLightGizmoBuffer.vertexCount, mGodViewProjectMatrix, gl.LINES, deltaTime);
     if (null != mViewFrustumBuffer) {
         drawArrays(gl, basicProgram, mViewFrustumBuffer, mViewFrustumVertices.length / 3, mViewFrustumMvpMatrix, gl.LINES, deltaTime);
     }
@@ -3739,21 +3840,27 @@ function worldToScreenNDC(pos, modelViewMatrix, projectionMatrix) {
 }
 
 function directionToScreenEdge(lightDir, viewMatrix, projMatrix) {
-    // 1. 创建足够远的虚拟光源位置（确保在视锥体外）
+    // 创建足够远的虚拟光源位置（确保在视锥体外）
     const farDistance = 1000;
     const virtualLightPos = [
         -lightDir[0] * farDistance,
-        -lightDir[1] * farDistance, 
+        -lightDir[1] * farDistance,
         -lightDir[2] * farDistance
     ];
-    
-    // 2. 投影到屏幕空间
-    const ndc = worldToScreenNDC(virtualLightPos, viewMatrix, projMatrix);
-    
-    // 3. 将NDC坐标缩放到屏幕边缘
-    const maxComponent = Math.max(Math.abs(ndc[0]), Math.abs(ndc[1]));
-    const scale = 1.0 / maxComponent * 0.9; // 0.9确保在边缘内
-    
-    return [ndc[0] * scale, ndc[1] * scale];
+
+    // 投影到 [0,1] 屏幕空间
+    const screen = worldToScreenNDC(virtualLightPos, viewMatrix, projMatrix);
+
+    // 以屏幕中心 [0.5, 0.5] 为基准，把点推到屏幕边缘
+    const dx = screen[0] - 0.5;
+    const dy = screen[1] - 0.5;
+    const maxComp = Math.max(Math.abs(dx), Math.abs(dy));
+    if (maxComp < 0.001) return [0.5, 0.5];  // 光源在屏幕正中央
+
+    const edgeScale = 0.5 * 0.92 / maxComp;   // 0.5 = 半屏宽，0.92 保证在边缘以内
+    return [
+        0.5 + dx * edgeScale,
+        0.5 + dy * edgeScale
+    ];
 }
 

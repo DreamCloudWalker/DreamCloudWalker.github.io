@@ -224,7 +224,7 @@ App.NormalMap = (function () {
         gl.uniform1i(programInfo.uniformLocations.uNormalSampler, 1);
 
         gl.uniform1f(programInfo.uniformLocations.uEnableNormal, useNormal ? 1.0 : 0.0);
-        gl.uniform3fv(programInfo.uniformLocations.uLightDir, [0.45, 0.75, 0.35]);  // 方向光（右上方）
+        gl.uniform3fv(programInfo.uniformLocations.uLightDir, [-0.38, 0.77, 0.51]);  // 方向光 = normalize(LIGHT_POSITION)
         gl.uniform3fv(programInfo.uniformLocations.uViewPos, viewPos);
         gl.uniform1f(programInfo.uniformLocations.uAmbientStrength, 0.15);
         gl.uniform1f(programInfo.uniformLocations.uDiffuseStrength, 0.85);
