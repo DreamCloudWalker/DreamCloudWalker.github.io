@@ -3,6 +3,9 @@ const DIFFUSE_COLOR = vec4.fromValues(1.0, 1.0, 1.0, 1.0);
 const SPECULAR_COLOR = vec4.fromValues(1.0, 1.0, 1.0, 1.0);
 const LIGHT_POSITION = vec3.fromValues(-1.5, 3.0, 2.0);
 // vec3.normalize(LIGHT_POSITION, LIGHT_POSITION); // 确保方向向量归一化
+// 镜头光晕专用太阳方向：指向初始相机前方（-z 偏上），保证不旋转视角也能看到光晕。
+// 与 LIGHT_POSITION 分开，避免影响其他 Demo 的漫反射/高光方向。
+const LENS_FLARE_LIGHT_DIR = vec3.fromValues(0.1, 0.2, -1.0);
 const LIGHT_COLOR = vec3.fromValues(1.0, 1.0, 1.0);
 const DEFAULT_EMISSIVE_FACTOR = vec3.fromValues(0.0, 0.0, 0.0);
 const DEFAULT_BASECOLOR_FACTOR = vec4.fromValues(1.0, 1.0, 1.0, 1.0);

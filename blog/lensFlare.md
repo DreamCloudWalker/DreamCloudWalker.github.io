@@ -29,22 +29,50 @@
 screenPos = worldToScreenNDC(-lightDir × 1000, viewMatrix, projMatrix)
 ```
 
-最后以屏幕中心 [0.5, 0.5] 为基准，把这个点推到屏幕边缘：
+### 二、关键：太阳必须在相机前方且在画面内
+
+镜头光晕只在**强光源出现在画面里**时才产生。实现时最容易犯的错误，就是无条件地把光源投影到屏幕上——当太阳在你身后时，投影矩阵算出的坐标是"翻转"的无效值，却照样画出了光晕。
+
+正确做法是保留裁剪空间的 `w` 分量，用它来判断和裁剪：
 
 ```js
-const dx = screen[0] - 0.5;  // 到屏幕中心的方向
-const dy = screen[1] - 0.5;
-const edgeScale = 0.5 * 0.92 / max(|dx|, |dy|);  // 推到边缘
-return [0.5 + dx * edgeScale, 0.5 + dy * edgeScale];
+// 太阳放到世界空间足够远处
+const sunWorld = [LIGHT_POSITION[0]*1000, LIGHT_POSITION[1]*1000, LIGHT_POSITION[2]*1000];
+
+// 投影到裁剪空间（保留 w）
+let clip = vec4(sunWorld, 1.0);
+clip = projMatrix * viewMatrix * clip;
+
+// ① w <= 0：太阳在相机【后方】→ 完全不画
+if (clip[3] <= 0.0) return;
+
+// ② 透视除法得到 NDC
+const ndcX = clip[0] / clip[3];
+const ndcY = clip[1] / clip[3];
+
+// ③ 落在视锥体外 → 不画
+if (ndcX < -1.1 || ndcX > 1.1 || ndcY < -1.1 || ndcY > 1.1) return;
 ```
 
-光晕元素沿 `光源位置 → 屏幕中心` 的连线按比例排布：
+这三道关卡缺一不可。尤其是 **`w <= 0` 的判断**——透视除法 `x/w` 在 `w` 为负时会把屏幕后方的点错误地映射到屏幕内，这正是"把相机转到背对光源也能看到光晕"的根源。
+
+### 三、亮度随距画面中心衰减
+
+太阳越靠近画面中心，镜头光晕越强（正对强光时镜头内反射最剧烈）：
+
+```js
+const flareVec = [0.5 - lightScreen[0], 0.5 - lightScreen[1]];  // 指向中心
+const distToCenter = length(flareVec);
+let brightness = max(0.0, 1.0 - distToCenter / 0.75);  // 靠边缘渐隐
+if (brightness <= 0.0) return;
 ```
-flareVec = screenCenter - lightScreen  // 从光源指向中心
+
+光晕元素沿 `太阳位置 → 画面中心` 的连线按比例排布：
+```
 elementPos = lightScreen + flareVec × i × spacing
 ```
 
-### 三、精灵渲染
+### 四、精灵渲染
 
 每个光晕元素是以屏幕坐标为单位的 2D 四边形（billboard），无需 3D 变换：
 
@@ -58,13 +86,15 @@ gl_Position = vec4(screenPosition, 0.0, 1.0);
 
 片元着色器简单地采样贴图，乘以亮度系数，用 alpha 混合叠加。
 
-### 四、本 Demo 修复的问题
+### 五、本 Demo 修复的问题
 
-之前的实现有两个 bug 导致光晕效果不正确：
+之前的实现有几个 bug 导致光晕效果不正确：
 
-1. **屏幕边缘缩放错误**：`directionToScreenEdge` 用 `Math.abs(screenCoord)` 做缩放——但 screenCoord 的原点是左上角 [0,0] 而非屏幕中心 [0.5, 0.5]，导致光晕被推到角落而非边缘。修复为以中心为基准做方向缩放。
+1. **没有判断太阳是否在相机前方**：旧实现用 `directionToScreenEdge` 无条件把光源投影并强制吸附到屏幕边缘，完全不检查 `w` 的正负，导致**相机背对光源时也能看到光晕**。修复为保留裁剪空间 `w`，`w <= 0` 时直接返回。
 
-2. **元素位置双重偏移**：`_renderOne` 在传入的 `flarePos`（已按元素间距偏移过的位置）上又加了一个 `flareVec × 0.3` 的偏移，导致所有元素被推离正确位置。修复为直接用 `flarePos` 做中心。
+2. **强制吸附到屏幕边缘**：旧实现把光源永远推到屏幕边缘，使光晕始终可见。正确做法是只在太阳真正落在视锥体内时才显示，并随其位置自然移动。
+
+3. **元素位置双重偏移**：`_renderOne` 在传入的 `flarePos`（已按元素间距偏移过的位置）上又加了一个 `flareVec × 0.3` 的偏移，导致所有元素被推离正确位置。修复为直接用 `flarePos` 做中心。
 
 3. **亮度曲线**：原本 `brightness = 1.5 × (1 - distance)`，当光源在屏幕中央时距离为 0、亮度最高——但这是镜头光晕，光源在画面外时才有光晕。新增了钳制和衰减。
 
