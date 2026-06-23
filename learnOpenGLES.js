@@ -151,6 +151,7 @@ var mNeedDrawMipmap = false;
 var mNeedDrawFresnel = false;
 var mNeedDrawNormalMap = false;
 var mNeedDrawParallax = false;
+var mNeedDrawPOM = false;
 var mSphereBuffer = null;
 // draw axis
 var mAxisVertices = [];
@@ -265,6 +266,7 @@ var mUINormalMapping = null;
 var mUILight = null;
 var mUIFresnel = null;
 var mUIParallax = null;
+var mUIPOM = null;
 // language
 var language_pack = {
     now_lang : 0, // 0:ch,1:en
@@ -358,6 +360,7 @@ class GLScene extends GLCanvas {
         App.Fresnel.init(gl);
         App.NormalMap.init(gl);
         App.Parallax.init(gl);
+        App.POM.init(gl);
 
         // init shader
         updateBackgroundShader();
@@ -1887,6 +1890,7 @@ function switchDemo(demoId) {
     mNeedDrawFresnel = false;
     mNeedDrawNormalMap = false;
     mNeedDrawParallax = false;
+    mNeedDrawPOM = false;
     mUsePhongForFighter = false;
     mNeedDrawFighter = false;
     mNeedDrawBackground = false;
@@ -1912,6 +1916,7 @@ function switchDemo(demoId) {
     document.getElementById("id_fresnel_demo").style.display = 'none';
     document.getElementById("id_normalmap_demo").style.display = 'none';
     document.getElementById("id_parallax_demo").style.display = 'none';
+    document.getElementById("id_pom_demo").style.display = 'none';
     if (null != mUIUVMapping) {
         mUIUVMapping.style.display = 'none';
     }
@@ -1932,6 +1937,9 @@ function switchDemo(demoId) {
     }
     if (null != mUIParallax) {
         mUIParallax.style.display = 'none';
+    }
+    if (null != mUIPOM) {
+        mUIPOM.style.display = 'none';
     }
     // 离开任何 demo 时关闭天空盒边界线，避免状态残留
     App.SkyBox.setShowEdge(false);
@@ -2010,6 +2018,20 @@ function switchDemo(demoId) {
                 mUIParallax.innerHTML = c.makeHtml(mr.responseText);
             }
             mUIParallax.style.display = 'block';
+            break;
+        case 'POM':
+            resumeMVPMatrix(false);
+            mNeedDrawPOM = true;
+            mNeedDrawSkyBox = true;
+            document.getElementById("id_pom_demo").style.display = 'flex';
+            if (null == mUIPOM) {
+                mUIPOM = document.getElementById("id_pom_blog");
+                var mr = new XMLHttpRequest();
+                mr.open('get', './blog/pom.md', false);
+                mr.send();
+                mUIPOM.innerHTML = new showdown.Converter().makeHtml(mr.responseText);
+            }
+            mUIPOM.style.display = 'block';
             break;
         case 'Shader':
             resumeMVPMatrix(false);
@@ -3148,6 +3170,9 @@ function drawScene(gl, basicProgram, basicTexProgram, diffuseLightingProgram, no
     if (mNeedDrawParallax) {
         App.Parallax.draw(gl, false);
     }
+    if (mNeedDrawPOM) {
+        App.POM.draw(gl, false);
+    }
     if (mNeedDrawLensFlare)
         App.LensFlare.draw(gl);
     updateAnimQuatHtmlValue();
@@ -3272,6 +3297,9 @@ function drawScene(gl, basicProgram, basicTexProgram, diffuseLightingProgram, no
     }
     if (mNeedDrawParallax) {
         App.Parallax.draw(gl, true);
+    }
+    if (mNeedDrawPOM) {
+        App.POM.draw(gl, true);
     }
     drawArrays(gl, basicProgram, mAxisBuffer, mAxisVertices.length / 3, mGodViewProjectMatrix, gl.LINES, deltaTime);
     if (null != mViewFrustumBuffer) {
