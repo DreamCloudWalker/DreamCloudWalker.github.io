@@ -53,6 +53,8 @@ var mOneSecThen = 0;
 var mBasicProgram = null;
 var mBasicTexProgram = null;
 var mDiffuseLightingProgram = null;
+var mPhongLightProgram = null;    // Blinn-Phong shader for the fighter model
+var mUsePhongForFighter = false;  // true when 'Light' demo active → use Phong not PBR
 // chapter
 var mChapterTitle = ChapterTitle.CHAPTER_MATRIX;
 // draw object
@@ -257,6 +259,7 @@ var mUIBlendSort = null;
 var mUIMipmap = null;
 var mUISkyBox = null;
 var mUINormalMapping = null;
+var mUILight = null;
 // language
 var language_pack = {
     now_lang : 0, // 0:ch,1:en
@@ -356,6 +359,7 @@ class GLScene extends GLCanvas {
         mBasicProgram = initBasicShader(gl);
         mBasicTexProgram = initBasicTexShader(gl);
         mDiffuseLightingProgram = initDiffuseLightingShader(gl);
+        mPhongLightProgram = initPhongTexturedShader(gl);
         updateViewFrustum();
         setViewFrustumColor();
         updateNearPlane();
@@ -796,6 +800,102 @@ function initDiffuseLightingShader(gl) {
     };
 
     return programInfo;
+}
+
+// Blinn-Phong 光照着色器，带漫反射贴图采样 + 分量开关 + 高光粗糙度控制。
+// 当《基本光照》Demo 激活时用它渲染战机模型，替代默认的 PBR 着色器，
+// 使面板上的环境光 / 漫射光 / 镜面光 / 粗糙度滑块能实际控制渲染效果。
+function initPhongTexturedShader(gl) {
+    const vsSource = `
+        attribute vec4 aPosition;
+        attribute vec3 aNormal;
+        attribute vec2 aUV;
+
+        uniform mat4 uModelMatrix;
+        uniform mat4 uViewMatrix;
+        uniform mat4 uProjectionMatrix;
+        uniform mat4 uMITMatrix;    // inverse-transpose of model, for normal
+
+        varying vec3 vWorldPos;
+        varying vec3 vWorldNormal;
+        varying vec2 vTexCoord;
+
+        void main() {
+            vec4 worldPos = uModelMatrix * aPosition;
+            gl_Position = uProjectionMatrix * uViewMatrix * worldPos;
+            vWorldPos = worldPos.xyz;
+            vWorldNormal = normalize(mat3(uMITMatrix) * aNormal);
+            vTexCoord = aUV;
+        }
+    `;
+    const fsSource = `
+        precision mediump float;
+
+        uniform sampler2D uDiffuseSampler;
+        uniform vec4 uKa;          // 环境光颜色
+        uniform vec4 uKd;          // 漫射光颜色
+        uniform vec4 uKs;          // 镜面光颜色
+        uniform float uShininess;  // 粗糙度 / 高光指数（越大高光越集中）
+        uniform vec3 uLightPos;    // 光源位置（世界空间）
+        uniform vec3 uViewPos;     // 相机位置（世界空间）
+        uniform float uEnableAmbient;
+        uniform float uEnableDiffuse;
+        uniform float uEnableSpecular;
+
+        varying vec3 vWorldPos;
+        varying vec3 vWorldNormal;
+        varying vec2 vTexCoord;
+
+        void main() {
+            vec4 texColor = texture2D(uDiffuseSampler, vTexCoord);
+            vec3 N = normalize(vWorldNormal);
+            vec3 L = normalize(uLightPos - vWorldPos);
+            vec3 V = normalize(uViewPos - vWorldPos);
+            vec3 H = normalize(L + V);
+
+            vec3 ambient  = uKa.rgb * uEnableAmbient;
+            vec3 diffuse  = uKd.rgb * uEnableDiffuse * max(dot(N, L), 0.0);
+            vec3 specular = uKs.rgb * uEnableSpecular * pow(max(dot(N, H), 0.0), uShininess);
+
+            vec3 lit = (ambient + diffuse + specular) * texColor.rgb;
+            gl_FragColor = vec4(lit, texColor.a);
+        }
+    `;
+
+    const vertexShader = loadShader(gl, gl.VERTEX_SHADER, vsSource);
+    const fragmentShader = loadShader(gl, gl.FRAGMENT_SHADER, fsSource);
+    const shaderProgram = gl.createProgram();
+    gl.attachShader(shaderProgram, vertexShader);
+    gl.attachShader(shaderProgram, fragmentShader);
+    gl.linkProgram(shaderProgram);
+    if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
+        alert('Unable to initialize the Phong shader: ' + gl.getProgramInfoLog(shaderProgram));
+        return null;
+    }
+    return {
+        program: shaderProgram,
+        attribLocations: {
+            vertexPosition: gl.getAttribLocation(shaderProgram, 'aPosition'),
+            normalPosition:  gl.getAttribLocation(shaderProgram, 'aNormal'),
+            textureCoord:    gl.getAttribLocation(shaderProgram, 'aUV'),
+        },
+        uniformLocations: {
+            uModelMatrix:      gl.getUniformLocation(shaderProgram, 'uModelMatrix'),
+            uViewMatrix:       gl.getUniformLocation(shaderProgram, 'uViewMatrix'),
+            uProjectionMatrix: gl.getUniformLocation(shaderProgram, 'uProjectionMatrix'),
+            uMITMatrix:        gl.getUniformLocation(shaderProgram, 'uMITMatrix'),
+            uDiffuseSampler:   gl.getUniformLocation(shaderProgram, 'uDiffuseSampler'),
+            uKa:               gl.getUniformLocation(shaderProgram, 'uKa'),
+            uKd:               gl.getUniformLocation(shaderProgram, 'uKd'),
+            uKs:               gl.getUniformLocation(shaderProgram, 'uKs'),
+            uShininess:        gl.getUniformLocation(shaderProgram, 'uShininess'),
+            uLightPos:         gl.getUniformLocation(shaderProgram, 'uLightPos'),
+            uViewPos:          gl.getUniformLocation(shaderProgram, 'uViewPos'),
+            uEnableAmbient:    gl.getUniformLocation(shaderProgram, 'uEnableAmbient'),
+            uEnableDiffuse:    gl.getUniformLocation(shaderProgram, 'uEnableDiffuse'),
+            uEnableSpecular:   gl.getUniformLocation(shaderProgram, 'uEnableSpecular'),
+        },
+    };
 }
 
 function updateLightSwitch() {
@@ -1776,6 +1876,7 @@ function switchDemo(demoId) {
     mNeedDrawSphere = false;
     mNeedDrawBlendSort = false;
     mNeedDrawMipmap = false;
+    mUsePhongForFighter = false;
     mNeedDrawFighter = false;
     mNeedDrawBackground = false;
     mNeedDrawUVDemoPlane = false;
@@ -1808,6 +1909,9 @@ function switchDemo(demoId) {
     }
     if (null != mUISkyBox) {
         mUISkyBox.style.display = 'none';
+    }
+    if (null != mUILight) {
+        mUILight.style.display = 'none';
     }
     // 离开任何 demo 时关闭天空盒边界线，避免状态残留
     App.SkyBox.setShowEdge(false);
@@ -2059,7 +2163,20 @@ function switchDemo(demoId) {
             mNeedDrawFighter = true;
             mNeedDrawBackground = true;
             mNeedDrawSkyBox = true;
+            mUsePhongForFighter = true;   // 用 Phong 替代 PBR，面板参数才生效
             document.getElementById("id_lightdemo").style.display = 'flex';
+            if (null == mUILight) {
+                mUILight = document.getElementById("id_light_blog");
+
+                var markdownReader = new XMLHttpRequest();
+                markdownReader.open('get', './blog/basicLighting.md', false);
+                markdownReader.send();
+
+                let convertor = new showdown.Converter();
+                let htmlContent = convertor.makeHtml(markdownReader.responseText);
+                mUILight.innerHTML = htmlContent;
+            }
+            mUILight.style.display = 'block';
             break;
         case 'Shadow':
             resumeMVPMatrix(true);
@@ -2815,6 +2932,72 @@ function drawObject(gl, pbrLightingProgram, shadowProgram, buffers,
     gl.drawArrays(gl.TRIANGLES, drawOffset, drawCount);
 }
 
+// Blinn-Phong 版本战机绘制 —— 与 drawObject 共享同一套模型矩阵逻辑，
+// 但只用漫反射贴图 + Blinn-Phong 着色器，响应《基本光照》面板的滑块参数。
+function drawObjectPhong(gl, phongProgram, buffers, diffuseTexture, isGodView) {
+    // ── 和 drawObject 完全一致的模型矩阵 ──
+    mModelMatrix = mat4.create();
+    mat4.translate(mModelMatrix, mModelMatrix,
+        [mTranslateX, mTranslateY, mTranslateZ]);
+
+    mat4.rotate(mModelMatrix, mModelMatrix, mRolling,  [0, 0, 1]);
+    mat4.rotate(mModelMatrix, mModelMatrix, mYawing,   [0, 1, 0]);
+    mat4.rotate(mModelMatrix, mModelMatrix, mPitching, [1, 0, 0]);
+    mat4.rotate(mModelMatrix, mModelMatrix, mRotAngle, mRotAxis);
+    mat4.scale(mModelMatrix, mModelMatrix, [mScaleX, mScaleY, mScaleZ]);
+
+    mat4.copy(mMITMatrix, mModelMatrix);
+    mat4.invert(mMITMatrix, mMITMatrix);
+    mat4.transpose(mMITMatrix, mMITMatrix);
+
+    // ── 绑定顶点属性 ──
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffers.position);
+    gl.vertexAttribPointer(phongProgram.attribLocations.vertexPosition, 3, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(phongProgram.attribLocations.vertexPosition);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffers.normal);
+    gl.vertexAttribPointer(phongProgram.attribLocations.normalPosition, 3, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(phongProgram.attribLocations.normalPosition);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffers.uv);
+    gl.vertexAttribPointer(phongProgram.attribLocations.textureCoord, 2, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(phongProgram.attribLocations.textureCoord);
+
+    // ── 着色器 + 贴图 ──
+    gl.useProgram(phongProgram.program);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, diffuseTexture);
+    gl.uniform1i(phongProgram.uniformLocations.uDiffuseSampler, 0);
+
+    // ── 矩阵 ──
+    if (isGodView) {
+        gl.uniformMatrix4fv(phongProgram.uniformLocations.uModelMatrix,  false, mModelMatrix);
+        gl.uniformMatrix4fv(phongProgram.uniformLocations.uViewMatrix,  false, mGodViewMatrix);
+        gl.uniformMatrix4fv(phongProgram.uniformLocations.uProjectionMatrix, false, mGodProjectionMatrix);
+        gl.uniformMatrix4fv(phongProgram.uniformLocations.uMITMatrix,  false, mMITMatrix);
+        // 从 GodVI 取相机位置
+        gl.uniform3fv(phongProgram.uniformLocations.uViewPos, [mGodVIMatrix[12], mGodVIMatrix[13], mGodVIMatrix[14]]);
+    } else {
+        gl.uniformMatrix4fv(phongProgram.uniformLocations.uModelMatrix,  false, mModelMatrix);
+        gl.uniformMatrix4fv(phongProgram.uniformLocations.uViewMatrix,  false, mViewMatrix);
+        gl.uniformMatrix4fv(phongProgram.uniformLocations.uProjectionMatrix, false, mProjectionMatrix);
+        gl.uniformMatrix4fv(phongProgram.uniformLocations.uMITMatrix,  false, mMITMatrix);
+        gl.uniform3fv(phongProgram.uniformLocations.uViewPos, [mVIMatrix[12], mVIMatrix[13], mVIMatrix[14]]);
+    }
+
+    // ── 光照参数 ──
+    gl.uniform4fv(phongProgram.uniformLocations.uKa, mAmbientColor);
+    gl.uniform4fv(phongProgram.uniformLocations.uKd, mDiffuseColor);
+    gl.uniform4fv(phongProgram.uniformLocations.uKs, mSpecularColor);
+    gl.uniform1f(phongProgram.uniformLocations.uShininess, mSpecularShininess);
+    gl.uniform3fv(phongProgram.uniformLocations.uLightPos, LIGHT_POSITION);
+    gl.uniform1f(phongProgram.uniformLocations.uEnableAmbient,  mUseAmbientColor  ? 1.0 : 0.0);
+    gl.uniform1f(phongProgram.uniformLocations.uEnableDiffuse,  mUseDiffuseColor  ? 1.0 : 0.0);
+    gl.uniform1f(phongProgram.uniformLocations.uEnableSpecular, mUseSpecularColor ? 1.0 : 0.0);
+
+    gl.drawArrays(gl.TRIANGLES, 0, buffers.drawCnt);
+}
+
 function drawScene(gl, basicProgram, basicTexProgram, diffuseLightingProgram, now, deltaTime) {
     mTimeEllapse += deltaTime;
 
@@ -2881,9 +3064,13 @@ function drawScene(gl, basicProgram, basicTexProgram, diffuseLightingProgram, no
 
     if (mNeedDrawFighter && mObjectBuffer.length > 0) {
         for (var i = 0; i < mObjectBuffer.length; i++) {
-            drawObject(gl, mPBRLightProgram, App.Shadow.getProgram(), mObjectBuffer[i], mObjectDiffuseTexture,
-                mObjectNormalTexture, mObjectMetalnessTexture, mObjectRoughnessTexture, mObjectEmissiveTexture,
-                mBrdfLutTexture, mBackgroundTexture, mObjectBuffer[i].drawCnt, deltaTime, false, false);
+            if (mUsePhongForFighter) {
+                drawObjectPhong(gl, mPhongLightProgram, mObjectBuffer[i], mObjectDiffuseTexture, false);
+            } else {
+                drawObject(gl, mPBRLightProgram, App.Shadow.getProgram(), mObjectBuffer[i], mObjectDiffuseTexture,
+                    mObjectNormalTexture, mObjectMetalnessTexture, mObjectRoughnessTexture, mObjectEmissiveTexture,
+                    mBrdfLutTexture, mBackgroundTexture, mObjectBuffer[i].drawCnt, deltaTime, false, false);
+            }
         }
     }
     // draw terrain
@@ -2983,9 +3170,13 @@ function drawScene(gl, basicProgram, basicTexProgram, diffuseLightingProgram, no
     gl.viewport(mViewportWidth, 0, mViewportWidth, mViewportHeight);
     if (mNeedDrawFighter && mObjectBuffer.length > 0) {
         for (var i = 0; i < mObjectBuffer.length; i++) {
-            drawObject(gl, mPBRLightProgram, App.Shadow.getProgram(), mObjectBuffer[i], mObjectDiffuseTexture,
-                mObjectNormalTexture, mObjectMetalnessTexture, mObjectRoughnessTexture, mObjectEmissiveTexture,
-                mBrdfLutTexture, mBackgroundTexture, mObjectBuffer[i].drawCnt, deltaTime, false, true);
+            if (mUsePhongForFighter) {
+                drawObjectPhong(gl, mPhongLightProgram, mObjectBuffer[i], mObjectDiffuseTexture, true);
+            } else {
+                drawObject(gl, mPBRLightProgram, App.Shadow.getProgram(), mObjectBuffer[i], mObjectDiffuseTexture,
+                    mObjectNormalTexture, mObjectMetalnessTexture, mObjectRoughnessTexture, mObjectEmissiveTexture,
+                    mBrdfLutTexture, mBackgroundTexture, mObjectBuffer[i].drawCnt, deltaTime, false, true);
+            }
         }
     }
     if (mNeedDrawSkyBox)
