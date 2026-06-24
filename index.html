@@ -290,6 +290,7 @@
         <script src="scene/NormalMapModule.js"></script>
         <script src="scene/ParallaxModule.js"></script>
         <script src="scene/POMModule.js"></script>
+        <script src="scene/PBRSphereModule.js"></script>
         <script src="learnOpenGLES.js"></script>
     </head>
 
@@ -351,7 +352,7 @@
                                 <li><a href="#TOC3.7" onclick="switchDemo('POM')" data-lang="pom">视差遮蔽贴图(POM)</a></li>
                                 <li><a href="#TOC3.8">分形着色器</a></li>
                                 <li><a href="#TOC3.9" onclick="switchDemo('LensFlare')" data-lang="lens_flare">镜头光晕</a></li>
-                                <li><a href="#TOC3.10" data-lang="pbr_rending">PBR</a></li>
+                                <li><a href="#TOC3.10" onclick="switchDemo('PBR')" data-lang="pbr_rending">PBR</a></li>
                             </ul>
                         </li>
                         <!-- <li data-lang="scene_management">场景管理</li>
@@ -1274,6 +1275,39 @@ void main() {
             </div>
         </div>
         <div id="id_fresnel_blog"></div>
+        <div id="id_pbr_sphere_demo">
+            <h4 style="width: var(--sidebar-width); background: #ffffff" data-lang="pbr_rending">PBR渲染</h4>
+            <div style="border: 1px solid #cccccc; width: 24em; margin: 1px;">
+                <span data-lang="pbr_metallic">金属度 Metallic</span><br/>
+                <input id="id_pbr_metallic" style="width: 180px;" type="range" value="0.0" min="0.0" max="1.0" step="0.01" oninput="updatePBRSphereOptions()"/>
+                <label id="label_pbr_metallic">0.00</label><br>
+                <span style="font-size:smaller; color:#888">0=电介质（塑料/陶瓷）| 1=金属</span>
+            </div>
+            <div style="border: 1px solid #cccccc; width: 24em; margin: 1px;">
+                <span data-lang="pbr_roughness">粗糙度 Roughness</span><br/>
+                <input id="id_pbr_roughness" style="width: 180px;" type="range" value="0.35" min="0.02" max="1.0" step="0.01" oninput="updatePBRSphereOptions()"/>
+                <label id="label_pbr_roughness">0.35</label><br>
+                <span style="font-size:smaller; color:#888">0=镜面高光锐利 | 1=粗糙漫散</span>
+            </div>
+            <div style="border: 1px solid #cccccc; width: 24em; margin: 1px;">
+                <span data-lang="pbr_alpha">透明度 Alpha</span><br/>
+                <input id="id_pbr_alpha" style="width: 180px;" type="range" value="1.0" min="0.0" max="1.0" step="0.01" oninput="updatePBRSphereOptions()"/>
+                <label id="label_pbr_alpha">1.00</label><br>
+                <span style="font-size:smaller; color:#888">1=不透明 | &lt;1 启用 alpha 混合</span>
+            </div>
+            <div style="border: 1px solid #cccccc; width: 24em; margin: 1px;">
+                <span data-lang="pbr_ambient">环境光强度 Ambient</span><br/>
+                <input id="id_pbr_ambient" style="width: 180px;" type="range" value="0.15" min="0.0" max="1.0" step="0.01" oninput="updatePBRSphereOptions()"/>
+                <label id="label_pbr_ambient">0.15</label>
+            </div>
+            <div style="border: 1px solid #cccccc; width: 24em; margin: 1px;">
+                <span data-lang="pbr_albedo">反照率 Albedo（基础色）</span><br/>
+                R:<input id="id_pbr_albedo_r" style="width: 160px;" type="range" value="1.0" min="0.0" max="1.0" step="0.01" oninput="updatePBRSphereOptions()"/><br>
+                G:<input id="id_pbr_albedo_g" style="width: 160px;" type="range" value="0.3" min="0.0" max="1.0" step="0.01" oninput="updatePBRSphereOptions()"/><br>
+                B:<input id="id_pbr_albedo_b" style="width: 160px;" type="range" value="0.2" min="0.0" max="1.0" step="0.01" oninput="updatePBRSphereOptions()"/>
+            </div>
+        </div>
+        <div id="id_pbr_sphere_blog"></div>
         <div id="id_yuv_video">
             <div>
                 <button style="display:block; width: 200px; height: 30px" onclick="updateYUVVideoShader()" data-lang="compile_and_run">编译并运行</button>

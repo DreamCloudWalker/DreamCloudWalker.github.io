@@ -155,6 +155,7 @@ var mNeedDrawFresnel = false;
 var mNeedDrawNormalMap = false;
 var mNeedDrawParallax = false;
 var mNeedDrawPOM = false;
+var mNeedDrawPBRSphere = false;
 var mSphereBuffer = null;
 // draw axis
 var mAxisVertices = [];
@@ -279,6 +280,7 @@ var mUILight = null;
 var mUIFresnel = null;
 var mUIParallax = null;
 var mUIPOM = null;
+var mUIPBRSphere = null;
 var mUILensFlare = null;
 // language
 var language_pack = {
@@ -374,6 +376,7 @@ class GLScene extends GLCanvas {
         App.NormalMap.init(gl);
         App.Parallax.init(gl);
         App.POM.init(gl);
+        App.PBRSphere.init(gl);
 
         // init shader
         updateBackgroundShader();
@@ -1982,6 +1985,7 @@ function switchDemo(demoId) {
     mNeedDrawNormalMap = false;
     mNeedDrawParallax = false;
     mNeedDrawPOM = false;
+    mNeedDrawPBRSphere = false;
     mUsePhongForFighter = false;
     mNeedDrawFighter = false;
     mNeedDrawBackground = false;
@@ -2008,6 +2012,7 @@ function switchDemo(demoId) {
     document.getElementById("id_normalmap_demo").style.display = 'none';
     document.getElementById("id_parallax_demo").style.display = 'none';
     document.getElementById("id_pom_demo").style.display = 'none';
+    document.getElementById("id_pbr_sphere_demo").style.display = 'none';
     if (null != mUIUVMapping) {
         mUIUVMapping.style.display = 'none';
     }
@@ -2031,6 +2036,9 @@ function switchDemo(demoId) {
     }
     if (null != mUIPOM) {
         mUIPOM.style.display = 'none';
+    }
+    if (null != mUIPBRSphere) {
+        mUIPBRSphere.style.display = 'none';
     }
     if (null != mUILensFlare) {
         mUILensFlare.style.display = 'none';
@@ -2127,7 +2135,20 @@ function switchDemo(demoId) {
             }
             mUIPOM.style.display = 'block';
             break;
-        case 'Shader':
+        case 'PBR':
+            resumeMVPMatrix(false);
+            mNeedDrawPBRSphere = true;
+            mNeedDrawSkyBox = true;
+            document.getElementById("id_pbr_sphere_demo").style.display = 'flex';
+            if (null == mUIPBRSphere) {
+                mUIPBRSphere = document.getElementById("id_pbr_sphere_blog");
+                var mr = new XMLHttpRequest();
+                mr.open('get', './blog/pbr.md', false);
+                mr.send();
+                mUIPBRSphere.innerHTML = new showdown.Converter().makeHtml(mr.responseText);
+            }
+            mUIPBRSphere.style.display = 'block';
+            break;
             resumeMVPMatrix(false);
             mNeedDrawFighter = true;
             mNeedDrawBackground = true;
@@ -3275,6 +3296,9 @@ function drawScene(gl, basicProgram, basicTexProgram, diffuseLightingProgram, no
     if (mNeedDrawPOM) {
         App.POM.draw(gl, false);
     }
+    if (mNeedDrawPBRSphere) {
+        App.PBRSphere.draw(gl, false);
+    }
     if (mNeedDrawLensFlare)
         App.LensFlare.draw(gl);
     updateAnimQuatHtmlValue();
@@ -3402,6 +3426,9 @@ function drawScene(gl, basicProgram, basicTexProgram, diffuseLightingProgram, no
     }
     if (mNeedDrawPOM) {
         App.POM.draw(gl, true);
+    }
+    if (mNeedDrawPBRSphere) {
+        App.PBRSphere.draw(gl, true);
     }
     drawArrays(gl, basicProgram, mAxisBuffer, mAxisVertices.length / 3, mGodViewProjectMatrix, gl.LINES, deltaTime);
     // 光源标志（太阳图标 + 方向指示线）
