@@ -89,6 +89,7 @@ var mVpMatrixByLightCoord = mat4.create();
 var mMvpMatrixByLightCoord = mat4.create();
 // terrain
 var mNeedDrawTerrain = false;
+var mNeedDrawInfiniteTerrain = false;
 // draw background
 var mNeedDrawBackground = true;
 var mBackgroundProgram = null;
@@ -375,6 +376,7 @@ class GLScene extends GLCanvas {
         App.LensFlare.init(gl, requestRender);
         App.Shadow.init(gl);
         App.Terrain.init(gl, requestRender);
+        App.InfiniteTerrain.init(gl, requestRender);
         App.Video.init(gl);
         App.Cloud.init(gl, requestRender);
         App.Sphere.init(gl);
@@ -478,7 +480,7 @@ class GLScene extends GLCanvas {
         mat4.copy(mGodViewProjectMatrix, mGodMvpMatrix);
         mat4.copy(mViewFrustumMvpMatrix, mGodMvpMatrix);
         updateViewMatrixByMouse();
-        
+
         requestRender();
     }
 
@@ -2146,6 +2148,7 @@ function handleMouseMove(event) {
 }
 
 function switchDemo(demoId) {
+    var gl = mGLCanvas.getGL();
     App.Video.pauseVideo();
     mNeedDrawGimbal = false;
     mNeedDrawAngleAxis = false;
@@ -2169,6 +2172,7 @@ function switchDemo(demoId) {
     mNeedDrawYUVVideo = false;
     mNeedDrawShadow = false;
     mNeedDrawTerrain = false;
+    mNeedDrawInfiniteTerrain = false;
     mNeedDrawLensFlare = false;
     mNeedDrawSkyBox = false;
     document.getElementById("id_shader").style.display = 'none';
@@ -2610,9 +2614,15 @@ function switchDemo(demoId) {
         case 'Shadow':
             resumeMVPMatrix(true);
             mNeedDrawFighter = true;
-            mNeedDrawBackground = true;
+            mNeedDrawSkyBox = true;            // 用天空盒作为背景（替代 2D 背景图）
             mNeedDrawShadow = true;
-            mNeedDrawTerrain = true;
+            mNeedDrawInfiniteTerrain = true;   // 用无限地形替换原来的单块平面
+            // 保持原视锥体教学相机不变（near=1/far=15/相机距5、飞机在原点视锥内）。
+            // 地形按比例缩小铺到飞机脚下当背景：worldScale 把 200 单位的 chunk
+            // 缩到约 10 单位，groundY 让地表落在原平面附近(约 y=-3)。
+            App.InfiniteTerrain.setWorldScale(0.05);
+            App.InfiniteTerrain.setGroundY(-3.0);
+            App.InfiniteTerrain.updateChunks(gl, 0, 0);
             document.getElementById("id_shadowdemo").style.display = 'flex';
             updateLightShader("shadowDemo");
             break;
@@ -3477,6 +3487,10 @@ function drawScene(gl, basicProgram, basicTexProgram, diffuseLightingProgram, no
                     mBrdfLutTexture, mBackgroundTexture, mObjectBuffer[i].drawCnt, deltaTime, true, false);
             }
         }
+        // 无限地形的大石头也投影到光源深度图
+        if (mNeedDrawInfiniteTerrain) {
+            App.InfiniteTerrain.drawShadowPass(gl, App.Shadow.getProgram(), mVpMatrixByLightCoord);
+        }
 
         App.Shadow.getFBO().unbind();
     }
@@ -3513,6 +3527,12 @@ function drawScene(gl, basicProgram, basicTexProgram, diffuseLightingProgram, no
     // draw terrain
     if (mNeedDrawTerrain) {
         App.Terrain.draw(gl, deltaTime, false, false);
+    }
+    if (mNeedDrawInfiniteTerrain) {
+        var vp = mat4.create();
+        mat4.multiply(vp, mProjectionMatrix, mViewMatrix);
+        var shadowTex = (App.Shadow.getFBO() && mNeedDrawShadow) ? App.Shadow.getFBO().getTextureId() : null;
+        App.InfiniteTerrain.draw(gl, vp, { vpByLight: mVpMatrixByLightCoord, shadowTex: shadowTex });
     }
     if (mNeedDrawSphere) {
         App.Sphere.draw(gl, deltaTime, false);
@@ -3645,6 +3665,12 @@ function drawScene(gl, basicProgram, basicTexProgram, diffuseLightingProgram, no
     // draw terrain
     if (mNeedDrawTerrain) {
         App.Terrain.draw(gl, deltaTime, false, true);
+    }
+    if (mNeedDrawInfiniteTerrain) {
+        var vpGod = mat4.create();
+        mat4.multiply(vpGod, mGodProjectionMatrix, mGodViewMatrix);
+        var shadowTexGod = (App.Shadow.getFBO() && mNeedDrawShadow) ? App.Shadow.getFBO().getTextureId() : null;
+        App.InfiniteTerrain.draw(gl, vpGod, { vpByLight: mVpMatrixByLightCoord, shadowTex: shadowTexGod });
     }
     // draw uv demo
     if (mNeedDrawUVDemoPlane) {
