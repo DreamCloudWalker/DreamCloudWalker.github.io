@@ -157,6 +157,8 @@ var mNeedDrawNormalMap = false;
 var mNeedDrawParallax = false;
 var mNeedDrawPOM = false;
 var mNeedDrawPBRSphere = false;
+var mNeedDrawFractal = false;
+var mNeedDrawEnvMap = false;
 var mSphereBuffer = null;
 // draw axis
 var mAxisVertices = [];
@@ -285,6 +287,8 @@ var mUIFresnel = null;
 var mUIParallax = null;
 var mUIPOM = null;
 var mUIPBRSphere = null;
+var mUIFractal = null;
+var mUIEnvMap = null;
 var mUILensFlare = null;
 // language
 var language_pack = {
@@ -382,6 +386,8 @@ class GLScene extends GLCanvas {
         App.Parallax.init(gl);
         App.POM.init(gl);
         App.PBRSphere.init(gl);
+        App.Fractal.init(gl);
+        App.EnvMap.init(gl);
 
         // init shader
         updateBackgroundShader();
@@ -2154,6 +2160,8 @@ function switchDemo(demoId) {
     mNeedDrawParallax = false;
     mNeedDrawPOM = false;
     mNeedDrawPBRSphere = false;
+    mNeedDrawFractal = false;
+    mNeedDrawEnvMap = false;
     mUsePhongForFighter = false;
     mNeedDrawFighter = false;
     mNeedDrawBackground = false;
@@ -2182,6 +2190,8 @@ function switchDemo(demoId) {
     document.getElementById("id_parallax_demo").style.display = 'none';
     document.getElementById("id_pom_demo").style.display = 'none';
     document.getElementById("id_pbr_sphere_demo").style.display = 'none';
+    document.getElementById("id_fractal_demo").style.display = 'none';
+    document.getElementById("id_envmap_demo").style.display = 'none';
     if (null != mUIUVMapping) {
         mUIUVMapping.style.display = 'none';
     }
@@ -2211,6 +2221,12 @@ function switchDemo(demoId) {
     }
     if (null != mUIPBRSphere) {
         mUIPBRSphere.style.display = 'none';
+    }
+    if (null != mUIFractal) {
+        mUIFractal.style.display = 'none';
+    }
+    if (null != mUIEnvMap) {
+        mUIEnvMap.style.display = 'none';
     }
     if (null != mUILensFlare) {
         mUILensFlare.style.display = 'none';
@@ -2557,6 +2573,39 @@ function switchDemo(demoId) {
                 mUIFresnel.innerHTML = htmlContent;
             }
             mUIFresnel.style.display = 'block';
+            break;
+        case 'Fractal':
+            mNeedDrawFractal = true;
+            resumeMVPMatrix(false);
+            document.getElementById("id_fractal_demo").style.display = 'flex';
+            if (null == mUIFractal) {
+                mUIFractal = document.getElementById("id_fractal_blog");
+                var markdownReader = new XMLHttpRequest();
+                markdownReader.open('get', './blog/fractal.md', false);
+                markdownReader.send();
+
+                let convertor = new showdown.Converter();
+                let htmlContent = convertor.makeHtml(markdownReader.responseText);
+                mUIFractal.innerHTML = htmlContent;
+            }
+            mUIFractal.style.display = 'block';
+            break;
+        case 'EnvMap':
+            mNeedDrawEnvMap = true;
+            mNeedDrawSkyBox = true;
+            resumeMVPMatrix(false);
+            document.getElementById("id_envmap_demo").style.display = 'flex';
+            if (null == mUIEnvMap) {
+                mUIEnvMap = document.getElementById("id_envmap_blog");
+                var markdownReader = new XMLHttpRequest();
+                markdownReader.open('get', './blog/envMap.md', false);
+                markdownReader.send();
+
+                let convertor = new showdown.Converter();
+                let htmlContent = convertor.makeHtml(markdownReader.responseText);
+                mUIEnvMap.innerHTML = htmlContent;
+            }
+            mUIEnvMap.style.display = 'block';
             break;
         case 'Shadow':
             resumeMVPMatrix(true);
@@ -3480,6 +3529,12 @@ function drawScene(gl, basicProgram, basicTexProgram, diffuseLightingProgram, no
     if (mNeedDrawFresnel) {
         App.Fresnel.draw(gl, false);
     }
+    if (mNeedDrawFractal) {
+        App.Fractal.draw(gl, false);
+    }
+    if (mNeedDrawEnvMap) {
+        App.EnvMap.draw(gl, false);
+    }
     if (mNeedDrawNormalMap) {
         App.NormalMap.draw(gl, false);
     }
@@ -3613,6 +3668,9 @@ function drawScene(gl, basicProgram, basicTexProgram, diffuseLightingProgram, no
     }
     if (mNeedDrawFresnel) {
         App.Fresnel.draw(gl, true);
+    }
+    if (mNeedDrawEnvMap) {
+        App.EnvMap.draw(gl, true);
     }
     if (mNeedDrawNormalMap) {
         App.NormalMap.draw(gl, true);

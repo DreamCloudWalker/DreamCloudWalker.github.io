@@ -250,6 +250,8 @@ App.SkyBox = (function () {
             }
         },
         setShowEdge: function (v) { _showEdge = v; },
+        // 暴露 cubemap 纹理，供环境映射 demo（App.EnvMap）复用同一套天空盒
+        getTexture: function () { return _texture; },
     };
 })();
 

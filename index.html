@@ -292,6 +292,8 @@
         <script src="scene/ParallaxModule.js"></script>
         <script src="scene/POMModule.js"></script>
         <script src="scene/PBRSphereModule.js"></script>
+        <script src="scene/FractalModule.js"></script>
+        <script src="scene/EnvMapModule.js"></script>
         <script src="learnOpenGLES.js"></script>
     </head>
 
@@ -349,10 +351,11 @@
                                 <li><a href="#TOC3.2" onclick="switchDemo('PerVertexOrFragLighting')" data-lang="per_vertex_frag_lighting">逐顶点&逐像素光照</a></li>
                                 <li><a href="#TOC3.3" onclick="switchDemo('Shadow')" data-lang="fbo_shadow">FBO、RTT、阴影</a></li>
                                 <li><a href="#TOC3.4" onclick="switchDemo('Fresnel')" data-lang="fresnel_reflection">菲涅尔效果</a></li>
+                                <li><a href="#TOC3.4" onclick="switchDemo('EnvMap')" data-lang="env_map">环境映射反射</a></li>
                                 <li><a href="#TOC3.5" onclick="switchDemo('NormalMapping')" data-lang="normal_mapping">法线贴图</a></li>
                                 <li><a href="#TOC3.6" onclick="switchDemo('Parallax')" data-lang="parallax_mapping">视差贴图</a></li>
                                 <li><a href="#TOC3.7" onclick="switchDemo('POM')" data-lang="pom">视差遮蔽贴图(POM)</a></li>
-                                <li><a href="#TOC3.8">分形着色器</a></li>
+                                <li><a href="#TOC3.8" onclick="switchDemo('Fractal')" data-lang="fractal">分形着色器</a></li>
                                 <li><a href="#TOC3.9" onclick="switchDemo('LensFlare')" data-lang="lens_flare">镜头光晕</a></li>
                                 <li><a href="#TOC3.10" onclick="switchDemo('PBR')" data-lang="pbr_rending">PBR</a></li>
                             </ul>
@@ -1290,6 +1293,26 @@ void main() {
             </div>
         </div>
         <div id="id_fresnel_blog"></div>
+        <div id="id_envmap_demo">
+            <h4 style="width: var(--sidebar-width); background: #ffffff" data-lang="env_map">环境映射反射</h4>
+            <div style="border: 1px solid #cccccc; width: 24em;">
+                <input type="radio" id="id_envmap_reflect" name="envmap_mode" checked onchange="updateEnvMapOptions()"/><span data-lang="envmap_reflect">反射（镜面）</span><br>
+                <input type="radio" id="id_envmap_refract" name="envmap_mode" onchange="updateEnvMapOptions()"/><span data-lang="envmap_refract">折射（玻璃）</span><br>
+                <input type="radio" id="id_envmap_fresnel" name="envmap_mode" onchange="updateEnvMapOptions()"/><span data-lang="envmap_fresnel">菲涅尔混合</span><br>
+            </div>
+            <div style="border: 1px solid #cccccc; width: 24em; margin: 1px;">
+                <span data-lang="envmap_eta">折射率比(eta)</span><br/>
+                <input id="id_envmap_eta" style="width: 180px;" type="range" value="0.66" min="0.3" max="1.0" step="0.01" oninput="updateEnvMapOptions()"/>
+                <label id="label_envmap_eta">0.66</label><br>
+                <span style="font-size:smaller; color:#888">空气/玻璃≈0.66 | 越小弯折越强</span>
+            </div>
+            <div style="border: 1px solid #cccccc; width: 24em; margin: 1px;">
+                <span data-lang="envmap_reflectivity">反射强度</span><br/>
+                <input id="id_envmap_reflectivity" style="width: 180px;" type="range" value="1.0" min="0.0" max="1.0" step="0.01" oninput="updateEnvMapOptions()"/>
+                <label id="label_envmap_reflectivity">1.00</label>
+            </div>
+        </div>
+        <div id="id_envmap_blog"></div>
         <div id="id_pbr_sphere_demo">
             <h4 style="width: var(--sidebar-width); background: #ffffff" data-lang="pbr_rending">PBR渲染</h4>
             <div style="border: 1px solid #cccccc; width: 24em; margin: 1px;">
@@ -1407,6 +1430,34 @@ void main() {
             </div>
         </div>
         <div id="id_pom_blog"></div>
+        <div id="id_fractal_demo">
+            <h4 style="width: var(--sidebar-width); background: #ffffff" data-lang="fractal">分形着色器</h4>
+            <div style="border: 1px solid #cccccc; width: 24em;">
+                <input type="checkbox" id="id_fractal_julia" onchange="updateFractalOptions()"/><span data-lang="fractal_julia">Julia 集（取消=Mandelbrot）</span><br>
+            </div>
+            <div style="border: 1px solid #cccccc; width: 24em; margin: 1px;">
+                <span data-lang="fractal_scale">缩放(scale，越小越放大)</span><br/>
+                <input id="id_fractal_scale" style="width: 180px;" type="range" value="1.5" min="0.0005" max="2.0" step="0.0005" oninput="updateFractalOptions()"/>
+                <label id="label_fractal_scale">1.5000</label>
+            </div>
+            <div style="border: 1px solid #cccccc; width: 24em; margin: 1px;">
+                <span data-lang="fractal_iter">最大迭代次数</span><br/>
+                <input id="id_fractal_iter" style="width: 180px;" type="range" value="200" min="20" max="800" step="10" oninput="updateFractalOptions()"/>
+                <label id="label_fractal_iter">200</label>
+            </div>
+            <div style="border: 1px solid #cccccc; width: 24em; margin: 1px;">
+                <span data-lang="fractal_palette">配色</span><br/>
+                <input type="radio" id="id_fractal_pal_rainbow" name="fractal_palette" checked onchange="updateFractalOptions()"/><span data-lang="fractal_pal_rainbow">彩虹</span>
+                <input type="radio" id="id_fractal_pal_fire" name="fractal_palette" onchange="updateFractalOptions()"/><span data-lang="fractal_pal_fire">火焰</span>
+                <input type="radio" id="id_fractal_pal_ice" name="fractal_palette" onchange="updateFractalOptions()"/><span data-lang="fractal_pal_ice">冰蓝</span>
+            </div>
+            <div style="border: 1px solid #cccccc; width: 24em; margin: 1px;">
+                <span data-lang="fractal_julia_c">Julia 常数 c（仅 Julia 模式）</span><br/>
+                cx:<input id="id_fractal_jx" style="width: 160px;" type="range" value="-0.8" min="-1.0" max="1.0" step="0.001" oninput="updateFractalOptions()"/><label id="label_fractal_jx">-0.800</label><br>
+                cy:<input id="id_fractal_jy" style="width: 160px;" type="range" value="0.156" min="-1.0" max="1.0" step="0.001" oninput="updateFractalOptions()"/><label id="label_fractal_jy">0.156</label>
+            </div>
+        </div>
+        <div id="id_fractal_blog"></div>
         <div id="id_normalmap_demo">
             <h4 style="width: var(--sidebar-width); background: #ffffff" data-lang="normal_mapping">法线贴图</h4>
             <div style="border: 1px solid #cccccc; width: 22em;">

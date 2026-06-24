@@ -128,6 +128,11 @@ App.SpriteSheet = (function () {
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+            // 还原全局 pixelStorei 到工程默认（loadTexture 用 flip=1/premultiply=true）。
+            // 否则本次 onload 留下的 flip=false 会污染其它异步纹理（如飞机贴图）的 onload，
+            // 导致它们以错误的翻转/预乘上传，贴图错乱。
+            gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+            gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
             if (callback) callback();
         };
         image.src = url;
