@@ -151,6 +151,7 @@ var mNearFarPlaneColors = [];
 var mNeedDrawSphere = false;
 var mNeedDrawBlendSort = false;
 var mNeedDrawMipmap = false;
+var mNeedDrawSpriteSheet = false;
 var mNeedDrawFresnel = false;
 var mNeedDrawNormalMap = false;
 var mNeedDrawParallax = false;
@@ -276,6 +277,7 @@ var mUIConclusion = null;
 var mUIUVMapping = null;
 var mUIBlendSort = null;
 var mUIMipmap = null;
+var mUISpriteSheet = null;
 var mUISkyBox = null;
 var mUINormalMapping = null;
 var mUILight = null;
@@ -374,6 +376,7 @@ class GLScene extends GLCanvas {
         App.Sphere.init(gl);
         App.BlendSort.init(gl);
         App.Mipmap.init(gl);
+        App.SpriteSheet.init(gl, requestRender);
         App.Fresnel.init(gl);
         App.NormalMap.init(gl);
         App.Parallax.init(gl);
@@ -2145,6 +2148,7 @@ function switchDemo(demoId) {
     mNeedDrawSphere = false;
     mNeedDrawBlendSort = false;
     mNeedDrawMipmap = false;
+    mNeedDrawSpriteSheet = false;
     mNeedDrawFresnel = false;
     mNeedDrawNormalMap = false;
     mNeedDrawParallax = false;
@@ -2171,6 +2175,7 @@ function switchDemo(demoId) {
     document.getElementById("id_uv_demo").style.display = 'none';
     document.getElementById("id_blend_sort_demo").style.display = 'none';
     document.getElementById("id_mipmap_demo").style.display = 'none';
+    document.getElementById("id_sprite_demo").style.display = 'none';
     document.getElementById("id_skybox_demo").style.display = 'none';
     document.getElementById("id_fresnel_demo").style.display = 'none';
     document.getElementById("id_normalmap_demo").style.display = 'none';
@@ -2185,6 +2190,9 @@ function switchDemo(demoId) {
     }
     if (null != mUIMipmap) {
         mUIMipmap.style.display = 'none';
+    }
+    if (null != mUISpriteSheet) {
+        mUISpriteSheet.style.display = 'none';
     }
     if (null != mUISkyBox) {
         mUISkyBox.style.display = 'none';
@@ -2471,6 +2479,24 @@ function switchDemo(demoId) {
                 mUIMipmap.innerHTML = htmlContent;
             }
             mUIMipmap.style.display = 'block';
+            break;
+        case 'SpriteSheet':
+            mNeedDrawSpriteSheet = true;
+            mNeedDrawBackground = true;
+            resumeMVPMatrix(false);
+            document.getElementById("id_sprite_demo").style.display = 'flex';
+            if (null == mUISpriteSheet) {
+                mUISpriteSheet = document.getElementById("id_sprite_blog");
+                var markdownReader = new XMLHttpRequest();
+                markdownReader.open('get', './blog/spriteSheet.md', false);
+                markdownReader.send();
+
+                let convertor = new showdown.Converter();
+                let htmlContent = convertor.makeHtml(markdownReader.responseText);
+                mUISpriteSheet.innerHTML = htmlContent;
+            }
+            mUISpriteSheet.style.display = 'block';
+            requestRender();
             break;
         case 'SkyBox':
             resumeMVPMatrix(true);
@@ -3448,6 +3474,9 @@ function drawScene(gl, basicProgram, basicTexProgram, diffuseLightingProgram, no
     if (mNeedDrawMipmap) {
         App.Mipmap.draw(gl, false);
     }
+    if (mNeedDrawSpriteSheet) {
+        App.SpriteSheet.draw(gl, false);
+    }
     if (mNeedDrawFresnel) {
         App.Fresnel.draw(gl, false);
     }
@@ -3579,6 +3608,9 @@ function drawScene(gl, basicProgram, basicTexProgram, diffuseLightingProgram, no
     if (mNeedDrawMipmap) {
         App.Mipmap.draw(gl, true);
     }
+    if (mNeedDrawSpriteSheet) {
+        App.SpriteSheet.draw(gl, true);
+    }
     if (mNeedDrawFresnel) {
         App.Fresnel.draw(gl, true);
     }
@@ -3639,6 +3671,10 @@ function drawScene(gl, basicProgram, basicTexProgram, diffuseLightingProgram, no
     updateHtmlParamByRender();
 
     if (mNeedDrawCobraAnim) {
+        requestRender();
+    }
+    // 精灵图集动画播放时需要持续渲染
+    if (mNeedDrawSpriteSheet) {
         requestRender();
     }
 }

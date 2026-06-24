@@ -286,6 +286,7 @@
         <script src="scene/LightingModule.js"></script>
         <script src="scene/BlendSortModule.js"></script>
         <script src="scene/MipmapModule.js"></script>
+        <script src="scene/SpriteSheetModule.js"></script>
         <script src="scene/FresnelModule.js"></script>
         <script src="scene/NormalMapModule.js"></script>
         <script src="scene/ParallaxModule.js"></script>
@@ -338,6 +339,7 @@
                                 <li><a href="#TOC2.2" onclick="switchDemo('BlendSort')" data-lang="blend_sort">混合与透明排序</a></li>
                                 <li><a href="#TOC2.3" onclick="switchDemo('SkyBox')" data-lang="skybox">天空盒</a></li>
                                 <li><a href="#TOC2.4" onclick="switchDemo('Mipmap')" data-lang="mipmap">Mipmap</a></li>
+                                <li><a href="#TOC2.5" onclick="switchDemo('SpriteSheet')" data-lang="sprite_sheet">精灵图集</a></li>
                                 <li><a href="#TOC2.4" onclick="switchDemo('YUVVideo')" data-lang="yuv_video">YUV视频渲染</a></li>
                             </ul>
                         </li>
@@ -1243,6 +1245,19 @@ void main() {
             </div>
         </div>
         <div id="id_mipmap_blog"></div>
+        <div id="id_sprite_demo">
+            <h4 style="width: var(--sidebar-width); background: #ffffff" data-lang="sprite_sheet">精灵图集</h4>
+            <div style="border: 1px solid #cccccc; width: 26em;">
+                <input type="checkbox" id="id_sprite_playing" checked onchange="updateSpriteSheetOptions()"/><span data-lang="sprite_playing">播放动画</span><br>
+                <span data-lang="sprite_fps">帧率(fps)</span>
+                <input type="range" id="id_sprite_fps" min="1" max="60" value="20" oninput="updateSpriteSheetOptions()"/>
+                <span id="id_sprite_fps_val">20</span><br>
+                <span data-lang="sprite_frame">手动选帧(暂停时)</span>
+                <input type="range" id="id_sprite_frame" min="0" max="39" value="0" disabled oninput="updateSpriteSheetFrame()"/>
+                <span id="id_sprite_frame_val">0</span><br>
+            </div>
+        </div>
+        <div id="id_sprite_blog"></div>
         <div id="id_skybox_demo">
             <h4 style="width: var(--sidebar-width); background: #ffffff" data-lang="skybox">天空盒</h4>
             <div style="border: 1px solid #cccccc; width: 22em;">
