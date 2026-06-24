@@ -160,6 +160,8 @@ var mSphereBuffer = null;
 // draw axis
 var mAxisVertices = [];
 var mAxisBuffer = null;
+var mAxisDecorBuffer = null;    // 上帝视角坐标轴的箭头 + xyz 标注
+var mCameraUpBuffer = null;     // 上帝视角当前相机的 UP 轴 + 箭头 + up 标注
 var mLightGizmoBuffer = null;   // 上帝视角的光源标志
 // viewport
 var mViewportWidth = 0;
@@ -393,6 +395,8 @@ class GLScene extends GLCanvas {
         updateFarPlane();
         setNearFarPlaneColor();
         mAxisBuffer = initAxisBuffers(gl);
+        mAxisDecorBuffer = initAxisDecorBuffer(gl);
+        mCameraUpBuffer = initCameraUpBuffer(gl);
         mLightGizmoBuffer = initLightGizmoBuffer(gl);
         mAngleAxisBuffer = initAngleAxisBuffers(gl);
         mAssistObjectBuffer = initCylinderBuffers(gl, 0.05, 0.5, 10, vec4.fromValues(1.0, 0.0, 0.0, 1.0), mAssistCoord, TubeDir.DIR_Z);
@@ -1171,6 +1175,146 @@ function initAxisBuffers(gl) {
     };
 }
 
+// ── 线段几何辅助：箭头 + 字母标注（均以 gl.LINES 绘制，复用 basicProgram） ──
+
+// 字母笔画定义：在 [0,1]×[0,1] 局部坐标内用若干线段描出字形
+// 每条线段为 [x0, y0, x1, y1]
+const LETTER_STROKES = {
+    'x': [[0, 0, 1, 1], [0, 1, 1, 0]],
+    'y': [[0, 1, 0.5, 0.5], [1, 1, 0.5, 0.5], [0.5, 0.5, 0.5, 0]],
+    'z': [[0, 1, 1, 1], [1, 1, 0, 0], [0, 0, 1, 0]],
+    'u': [[0, 1, 0, 0], [0, 0, 1, 0], [1, 0, 1, 1]],
+    'v': [[0, 1, 0.5, 0], [1, 1, 0.5, 0]],
+    'p': [[0, 1, 0, -0.2], [0, 1, 1, 1], [1, 1, 1, 0.5], [1, 0.5, 0, 0.5]],
+};
+
+// 在 positions/colors 中追加一段线段（a、b 为 vec3，color 为 [r,g,b,a]）
+function _pushSeg(positions, colors, a, b, color) {
+    positions.push(a[0], a[1], a[2], b[0], b[1], b[2]);
+    colors.push(color[0], color[1], color[2], color[3]);
+    colors.push(color[0], color[1], color[2], color[3]);
+}
+
+// 在平面内（z 固定）于 tip 处沿 2D 方向 dir 追加一个由 2 条线段组成的箭头
+// dir 为 [dx, dy]（无需归一化），z 取 tip[2]
+function _pushArrowHead2D(positions, colors, tip, dir, size, color) {
+    var len = Math.sqrt(dir[0] * dir[0] + dir[1] * dir[1]) || 1.0;
+    var dx = dir[0] / len, dy = dir[1] / len;        // 轴方向
+    var px = -dy, py = dx;                            // 垂直方向
+    // 箭头两翼：从 tip 向后并向两侧张开
+    var w = size * 0.5;
+    var bx = tip[0] - dx * size, by = tip[1] - dy * size;
+    _pushSeg(positions, colors, [bx + px * w, by + py * w, tip[2]], tip, color);
+    _pushSeg(positions, colors, [bx - px * w, by - py * w, tip[2]], tip, color);
+}
+
+// 在轴末端 tip 处沿方向 dir 追加箭头。
+// 朝 camPos 做 billboard：两条翼线落在「同时垂直于轴向与视线」的方向上，
+// 这样从该相机看过去始终是一个清晰的单箭头（而非 4 翼锥形那种重叠成双箭头的错觉）。
+function _pushArrowHead(positions, colors, tip, dir, size, color, camPos) {
+    var d = vec3.normalize(vec3.create(), dir);
+    var view = vec3.subtract(vec3.create(), camPos || [12, 12, 12], tip);
+    vec3.normalize(view, view);
+    // 翼线张开方向：垂直于轴向与视线
+    var spread = vec3.create(); vec3.cross(spread, d, view);
+    if (vec3.len(spread) < 0.01) {   // 轴向与视线平行时退化，换个参考
+        vec3.cross(spread, d, [0, 1, 0]);
+    }
+    vec3.normalize(spread, spread);
+    var back = vec3.scaleAndAdd(vec3.create(), tip, d, -size);   // 箭头基部中心
+    var w = size * 0.5;
+    var l = vec3.scaleAndAdd(vec3.create(), back, spread,  w);
+    var r = vec3.scaleAndAdd(vec3.create(), back, spread, -w);
+    _pushSeg(positions, colors, l, tip, color);
+    _pushSeg(positions, colors, r, tip, color);
+}
+
+// 在 anchor 处按 right/up 基向量绘制字符串 str（每个字符占 1 个单位宽，间隔 0.4）
+function _pushLabel(positions, colors, str, anchor, right, up, color) {
+    var advance = 0;
+    for (var i = 0; i < str.length; i++) {
+        var strokes = LETTER_STROKES[str[i]];
+        if (strokes) {
+            for (var s = 0; s < strokes.length; s++) {
+                var st = strokes[s];
+                var a = vec3.clone(anchor);
+                vec3.scaleAndAdd(a, a, right, st[0] + advance);
+                vec3.scaleAndAdd(a, a, up, st[1]);
+                var b = vec3.clone(anchor);
+                vec3.scaleAndAdd(b, b, right, st[2] + advance);
+                vec3.scaleAndAdd(b, b, up, st[3]);
+                _pushSeg(positions, colors, a, b, color);
+            }
+        }
+        advance += 1.4;
+    }
+}
+
+// 由 positions/colors 数组创建线段缓冲
+function _makeLineBuffer(gl, positions, colors) {
+    var positionBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
+    var colorBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(colors), gl.STATIC_DRAW);
+    return {
+        position: positionBuffer,
+        color: colorBuffer,
+        vertexCount: positions.length / 3,
+    };
+}
+
+// ── 上帝视角坐标轴装饰：xyz 三轴的箭头 + 字母标注（颜色与各轴一致） ──
+function initAxisDecorBuffer(gl) {
+    var positions = [], colors = [];
+    var L = 2.0;                 // 与 initAxisBuffers 的轴长一致
+    var arrow = 0.22;            // 箭头大小
+    var letter = 0.167;          // 字母大小（缩小 3 倍）
+    var lo = L + 0.18;           // 字母起始偏移（轴末端外侧）
+
+    var red   = [1.0, 0.0, 0.0, 1.0];
+    var green = [0.0, 1.0, 0.0, 1.0];
+    var blue  = [0.0, 0.4, 1.0, 1.0];
+
+    // X 轴：箭头沿 +x，字母 'x' 画在 XY 平面
+    _pushArrowHead(positions, colors, [L, 0, 0], [1, 0, 0], arrow, red);
+    _pushLabel(positions, colors, 'x', [lo, letter * 0.5, 0], [letter, 0, 0], [0, letter, 0], red);
+
+    // Y 轴：箭头沿 +y，字母 'y' 画在 XY 平面
+    _pushArrowHead(positions, colors, [0, L, 0], [0, 1, 0], arrow, green);
+    _pushLabel(positions, colors, 'y', [letter * 0.5, lo, 0], [letter, 0, 0], [0, letter, 0], green);
+
+    // Z 轴：箭头沿 +z，字母 'z' 画在 ZY 平面（沿 z 展开，便于在斜视角看清）
+    _pushArrowHead(positions, colors, [0, 0, L], [0, 0, 1], arrow, blue);
+    _pushLabel(positions, colors, 'z', [0, letter * 0.5, lo], [0, 0, letter], [0, letter, 0], blue);
+
+    return _makeLineBuffer(gl, positions, colors);
+}
+
+// ── 上帝视角：当前观察相机的 UP 轴（带箭头 + 'up' 标注） ──
+// 在视锥体局部坐标系中绘制：原点为相机位置，+Y 即相机 up 方向。
+// 该缓冲使用 mViewFrustumMvpMatrix 绘制，因此会跟随相机姿态一起旋转。
+function initCameraUpBuffer(gl) {
+    var positions = [], colors = [];
+    var eye = [EYE_INIT_POS_X, EYE_INIT_POS_Y, EYE_INIT_POS_Z];
+    var len = 2.2;               // up 轴长度
+    var arrow = 0.22;
+    var letter = 0.14;           // 字母大小（缩小 3 倍）
+    var cyan = [0.0, 0.9, 0.9, 1.0];
+
+    var tip = [eye[0], eye[1] + len, eye[2]];
+    // 主轴线
+    _pushSeg(positions, colors, eye, tip, cyan);
+    // 箭头
+    _pushArrowHead(positions, colors, tip, [0, 1, 0], arrow, cyan);
+    // 'up' 标注：画在轴末端旁，沿 +x 展开、+y 朝上
+    var anchor = [eye[0] + 0.2, tip[1] - letter, eye[2]];
+    _pushLabel(positions, colors, 'up', anchor, [letter, 0, 0], [0, letter, 0], cyan);
+
+    return _makeLineBuffer(gl, positions, colors);
+}
+
 // ── 上帝视角光源标志：太阳图标 + 方向指示线 ──
 function initLightGizmoBuffer(gl) {
     var ld = vec3.normalize(vec3.create(), vec3.clone(LIGHT_POSITION));
@@ -1576,11 +1720,13 @@ function initUVDemo() {
     }
 
     // init uv demo assist plane
+    // 注意：纹理面板 z 比辅助线（坐标轴/箭头/黄色方框，均在 z=-3.0）略靠后，
+    // 避免与共面的线段发生深度冲突（z-fighting），否则在 MSAA 下线条会呈虚线状。
     const assistVertexCoords = [
-        [1.5,  -3.5, -3.0],
-        [3.5,  -3.5, -3.0],
-        [1.5,  -1.5, -3.0],
-        [3.5,  -1.5, -3.0],
+        [1.5,  -3.5, -3.02],
+        [3.5,  -3.5, -3.02],
+        [1.5,  -1.5, -3.02],
+        [3.5,  -1.5, -3.02],
     ];
     for (var j = 0; j < assistVertexCoords.length; ++j) {
         const v = assistVertexCoords[j];
@@ -1607,7 +1753,7 @@ function initUVDemo() {
         [3.5,                   -mUVDemoAssistCubeX, -3.0],
         // v-axis
         [mUVDemoAssistCubeX,    -mUVDemoAssistCubeX, -3.0],
-        [mUVDemoAssistCubeX,    -3.83,               -3.0],
+        [mUVDemoAssistCubeX,    -3.6,                -3.0],
     ];
     mUVDemoAssistUVAxisColor = [
         // u-axis
@@ -1619,10 +1765,28 @@ function initUVDemo() {
     ];
     for (var j = 0; j < assistAxisVertexCoords.length; ++j) {
         const v = assistAxisVertexCoords[j];
-    
+
         // Repeat each color four times for the four vertices of the face
         mUVDemoAssistUVAxisVertices = mUVDemoAssistUVAxisVertices.concat(v);  // merge arrays to one
     }
+
+    // u/v 轴箭头 + 字母标注（与轴线同为 z=-3.0 平面内的线段，复用同一缓冲）
+    var uTip = [3.5, -mUVDemoAssistCubeX, -3.0];        // u 轴末端
+    var vTip = [mUVDemoAssistCubeX, -3.6, -3.0];        // v 轴末端
+    var pink = [1.0, 0.0, 1.0, 1.0];
+    var cyanUV = [0.0, 1.0, 1.0, 1.0];
+    var uvArrow = 0.18;
+    var uvLetter = 0.087;                               // 字母大小（缩小 3 倍）
+    _pushArrowHead2D(mUVDemoAssistUVAxisVertices, mUVDemoAssistUVAxisColor, uTip, [1, 0], uvArrow, pink);
+    _pushArrowHead2D(mUVDemoAssistUVAxisVertices, mUVDemoAssistUVAxisColor, vTip, [0, -1], uvArrow, cyanUV);
+    // 'u' 标注：放在 u 轴末端下方内侧，确保在窗口内
+    _pushLabel(mUVDemoAssistUVAxisVertices, mUVDemoAssistUVAxisColor, 'u',
+        [uTip[0] - uvLetter - 0.05, uTip[1] - uvLetter - 0.18, -3.0],
+        [uvLetter, 0, 0], [0, uvLetter, 0], pink);
+    // 'v' 标注：放在 v 轴末端右侧内侧
+    _pushLabel(mUVDemoAssistUVAxisVertices, mUVDemoAssistUVAxisColor, 'v',
+        [vTip[0] + 0.16, vTip[1] + 0.08, -3.0],
+        [uvLetter, 0, 0], [0, uvLetter, 0], cyanUV);
 
     // init assist uv cube
     const assistCubeVertexCoords = [
@@ -3431,6 +3595,14 @@ function drawScene(gl, basicProgram, basicTexProgram, diffuseLightingProgram, no
         App.PBRSphere.draw(gl, true);
     }
     drawArrays(gl, basicProgram, mAxisBuffer, mAxisVertices.length / 3, mGodViewProjectMatrix, gl.LINES, deltaTime);
+    // 坐标轴箭头 + xyz 标注（世界坐标系，与三轴对齐）
+    if (null != mAxisDecorBuffer) {
+        drawArrays(gl, basicProgram, mAxisDecorBuffer, mAxisDecorBuffer.vertexCount, mGodViewProjectMatrix, gl.LINES, deltaTime);
+    }
+    // 当前观察相机的 UP 轴（跟随相机姿态，使用视锥体的 mvp）
+    if (null != mCameraUpBuffer) {
+        drawArrays(gl, basicProgram, mCameraUpBuffer, mCameraUpBuffer.vertexCount, mViewFrustumMvpMatrix, gl.LINES, deltaTime);
+    }
     // 光源标志（太阳图标 + 方向指示线）
     drawArrays(gl, basicProgram, mLightGizmoBuffer, mLightGizmoBuffer.vertexCount, mGodViewProjectMatrix, gl.LINES, deltaTime);
     if (null != mViewFrustumBuffer) {
