@@ -296,6 +296,7 @@
         <script src="scene/FractalModule.js"></script>
         <script src="scene/EnvMapModule.js"></script>
         <script src="scene/InfiniteTerrainModule.js"></script>
+        <script src="scene/OctreeModule.js"></script>
         <script src="learnOpenGLES.js"></script>
     </head>
 
@@ -359,16 +360,14 @@
                                 <li><a href="#TOC3.8" onclick="switchDemo('Fractal')" data-lang="fractal">分形着色器</a></li>
                                 <li><a href="#TOC3.9" onclick="switchDemo('LensFlare')" data-lang="lens_flare">镜头光晕</a></li>
                                 <li><a href="#TOC3.10" onclick="switchDemo('PBR')" data-lang="pbr_rending">PBR</a></li>
-                                <li><a href="#TOC3.11" onclick="switchDemo('LOD')" data-lang="level_of_detail">LOD层次细节</a></li>
                             </ul>
                         </li>
-                        <!-- <li data-lang="scene_management">场景管理</li>
+                        <li data-lang="scene_management">场景管理</li>
                             <ul>
-                                <li><a href="#TOC4.1" data-lang="scene_tree">场景树</a></li>
-                                <li><a href="#TOC4.2" data-lang="quad_oct_tree">四叉/八叉树</a></li>
-                                <li><a href="#TOC4.3" data-lang="level_of_detail">LOD层次细节</a></li>
+                                <li><a href="#TOC4.1" onclick="switchDemo('LOD')" data-lang="level_of_detail">LOD层次细节</a></li>
+                                <li><a href="#TOC4.2" onclick="switchDemo('Octree')" data-lang="octree_culling">八叉树视锥剔除</a></li>
                             </ul>
-                        </li> -->
+                        </li>
                         <li data-lang="works">作品</li>
                             <ul>
                                 <li><a href="https://three-body-cn.github.io/" data-lang="three_body">三体专题</a></li>
@@ -1361,6 +1360,18 @@ void main() {
             </div>
         </div>
         <div id="id_lod_blog"></div>
+        <div id="id_octree_demo">
+            <h4 style="width: var(--sidebar-width); background: #ffffff" data-lang="octree_culling">八叉树视锥剔除</h4>
+            <div style="border: 1px solid #cccccc; width: 26em;">
+                <input type="checkbox" id="id_octree_cull" checked onchange="updateOctreeOptions()"/><span data-lang="octree_cull">启用视锥剔除</span><br>
+                <input type="checkbox" id="id_octree_boxes" checked onchange="updateOctreeOptions()"/><span data-lang="octree_boxes">显示八叉树盒子（上帝视角）</span><br>
+            </div>
+            <div style="border: 1px solid #cccccc; width: 26em;">
+                <span id="id_octree_stat">绘制物体 0 / 0，剔除节点 0 / 0</span><br>
+                <span style="font-size:smaller; color:#888" data-lang="octree_hint">WASD 平移、拖动右窗口旋转主相机；右窗口绿=可见、灰=被剔除</span>
+            </div>
+        </div>
+        <div id="id_octree_blog"></div>
         <div id="id_yuv_video">
             <div>
                 <button style="display:block; width: 200px; height: 30px" onclick="updateYUVVideoShader()" data-lang="compile_and_run">编译并运行</button>

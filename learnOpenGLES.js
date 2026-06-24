@@ -91,6 +91,7 @@ var mMvpMatrixByLightCoord = mat4.create();
 var mNeedDrawTerrain = false;
 var mNeedDrawInfiniteTerrain = false;
 var mNeedDrawLOD = false;
+var mNeedDrawOctree = false;
 // draw background
 var mNeedDrawBackground = true;
 var mBackgroundProgram = null;
@@ -299,6 +300,7 @@ var mUIPBRSphere = null;
 var mUIFractal = null;
 var mUIEnvMap = null;
 var mUILOD = null;
+var mUIOctree = null;
 var mUILensFlare = null;
 // language
 var language_pack = {
@@ -644,6 +646,16 @@ function updateCameraPan(deltaTime) {
         App.InfiniteTerrain.updateChunks(gl, mCameraPanX / ws, mCameraPanZ / ws);
     }
     return true;
+}
+
+// 把八叉树剔除统计写到面板（每帧主视口绘制后调用）
+function updateOctreeStat() {
+    var st = App.Octree.getStat();
+    var el = document.getElementById('id_octree_stat');
+    if (el) {
+        el.innerHTML = '绘制物体 ' + st.drawn + ' / ' + st.total +
+            '，剔除节点 ' + st.culledNodes + ' / ' + st.nodes;
+    }
 }
 
 function initBasicTexShader(gl) {
@@ -2204,6 +2216,7 @@ function switchDemo(demoId) {
     mNeedDrawTerrain = false;
     mNeedDrawInfiniteTerrain = false;
     mNeedDrawLOD = false;
+    mNeedDrawOctree = false;
     mNeedDrawLensFlare = false;
     mNeedDrawSkyBox = false;
     document.getElementById("id_shader").style.display = 'none';
@@ -2228,6 +2241,7 @@ function switchDemo(demoId) {
     document.getElementById("id_fractal_demo").style.display = 'none';
     document.getElementById("id_envmap_demo").style.display = 'none';
     document.getElementById("id_lod_demo").style.display = 'none';
+    document.getElementById("id_octree_demo").style.display = 'none';
     if (null != mUIUVMapping) {
         mUIUVMapping.style.display = 'none';
     }
@@ -2266,6 +2280,9 @@ function switchDemo(demoId) {
     }
     if (null != mUILOD) {
         mUILOD.style.display = 'none';
+    }
+    if (null != mUIOctree) {
+        mUIOctree.style.display = 'none';
     }
     if (null != mUILensFlare) {
         mUILensFlare.style.display = 'none';
@@ -2395,6 +2412,22 @@ function switchDemo(demoId) {
                 mUILOD.innerHTML = new showdown.Converter().makeHtml(mr.responseText);
             }
             mUILOD.style.display = 'block';
+            break;
+        case 'Octree':
+            // 斜俯视看八叉树 + 物体。主相机即裁剪视锥，WASD 平移/拖右窗口旋转看剔除变化。
+            resumeMVPMatrix(true);
+            mNeedDrawOctree = true;
+            App.Octree.init(gl);
+            document.getElementById("id_octree_demo").style.display = 'flex';
+            updateOctreeOptions();
+            if (null == mUIOctree) {
+                mUIOctree = document.getElementById("id_octree_blog");
+                var mr = new XMLHttpRequest();
+                mr.open('get', './blog/octree.md', false);
+                mr.send();
+                mUIOctree.innerHTML = new showdown.Converter().makeHtml(mr.responseText);
+            }
+            mUIOctree.style.display = 'block';
             break;
             resumeMVPMatrix(false);
             mNeedDrawFighter = true;
@@ -3598,6 +3631,13 @@ function drawScene(gl, basicProgram, basicTexProgram, diffuseLightingProgram, no
         mat4.multiply(vpLod, mProjectionMatrix, mViewMatrix);
         App.InfiniteTerrain.drawLOD(gl, vpLod);
     }
+    if (mNeedDrawOctree) {
+        var vpOct = mat4.create();
+        mat4.multiply(vpOct, mProjectionMatrix, mViewMatrix);
+        // 主视口：以主相机视锥剔除，只画通过的物体
+        App.Octree.draw(gl, vpOct, vpOct, false);
+        updateOctreeStat();
+    }
     if (mNeedDrawSphere) {
         App.Sphere.draw(gl, deltaTime, false);
     }
@@ -3740,6 +3780,13 @@ function drawScene(gl, basicProgram, basicTexProgram, diffuseLightingProgram, no
         var vpLodGod = mat4.create();
         mat4.multiply(vpLodGod, mGodProjectionMatrix, mGodViewMatrix);
         App.InfiniteTerrain.drawLOD(gl, vpLodGod);
+    }
+    if (mNeedDrawOctree) {
+        var vpOctGod = mat4.create();
+        mat4.multiply(vpOctGod, mGodProjectionMatrix, mGodViewMatrix);
+        var cullVP = mat4.create();
+        mat4.multiply(cullVP, mProjectionMatrix, mViewMatrix);  // 剔除依据仍是主相机视锥
+        App.Octree.draw(gl, vpOctGod, cullVP, true);            // 上帝视角：画盒子+灰块
     }
     // draw uv demo
     if (mNeedDrawUVDemoPlane) {
