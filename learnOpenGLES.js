@@ -90,6 +90,7 @@ var mMvpMatrixByLightCoord = mat4.create();
 // terrain
 var mNeedDrawTerrain = false;
 var mNeedDrawInfiniteTerrain = false;
+var mNeedDrawLOD = false;
 // draw background
 var mNeedDrawBackground = true;
 var mBackgroundProgram = null;
@@ -203,6 +204,13 @@ var mLastLookAtZ = 0.0;
 var mLookAtCenter = vec3.create();
 var mLastCameraUp = vec3.create();
 var mCameraUp = vec3.create();
+// 相机平移偏移（WASD + QE 控制）：整体移动"轨道相机机位+目标"。
+// 方向仍由上帝视角旋转(mEyePosYawing/Pitching)决定。默认 0，切 demo 时复位。
+var mCameraPanX = 0.0;
+var mCameraPanY = 0.0;
+var mCameraPanZ = 0.0;
+var mKeysDown = {};            // 当前按住的 WASD/QE 键集合（keydown/keyup 维护）
+const CAMERA_PAN_SPEED = 6.0;  // 平移速度（世界单位/秒）
 // projection
 var mHalfFov = HALF_FOV;
 var mNear = FRUSTOM_NEAR;
@@ -290,6 +298,7 @@ var mUIPOM = null;
 var mUIPBRSphere = null;
 var mUIFractal = null;
 var mUIEnvMap = null;
+var mUILOD = null;
 var mUILensFlare = null;
 // language
 var language_pack = {
@@ -355,7 +364,10 @@ class GLScene extends GLCanvas {
         mGLView.onmouseup = handleMouseUp;
         mGLView.onmousemove = handleMouseMove;
         mGLView.onmouseout = handleMouseOut;
-        // mouse wheel 
+        // keyboard: WASD 平移相机（挂在 document 上，避免依赖 body 焦点）
+        document.addEventListener('keydown', onKeyDown);
+        document.addEventListener('keyup', onKeyUp);
+        // mouse wheel
 
 
         // Here's where we call the routine that builds all the objects we'll be drawing.
@@ -493,6 +505,11 @@ class GLScene extends GLCanvas {
         // draw scene
         drawScene(gl, mBasicProgram, mBasicTexProgram, mDiffuseLightingProgram, now, deltaTime);
 
+        // WASD 相机平移：按住时每帧推进，持续渲染
+        if (updateCameraPan(deltaTime)) {
+            requestRender();
+        }
+
         // 上帝视角轨道相机：每帧消耗一部分待应用的旋转增量（three.js OrbitControls 阻尼模型）。
         // 拖动时跟手平滑，松手后剩余增量继续衰减形成惯性 —— 同一机制，手感连续一致。
         if (Math.abs(mOrbitDeltaYaw) > ORBIT_EPS || Math.abs(mOrbitDeltaPitch) > ORBIT_EPS) {
@@ -580,43 +597,53 @@ function languageSelect(language) {
     }
 }
 
-function onKeyPress(event) {
-    var key;
-    if (navigator.appName == "Netscape") {
-        key = String.fromCharCode(event.charCode);
-    } else {
-        key = String.fromCharCode(event.keyCode);
+// WASD/QE 控制相机平移：按住的键记入 mKeysDown，由 onDrawFrame 每帧按 deltaTime 平移。
+// W/S 前后、A/D 左右、Q/E 上下。方向（朝向）仍只通过上帝视角旋转控制。
+function onKeyDown(event) {
+    var k = (event.key || '').toLowerCase();
+    if (k === 'w' || k === 'a' || k === 's' || k === 'd' || k === 'q' || k === 'e') {
+        mKeysDown[k] = true;
+        // 持续渲染，让按住时平移连续推进
+        requestRender();
+        if (event.preventDefault) event.preventDefault();
     }
-    switch (key) {
-        case 'W':
-        case 'w':
-            executePitching(-0.1);
-            break;
-        case 'S':
-        case 's':
-            executePitching(0.1);
-            break;
-        case 'Q':
-        case 'q':
-            executeYawing(0.1);
-            break;
-        case 'E':
-        case 'e':
-            executeYawing(-0.1);
-            break;
-        case 'A':
-        case 'a':
-            executeRolling(0.1);
-            break;
-        case 'D':
-        case 'd':
-            executeRolling(-0.1);
-            break;
-        default:
-            break;
-    }
+}
 
-    requestRender();
+function onKeyUp(event) {
+    var k = (event.key || '').toLowerCase();
+    if (k in mKeysDown) delete mKeysDown[k];
+}
+
+// 每帧推进相机平移：W/S 沿视线前后、A/D 左右、Q/E 竖直上下。
+// 返回 true 表示本帧有平移（用于持续请求渲染 + 地形流式更新）。
+function updateCameraPan(deltaTime) {
+    var fwd = (mKeysDown['w'] ? 1 : 0) - (mKeysDown['s'] ? 1 : 0);
+    var strafe = (mKeysDown['d'] ? 1 : 0) - (mKeysDown['a'] ? 1 : 0);
+    var rise = (mKeysDown['q'] ? 1 : 0) - (mKeysDown['e'] ? 1 : 0);
+    if (fwd === 0 && strafe === 0 && rise === 0) return false;
+
+    // 相机在 XZ 平面朝向：eye 绕原点 yaw 角，看向中心，故前进方向(视线在地面投影) = -(sinθ, cosθ)
+    var s = Math.sin(mEyePosYawing), c = Math.cos(mEyePosYawing);
+    var forwardX = -s, forwardZ = -c;   // W = 朝视线方向前进
+    var rightX   =  c, rightZ   = -s;   // D = 视线右手方向
+
+    // 钳制 deltaTime：场景空闲时第一帧的 deltaTime 可能高达数秒（mRenderTime 是上次渲染时刻），
+    // 不钳制会导致按下键的瞬间相机"瞬移"一大段。上限 0.05s 让首帧步长正常。
+    var dt = Math.min(deltaTime || 0.016, 0.05);
+    var step = CAMERA_PAN_SPEED * dt;
+    mCameraPanX += (forwardX * fwd + rightX * strafe) * step;
+    mCameraPanZ += (forwardZ * fwd + rightZ * strafe) * step;
+    mCameraPanY += rise * step;
+
+    updateViewMatrixByMouse();
+    // 地形/LOD demo：平移即更新流式块，跟随相机。相机平移是"渲染空间"坐标，
+    // 需除以 worldScale 换算回地形未缩放坐标，流式中心才正确。
+    if (mNeedDrawInfiniteTerrain || mNeedDrawLOD) {
+        var gl = mGLCanvas.getGL();
+        var ws = App.InfiniteTerrain.getWorldScale() || 1.0;
+        App.InfiniteTerrain.updateChunks(gl, mCameraPanX / ws, mCameraPanZ / ws);
+    }
+    return true;
 }
 
 function initBasicTexShader(gl) {
@@ -1328,9 +1355,12 @@ function initCameraUpBuffer(gl) {
 
 // ── 上帝视角光源标志：太阳图标 + 方向指示线 ──
 function initLightGizmoBuffer(gl) {
+    // LIGHT_POSITION 是光源"位置"（在场景上方）。引擎里 Phong 用 normalize(uLightPos - 顶点)
+    // 取光照方向、阴影用 lookAt(LIGHT_POSITION, 原点)，都按"位置"语义。
+    // 因此太阳图标应画在 LIGHT_POSITION 方向的上方，射线指向场景(原点)，即光线照射方向。
     var ld = vec3.normalize(vec3.create(), vec3.clone(LIGHT_POSITION));
     var sun = vec3.create();
-    vec3.scale(sun, ld, -4.0);             // 太阳位置
+    vec3.scale(sun, ld, 4.0);              // 太阳位置：沿光源方向放到场景上方
     var sp = [sun[0], sun[1], sun[2]];
 
     // 两个垂直于 ld 的向量，构成太阳圆面所在平面
@@ -1382,9 +1412,9 @@ function initLightGizmoBuffer(gl) {
         L(a0[0],a0[1],a0[2], b0[0],b0[1],b0[2], bright);
     }
 
-    // ── 光方向指示线：从太阳中心沿光方向射出一根长线 ──
+    // ── 光方向指示线：从太阳中心沿"照射方向"(指向场景/原点，即 -ld)射出一根长线 ──
     L(sp[0], sp[1], sp[2],
-      sp[0] + ld[0] * 2.5, sp[1] + ld[1] * 2.5, sp[2] + ld[2] * 2.5, bright);
+      sp[0] - ld[0] * 2.5, sp[1] - ld[1] * 2.5, sp[2] - ld[2] * 2.5, bright);
 
     var pb = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, pb);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(pos), gl.STATIC_DRAW);
@@ -2173,6 +2203,7 @@ function switchDemo(demoId) {
     mNeedDrawShadow = false;
     mNeedDrawTerrain = false;
     mNeedDrawInfiniteTerrain = false;
+    mNeedDrawLOD = false;
     mNeedDrawLensFlare = false;
     mNeedDrawSkyBox = false;
     document.getElementById("id_shader").style.display = 'none';
@@ -2196,6 +2227,7 @@ function switchDemo(demoId) {
     document.getElementById("id_pbr_sphere_demo").style.display = 'none';
     document.getElementById("id_fractal_demo").style.display = 'none';
     document.getElementById("id_envmap_demo").style.display = 'none';
+    document.getElementById("id_lod_demo").style.display = 'none';
     if (null != mUIUVMapping) {
         mUIUVMapping.style.display = 'none';
     }
@@ -2231,6 +2263,9 @@ function switchDemo(demoId) {
     }
     if (null != mUIEnvMap) {
         mUIEnvMap.style.display = 'none';
+    }
+    if (null != mUILOD) {
+        mUILOD.style.display = 'none';
     }
     if (null != mUILensFlare) {
         mUILensFlare.style.display = 'none';
@@ -2340,6 +2375,26 @@ function switchDemo(demoId) {
                 mUIPBRSphere.innerHTML = new showdown.Converter().makeHtml(mr.responseText);
             }
             mUIPBRSphere.style.display = 'block';
+            break;
+        case 'LOD':
+            // 斜俯视看整片地形网格：沿用轨道相机 + 下俯(resumeMVPMatrix(true))。
+            resumeMVPMatrix(true);
+            mNeedDrawLOD = true;
+            // 地形缩放：每块约 3 单位，近处细节清晰；7×7 网格(21单位)比视野大，
+            // 可用 WASD 在网格上平移飞行就近观察 LOD 分环。god 视角俯瞰全局。
+            App.InfiniteTerrain.setWorldScale(0.015);
+            App.InfiniteTerrain.setGroundY(-1.0);
+            App.InfiniteTerrain.initLOD(gl);
+            document.getElementById("id_lod_demo").style.display = 'flex';
+            updateLODOptions();   // 同步控件状态 + 刷新三角形计数
+            if (null == mUILOD) {
+                mUILOD = document.getElementById("id_lod_blog");
+                var mr = new XMLHttpRequest();
+                mr.open('get', './blog/lod.md', false);
+                mr.send();
+                mUILOD.innerHTML = new showdown.Converter().makeHtml(mr.responseText);
+            }
+            mUILOD.style.display = 'block';
             break;
             resumeMVPMatrix(false);
             mNeedDrawFighter = true;
@@ -2716,6 +2771,10 @@ function resumeMVPMatrix(isIncline) {
     mPitching = 0.0
     mYawing = 0.0;
     mRolling = 0.0;
+    // 相机平移偏移复位（每个 demo 默认从原点观察）
+    mCameraPanX = 0.0;
+    mCameraPanY = 0.0;
+    mCameraPanZ = 0.0;
     // projection
     mHalfFov = HALF_FOV;
     mNear = FRUSTOM_NEAR;
@@ -3534,6 +3593,11 @@ function drawScene(gl, basicProgram, basicTexProgram, diffuseLightingProgram, no
         var shadowTex = (App.Shadow.getFBO() && mNeedDrawShadow) ? App.Shadow.getFBO().getTextureId() : null;
         App.InfiniteTerrain.draw(gl, vp, { vpByLight: mVpMatrixByLightCoord, shadowTex: shadowTex });
     }
+    if (mNeedDrawLOD) {
+        var vpLod = mat4.create();
+        mat4.multiply(vpLod, mProjectionMatrix, mViewMatrix);
+        App.InfiniteTerrain.drawLOD(gl, vpLod);
+    }
     if (mNeedDrawSphere) {
         App.Sphere.draw(gl, deltaTime, false);
     }
@@ -3671,6 +3735,11 @@ function drawScene(gl, basicProgram, basicTexProgram, diffuseLightingProgram, no
         mat4.multiply(vpGod, mGodProjectionMatrix, mGodViewMatrix);
         var shadowTexGod = (App.Shadow.getFBO() && mNeedDrawShadow) ? App.Shadow.getFBO().getTextureId() : null;
         App.InfiniteTerrain.draw(gl, vpGod, { vpByLight: mVpMatrixByLightCoord, shadowTex: shadowTexGod });
+    }
+    if (mNeedDrawLOD) {
+        var vpLodGod = mat4.create();
+        mat4.multiply(vpLodGod, mGodProjectionMatrix, mGodViewMatrix);
+        App.InfiniteTerrain.drawLOD(gl, vpLodGod);
     }
     // draw uv demo
     if (mNeedDrawUVDemoPlane) {
@@ -3902,10 +3971,15 @@ function updateHtmlParamByRender() {
 }
 
 function updateViewMatrixByMouse(isResume) {
-    // update mEye
-    mEye[0] = EYE_INIT_POS_Z * Math.sin(mEyePosYawing) * Math.cos(mEyePosPitching);
-    mEye[1] = EYE_INIT_POS_Z * Math.sin(mEyePosPitching);
-    mEye[2] = EYE_INIT_POS_Z * Math.cos(mEyePosYawing) * Math.cos(mEyePosPitching);
+    // 轨道相机机位（绕原点的方向由 yaw/pitch 决定），再整体加上 WASD 平移偏移。
+    // 目标点 = 平移偏移；机位 = 原点轨道位置 + 平移偏移。两者同步平移 → 平移视角不改朝向。
+    mEye[0] = EYE_INIT_POS_Z * Math.sin(mEyePosYawing) * Math.cos(mEyePosPitching) + mCameraPanX;
+    mEye[1] = EYE_INIT_POS_Z * Math.sin(mEyePosPitching) + mCameraPanY;
+    mEye[2] = EYE_INIT_POS_Z * Math.cos(mEyePosYawing) * Math.cos(mEyePosPitching) + mCameraPanZ;
+
+    mLookAtCenter[0] = mCameraPanX;
+    mLookAtCenter[1] = mCameraPanY;
+    mLookAtCenter[2] = mCameraPanZ;
 
     // update view matrix
     mat4.lookAt(mViewMatrix, mEye, mLookAtCenter, mCameraUp);

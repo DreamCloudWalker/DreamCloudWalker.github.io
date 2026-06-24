@@ -97,8 +97,8 @@ App.InfiniteTerrain = (function () {
     // ═══ 地形块网格（原生 WebGL：索引网格 + 顶点色 + 法线）═══
     // 等价于参考工程的 buildChunkTerrain：一块 CHUNK×CHUNK 的细分平面，
     // 顶点 Y 由 terrainHeightAt 决定，顶点色按高度/岩石噪声分层着色。
-    function _buildChunkTerrainBuffer(gl, cx, cz) {
-        var N = SEGMENTS;
+    function _buildChunkTerrainBuffer(gl, cx, cz, segments) {
+        var N = segments || SEGMENTS;
         var step = CHUNK / N;
         var ox = cx * CHUNK, oz = cz * CHUNK;
         var vCount = (N + 1) * (N + 1);
@@ -153,6 +153,26 @@ App.InfiniteTerrain = (function () {
         // 法线：按面法线累加到顶点再归一化
         var normals = _computeNormals(positions, indices, vCount);
 
+        // 线框索引：每个网格单元画 3 条边（共享边只画一次，避免重复）：
+        // 左边、上边、对角线 —— 足以勾出三角网格。
+        var wire = [];
+        for (var wz2 = 0; wz2 < N; wz2++) {
+            for (var wx2 = 0; wx2 < N; wx2++) {
+                var p = wz2 * (N + 1) + wx2;
+                var pr = p + 1;            // 右
+                var pd = p + (N + 1);      // 下
+                wire.push(p, pr);          // 水平边
+                wire.push(p, pd);          // 垂直边
+                wire.push(pr, pd);         // 对角线
+            }
+        }
+        // 补最后一行/列的外边界
+        for (var e = 0; e < N; e++) {
+            wire.push(N * (N + 1) + e, N * (N + 1) + e + 1);          // 最后一行水平
+            wire.push(e * (N + 1) + N, (e + 1) * (N + 1) + N);        // 最后一列垂直
+        }
+        var wireArr = new Uint16Array(wire);
+
         var posBuf = gl.createBuffer();
         gl.bindBuffer(gl.ARRAY_BUFFER, posBuf);
         gl.bufferData(gl.ARRAY_BUFFER, positions, gl.STATIC_DRAW);
@@ -165,10 +185,16 @@ App.InfiniteTerrain = (function () {
         var idxBuf = gl.createBuffer();
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, idxBuf);
         gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW);
+        var wireBuf = gl.createBuffer();
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, wireBuf);
+        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, wireArr, gl.STATIC_DRAW);
 
         return {
             position: posBuf, normal: nrmBuf, color: colBuf, index: idxBuf,
-            indexCount: indices.length, ox: ox, oz: oz,
+            indexCount: indices.length,
+            wire: wireBuf, wireCount: wireArr.length,
+            triCount: indices.length / 3,
+            ox: ox, oz: oz,
         };
     }
 
@@ -719,6 +745,137 @@ App.InfiniteTerrain = (function () {
         }
     }
 
+    // ═══════════════════════════════════════════════════════════════════
+    // LOD（层次细节）演示：独立于流式 chunk，自建一片以原点为中心的
+    // (2R+1)×(2R+1) 地形网格，每块的细分数按它到中心的"环号"递减：
+    // 近处高细分（密三角形），远处低细分（疏三角形）。可线框 + 按 LOD 染色。
+    // ═══════════════════════════════════════════════════════════════════
+    var _lodProgram = null;
+    var _lodTiles = [];          // [{terrain, ox, oz, lod, ring}]
+    var _lodRadius = 3;          // 网格半径（3 → 7×7=49 块）
+    var _lodSegsByRing = [64, 32, 16, 8];  // 每环细分数（环号越大越疏）
+    var _lodEnabled = true;      // true=按距离分级；false=全部用最高细分
+    var _lodWireframe = true;    // 线框
+    var _lodColorByLevel = true; // 按 LOD 等级染色
+    var _lodTriCount = 0;        // 当前网格三角形总数（供 UI 显示）
+
+    // 每个 LOD 等级的颜色（近→远：绿、黄、橙、红、紫）
+    var _lodColors = [
+        [0.30, 0.85, 0.35],
+        [0.95, 0.90, 0.25],
+        [0.98, 0.62, 0.20],
+        [0.92, 0.30, 0.25],
+        [0.70, 0.35, 0.85],
+    ];
+
+    function _initLODShader(gl) {
+        var vs = `
+            attribute vec4 aPosition;
+            attribute vec3 aNormal;
+            attribute vec3 aColor;
+            uniform mat4 uMVP;
+            uniform mat4 uModel;
+            varying vec3 vNormal;
+            varying vec3 vColor;
+            void main() {
+                gl_Position = uMVP * aPosition;
+                vNormal = mat3(uModel) * aNormal;
+                vColor = aColor;
+            }
+        `;
+        var fs = `
+            precision mediump float;
+            uniform vec3 uLightDir;
+            uniform vec3 uLevelColor;   // 当前 LOD 等级染色
+            uniform float uUseLevelColor;
+            uniform float uFlat;        // 1=线框纯色(忽略光照)
+            varying vec3 vNormal;
+            varying vec3 vColor;
+            void main() {
+                vec3 base = mix(vColor, uLevelColor, uUseLevelColor);
+                if (uFlat > 0.5) { gl_FragColor = vec4(base, 1.0); return; }
+                vec3 N = normalize(vNormal);
+                float diff = max(dot(N, normalize(uLightDir)), 0.0);
+                float light = 0.4 + 0.6 * diff;
+                gl_FragColor = vec4(base * light, 1.0);
+            }
+        `;
+        return _linkProgram(gl, vs, fs, ['aPosition', 'aNormal', 'aColor'],
+            ['uMVP', 'uModel', 'uLightDir', 'uLevelColor', 'uUseLevelColor', 'uFlat']);
+    }
+
+    // 构建/重建 LOD 网格（开关 LOD 时重建）
+    function _buildLODGrid(gl) {
+        _disposeLODGrid(gl);
+        var R = _lodRadius;
+        var maxSeg = _lodSegsByRing[0];
+        _lodTriCount = 0;
+        for (var dz = -R; dz <= R; dz++) {
+            for (var dx = -R; dx <= R; dx++) {
+                var ring = Math.max(Math.abs(dx), Math.abs(dz));  // 切比雪夫距离=环号
+                var lod = Math.min(ring, _lodSegsByRing.length - 1);
+                var seg = _lodEnabled ? _lodSegsByRing[lod] : maxSeg;
+                var terrain = _buildChunkTerrainBuffer(gl, dx, dz, seg);
+                _lodTiles.push({ terrain: terrain, ox: dx * CHUNK, oz: dz * CHUNK, lod: lod, ring: ring });
+                _lodTriCount += terrain.triCount;
+            }
+        }
+    }
+
+    function _disposeLODGrid(gl) {
+        for (var i = 0; i < _lodTiles.length; i++) {
+            var t = _lodTiles[i].terrain;
+            gl.deleteBuffer(t.position); gl.deleteBuffer(t.normal);
+            gl.deleteBuffer(t.color); gl.deleteBuffer(t.index); gl.deleteBuffer(t.wire);
+        }
+        _lodTiles = [];
+    }
+
+    function _drawLOD(gl, vpMatrix) {
+        if (!_lodProgram || !_lodTiles.length) return;
+        var L = _lightDir();
+        var p = _lodProgram;
+        gl.useProgram(p.program);
+        gl.uniform3fv(p.uniforms.uLightDir, L);
+
+        for (var i = 0; i < _lodTiles.length; i++) {
+            var tile = _lodTiles[i];
+            var t = tile.terrain;
+            var model = mat4.create();
+            mat4.translate(model, model, [t.ox, 0, t.oz]);
+            model = _wrapWorld(model);
+            var mvp = mat4.create();
+            mat4.multiply(mvp, vpMatrix, model);
+            gl.uniformMatrix4fv(p.uniforms.uMVP, false, mvp);
+            gl.uniformMatrix4fv(p.uniforms.uModel, false, model);
+
+            var col = _lodColors[Math.min(tile.lod, _lodColors.length - 1)];
+            gl.uniform3fv(p.uniforms.uLevelColor, col);
+            gl.uniform1f(p.uniforms.uUseLevelColor, _lodColorByLevel ? 1.0 : 0.0);
+
+            gl.bindBuffer(gl.ARRAY_BUFFER, t.position);
+            gl.vertexAttribPointer(p.attribs.aPosition, 3, gl.FLOAT, false, 0, 0);
+            gl.enableVertexAttribArray(p.attribs.aPosition);
+            gl.bindBuffer(gl.ARRAY_BUFFER, t.normal);
+            gl.vertexAttribPointer(p.attribs.aNormal, 3, gl.FLOAT, false, 0, 0);
+            gl.enableVertexAttribArray(p.attribs.aNormal);
+            gl.bindBuffer(gl.ARRAY_BUFFER, t.color);
+            gl.vertexAttribPointer(p.attribs.aColor, 3, gl.FLOAT, false, 0, 0);
+            gl.enableVertexAttribArray(p.attribs.aColor);
+
+            if (_lodWireframe) {
+                // 线框：纯色线条，忽略光照
+                gl.uniform1f(p.uniforms.uFlat, 1.0);
+                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, t.wire);
+                gl.drawElements(gl.LINES, t.wireCount, gl.UNSIGNED_SHORT, 0);
+            } else {
+                gl.uniform1f(p.uniforms.uFlat, 0.0);
+                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, t.index);
+                gl.drawElements(gl.TRIANGLES, t.indexCount, gl.UNSIGNED_SHORT, 0);
+            }
+        }
+    }
+
     // ═══ 对外接口 ═══
     return {
         // 初始化 shader（几何随 chunk 流式构建，模型异步加载）
@@ -749,6 +906,16 @@ App.InfiniteTerrain = (function () {
         setGroundY: function (y) { _groundY = y; },
         // 设置整体世界缩放（把 200 单位大地形塞进小尺度场景）
         setWorldScale: function (s) { _worldScale = s; },
+        getWorldScale: function () { return _worldScale; },
+        // ── LOD（层次细节）演示接口 ──
+        initLOD: function (gl) { if (!_lodProgram) _lodProgram = _initLODShader(gl); _buildLODGrid(gl); },
+        buildLODGrid: function (gl) { _buildLODGrid(gl); },
+        drawLOD: function (gl, vpMatrix) { _drawLOD(gl, vpMatrix); },
+        setLODEnabled: function (gl, v) { _lodEnabled = v; _buildLODGrid(gl); },
+        setLODWireframe: function (v) { _lodWireframe = v; },
+        setLODColorByLevel: function (v) { _lodColorByLevel = v; },
+        getLODTriCount: function () { return _lodTriCount; },
+        getLODLevels: function () { return _lodSegsByRing.slice(); },
         // 大石头碰撞圆（供场景管理 Demo）
         getColliders: function () { return _colliders; },
         // 已加载块数（供 LOD/场景管理 Demo 显示）
@@ -760,3 +927,15 @@ App.InfiniteTerrain = (function () {
         PLANT_TARGET_H: PLANT_TARGET_H,
     };
 })();
+
+// ── 全局包装函数：供 LOD demo 的 HTML 控件调用 ──
+function updateLODOptions() {
+    var gl = mGLCanvas.getGL();
+    App.InfiniteTerrain.setLODEnabled(gl, document.getElementById('id_lod_enable').checked);
+    App.InfiniteTerrain.setLODWireframe(document.getElementById('id_lod_wireframe').checked);
+    App.InfiniteTerrain.setLODColorByLevel(document.getElementById('id_lod_colored').checked);
+    var el = document.getElementById('id_lod_tricount');
+    if (el) el.innerHTML = App.InfiniteTerrain.getLODTriCount().toLocaleString();
+    requestRender();
+}
+
