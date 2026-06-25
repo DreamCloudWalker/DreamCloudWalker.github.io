@@ -750,25 +750,28 @@ App.InfiniteTerrain = (function () {
     var _lodProgram = null;
     var _lodChunks = {};         // key "cx,cz" -> { cx,cz,lod,seg,terrain,shapes }
     var _lodRadius = 3;          // 相机周围加载半径（chunk 数）→ (2R+1)² 块
-    var _lodSegsByRing = [64, 32, 16, 8];  // 每个 LOD 等级的地形细分数
+    var _lodSegsByRing = [64, 32, 16, 8, 6, 4];  // 每个 LOD 等级的地形细分数（越远越粗，多加两档铺远景）
     var _lodLastKey = null;      // 是否已初始化过（null=未建）
     var _lodLastX = 0, _lodLastZ = 0;  // 上次重算 LOD 时的相机位置
     var LOD_UPDATE_DIST = 20;    // 相机移动超过此距离(未缩放)就重算 LOD 分级
     var _lodWireframe = true;
     var _lodColorByLevel = true;
     var _lodEnabled = true;      // false=全部用最高细分(对比)
+    var _lodShowShapes = true;   // 是否在地形上散布球/柱/锥（空战 demo 关掉）
     var _lodTriCount = 0;
     var _lodCamX = 0, _lodCamZ = 0;  // 相机在"未缩放地形坐标"的位置
 
     // 三种几何体的 4 档 LOD 网格（预建，所有实例共享）
     var _shapeLODs = null;       // { sphere:[lod0..3], cylinder:[...], cone:[...] }
 
-    // 每个 LOD 等级的颜色（近→远：绿、黄、橙、红）
+    // 每个 LOD 等级的颜色（近→远：绿、黄、橙、红、紫、灰），LOD demo 染色用；档数与 _lodSegsByRing 对齐
     var _lodColors = [
         [0.30, 0.85, 0.35],
         [0.95, 0.90, 0.25],
         [0.98, 0.62, 0.20],
         [0.92, 0.30, 0.25],
+        [0.70, 0.35, 0.85],
+        [0.55, 0.55, 0.6],
     ];
 
     function _initLODShader(gl) {
@@ -1059,7 +1062,7 @@ App.InfiniteTerrain = (function () {
             _drawLODGeom(gl, p, ck.terrain);
 
             // ── 几何体（球/柱/锥）：按到相机的真实距离选 LOD（与地形同一套距离分级）──
-            if (_shapeLODs && ck.shapes) {
+            if (_lodShowShapes && _shapeLODs && ck.shapes) {
                 for (var si = 0; si < ck.shapes.length; si++) {
                     var inst = ck.shapes[si];
                     var slod = _lodEnabled ? _lodLevelForPoint(inst.x, inst.z) : 0;
@@ -1135,6 +1138,8 @@ App.InfiniteTerrain = (function () {
         setLODEnabled: function (gl, v) { _lodEnabled = v; _lodLastKey = null; _updateLOD(gl, _lodCamX, _lodCamZ); },
         setLODWireframe: function (v) { _lodWireframe = v; },
         setLODColorByLevel: function (v) { _lodColorByLevel = v; },
+        setLODShowShapes: function (v) { _lodShowShapes = v; },
+        setLODRadius: function (r) { _lodRadius = r; },
         getLODTriCount: function () { return _lodTriCount; },
         getLODChunkCount: function () { var n = 0; for (var k in _lodChunks) if (_lodChunks.hasOwnProperty(k)) n++; return n; },
         // 大石头碰撞圆（供场景管理 Demo）

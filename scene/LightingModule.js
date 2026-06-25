@@ -91,7 +91,10 @@ App.Sphere = (function () {
 
     return {
         init: function (gl) {
-            _buffer = initSphereBuffers(gl, 1.0, 20, vec4.fromValues(1.0, 1.0, 1.0, 1.0));
+            // 用较粗的细分（45°/段），让逐顶点 vs 逐像素的差异明显：
+            // 粗网格上逐顶点光照会把高光在大三角面间线性插值 → 高光被拉成多边形/发散甚至丢失；
+            // 逐像素则在每个片元重新算 → 高光始终是锐利的圆点。球太细就看不出区别。
+            _buffer = initSphereBuffers(gl, 1.0, 45, vec4.fromValues(1.0, 1.0, 1.0, 1.0));
             mSphereBuffer = _buffer;
             _buildShader(gl);
         },

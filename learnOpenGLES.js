@@ -92,6 +92,7 @@ var mNeedDrawTerrain = false;
 var mNeedDrawInfiniteTerrain = false;
 var mNeedDrawLOD = false;
 var mNeedDrawOctree = false;
+var mNeedDrawAirCombat = false;
 // draw background
 var mNeedDrawBackground = true;
 var mBackgroundProgram = null;
@@ -305,6 +306,7 @@ var mUITessellation = null;
 var mUIEnvMap = null;
 var mUILOD = null;
 var mUIOctree = null;
+var mUIAirCombat = null;
 var mUILensFlare = null;
 // language
 var language_pack = {
@@ -510,6 +512,12 @@ class GLScene extends GLCanvas {
         // update video texture
         App.Video.updateTextureFromVideo(gl);
 
+        // 空战 demo：先推进飞行模拟（更新飞机变换 + 覆盖相机矩阵），再绘制
+        if (mNeedDrawAirCombat) {
+            App.AirCombat.update(gl, deltaTime);
+            requestRender();   // 飞行持续进行，保持连续渲染
+        }
+
         // draw scene
         drawScene(gl, mBasicProgram, mBasicTexProgram, mDiffuseLightingProgram, now, deltaTime);
 
@@ -619,6 +627,12 @@ function _isTypingTarget(event) {
 function onKeyDown(event) {
     if (_isTypingTarget(event)) return;   // 焦点在输入框时不抢按键，让用户能输入 wasdqe
     var k = (event.key || '').toLowerCase();
+    // 空战 demo：WASDQE 交给飞行控制，不做相机平移
+    if (mNeedDrawAirCombat && App.AirCombat.onKey(k, true)) {
+        requestRender();
+        if (event.preventDefault) event.preventDefault();
+        return;
+    }
     if (k === 'w' || k === 'a' || k === 's' || k === 'd' || k === 'q' || k === 'e') {
         mKeysDown[k] = true;
         // 持续渲染，让按住时平移连续推进
@@ -629,6 +643,7 @@ function onKeyDown(event) {
 
 function onKeyUp(event) {
     var k = (event.key || '').toLowerCase();
+    if (mNeedDrawAirCombat) App.AirCombat.onKey(k, false);
     if (k in mKeysDown) delete mKeysDown[k];
 }
 
@@ -2248,6 +2263,8 @@ function switchDemo(demoId) {
     mNeedDrawInfiniteTerrain = false;
     mNeedDrawLOD = false;
     mNeedDrawOctree = false;
+    mNeedDrawAirCombat = false;
+    if (App.AirCombat) App.AirCombat.leave();   // 离开时停止飞行模拟
     mNeedDrawLensFlare = false;
     mNeedDrawSkyBox = false;
     document.getElementById("id_shader").style.display = 'none';
@@ -2275,6 +2292,7 @@ function switchDemo(demoId) {
     document.getElementById("id_envmap_demo").style.display = 'none';
     document.getElementById("id_lod_demo").style.display = 'none';
     document.getElementById("id_octree_demo").style.display = 'none';
+    document.getElementById("id_aircombat_demo").style.display = 'none';
     if (null != mUIUVMapping) {
         mUIUVMapping.style.display = 'none';
     }
@@ -2322,6 +2340,9 @@ function switchDemo(demoId) {
     }
     if (null != mUIOctree) {
         mUIOctree.style.display = 'none';
+    }
+    if (null != mUIAirCombat) {
+        mUIAirCombat.style.display = 'none';
     }
     if (null != mUILensFlare) {
         mUILensFlare.style.display = 'none';
@@ -2444,6 +2465,9 @@ function switchDemo(demoId) {
             // 近处高细分、远处低细分的分级带清晰可见。走动时前方生成/后方回收/LOD 升降。
             App.InfiniteTerrain.setWorldScale(0.05);
             App.InfiniteTerrain.setGroundY(-2.0);
+            // 复位 LOD 显示参数（空战 demo 可能改过半径/线框/染色/几何体开关）
+            App.InfiniteTerrain.setLODRadius(3);
+            App.InfiniteTerrain.setLODShowShapes(true);
             App.InfiniteTerrain.initLOD(gl);
             App.InfiniteTerrain.updateLOD(gl, 0, 0);
             document.getElementById("id_lod_demo").style.display = 'flex';
@@ -2472,6 +2496,27 @@ function switchDemo(demoId) {
                 mUIOctree.innerHTML = new showdown.Converter().makeHtml(mr.responseText);
             }
             mUIOctree.style.display = 'block';
+            break;
+        case 'AirCombat':
+            resumeMVPMatrix(true);
+            mNeedDrawAirCombat = true;
+            mNeedDrawFighter = true;     // 复用飞机模型
+            mNeedDrawSkyBox = true;      // 天空盒背景
+            // 远裁剪面拉到 1000（飞行视野很远），并重建主/上帝视角投影矩阵。
+            // 切走时 resumeMVPMatrix 会把 mFar 复位回 FRUSTOM_FAR 并重建。
+            mFar = 1000.0;
+            mat4.perspective(mProjectionMatrix, 2 * mHalfFov, mAspect, mNear, mFar);
+            mat4.perspective(mGodProjectionMatrix, HALF_FOV, mAspect, GOD_FRUSTOM_NEAR, 1000.0);
+            App.AirCombat.enter(gl);
+            document.getElementById("id_aircombat_demo").style.display = 'flex';
+            if (null == mUIAirCombat) {
+                mUIAirCombat = document.getElementById("id_aircombat_blog");
+                var mr = new XMLHttpRequest();
+                mr.open('get', './blog/airCombat.md', false);
+                mr.send();
+                mUIAirCombat.innerHTML = new showdown.Converter().makeHtml(mr.responseText);
+            }
+            mUIAirCombat.style.display = 'block';
             break;
         case 'Shader':
             resumeMVPMatrix(false);
@@ -2886,6 +2931,9 @@ function resumeMVPMatrix(isIncline) {
     mNear = FRUSTOM_NEAR;
     mFar = FRUSTOM_FAR;
     mAspect = mViewportWidth / mViewportHeight;
+    // 重建投影矩阵，确保某些 demo 临时改过的远裁剪面(如空战 far=1000)被复位
+    mat4.perspective(mProjectionMatrix, 2 * mHalfFov, mAspect, mNear, mFar);
+    mat4.perspective(mGodProjectionMatrix, HALF_FOV, mAspect, GOD_FRUSTOM_NEAR, GOD_FRUSTOM_FAR);
     mCobraZOffset = 0.0;
     mCobraYOffset = 0.0;
     updateViewMatrixByMouse(true);
@@ -3678,7 +3726,8 @@ function drawScene(gl, basicProgram, basicTexProgram, diffuseLightingProgram, no
     if (mNeedDrawSkyBox)
         App.SkyBox.draw(gl, false);
 
-    if (mNeedDrawFighter && mObjectBuffer.length > 0) {
+    if (mNeedDrawFighter && mObjectBuffer.length > 0 &&
+        !(mNeedDrawAirCombat && !App.AirCombat.isPlaneVisible())) {
         for (var i = 0; i < mObjectBuffer.length; i++) {
             if (mUsePhongForFighter) {
                 drawObjectPhong(gl, mPhongLightProgram, mObjectBuffer[i], mObjectDiffuseTexture, false);
@@ -3711,6 +3760,15 @@ function drawScene(gl, basicProgram, basicTexProgram, diffuseLightingProgram, no
         // 主视口：以主相机视锥剔除，只画通过的物体
         App.Octree.draw(gl, vpOct, vpOct, false);
         updateOctreeStat();
+    }
+    if (mNeedDrawAirCombat) {
+        var vpAir = mat4.create();
+        mat4.multiply(vpAir, mProjectionMatrix, mViewMatrix);
+        App.InfiniteTerrain.drawLOD(gl, vpAir);
+        // 坠毁：在飞机位置画爆炸 billboard（正对主相机）
+        if (!App.AirCombat.isAlive()) {
+            App.SpriteSheet.drawAt(gl, vpAir, mVIMatrix, App.AirCombat.getCrashPos(), 12.0, true);
+        }
     }
     if (mNeedDrawSphere) {
         App.Sphere.draw(gl, deltaTime, false);
@@ -3833,7 +3891,8 @@ function drawScene(gl, basicProgram, basicTexProgram, diffuseLightingProgram, no
 
     /* draw another screen */
     gl.viewport(mViewportWidth, 0, mViewportWidth, mViewportHeight);
-    if (mNeedDrawFighter && mObjectBuffer.length > 0) {
+    if (mNeedDrawFighter && mObjectBuffer.length > 0 &&
+        !(mNeedDrawAirCombat && !App.AirCombat.isPlaneVisible())) {
         for (var i = 0; i < mObjectBuffer.length; i++) {
             if (mUsePhongForFighter) {
                 drawObjectPhong(gl, mPhongLightProgram, mObjectBuffer[i], mObjectDiffuseTexture, true);
@@ -3867,6 +3926,14 @@ function drawScene(gl, basicProgram, basicTexProgram, diffuseLightingProgram, no
         var cullVP = mat4.create();
         mat4.multiply(cullVP, mProjectionMatrix, mViewMatrix);  // 剔除依据仍是主相机视锥
         App.Octree.draw(gl, vpOctGod, cullVP, true);            // 上帝视角：画盒子+灰块
+    }
+    if (mNeedDrawAirCombat) {
+        var vpAirGod = mat4.create();
+        mat4.multiply(vpAirGod, mGodProjectionMatrix, mGodViewMatrix);
+        App.InfiniteTerrain.drawLOD(gl, vpAirGod);
+        if (!App.AirCombat.isAlive()) {
+            App.SpriteSheet.drawAt(gl, vpAirGod, mGodVIMatrix, App.AirCombat.getCrashPos(), 12.0, false);
+        }
     }
     // draw uv demo
     if (mNeedDrawUVDemoPlane) {

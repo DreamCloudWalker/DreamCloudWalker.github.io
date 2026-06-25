@@ -299,6 +299,7 @@
         <script src="scene/EnvMapModule.js"></script>
         <script src="scene/InfiniteTerrainModule.js"></script>
         <script src="scene/OctreeModule.js"></script>
+        <script src="scene/AirCombatModule.js"></script>
         <script src="learnOpenGLES.js"></script>
     </head>
 
@@ -374,6 +375,7 @@
                         </li>
                         <li data-lang="works">作品</li>
                             <ul>
+                                <li><a href="#TOC5.1" onclick="switchDemo('AirCombat')" data-lang="air_combat">空战模拟</a></li>
                                 <li><a href="https://three-body-cn.github.io/" data-lang="three_body">三体专题</a></li>
                                 <li><a href="https://dreamcloudwalker.github.io/imageEditor.html" data-lang="image_editor">图片编辑</a></li>
                                 <li><a href="https://bugbydaylight.github.io/" data-lang="dance_anim">舞蹈动画</a></li>
@@ -988,9 +990,9 @@ void main() {
                 <input type="checkbox" id="specularLightCheckBox" checked onchange="updateLightSwitch()" data-lang="spec_light"/>镜面光<br><br>
                 <div style="border: 1px solid #cccccc; width: 200px; margin: 1px;">
                     环境光颜色
-                    <br/>Red  : <br/><input id="ambient_color_red"   style="width: 160px;" type="range" value="1.0" min="0.0" max="1.0" step="0.01" oninput="updateAmbientColor()"/><label id="label_ambient_red"></label>
-                    <br/>Green: <input id="ambient_color_green" style="width: 160px;" type="range" value="1.0" min="0.0" max="1.0" step="0.01" oninput="updateAmbientColor()"/><label id="label_ambient_green"></label>
-                    <br/>Blue : <input id="ambient_color_blue"  style="width: 160px;" type="range" value="1.0" min="0.0" max="1.0" step="0.01" oninput="updateAmbientColor()"/><label id="label_ambient_blue"></label>
+                    <br/>Red  : <br/><input id="ambient_color_red"   style="width: 160px;" type="range" value="0.7" min="0.0" max="1.0" step="0.01" oninput="updateAmbientColor()"/><label id="label_ambient_red"></label>
+                    <br/>Green: <input id="ambient_color_green" style="width: 160px;" type="range" value="0.7" min="0.0" max="1.0" step="0.01" oninput="updateAmbientColor()"/><label id="label_ambient_green"></label>
+                    <br/>Blue : <input id="ambient_color_blue"  style="width: 160px;" type="range" value="0.7" min="0.0" max="1.0" step="0.01" oninput="updateAmbientColor()"/><label id="label_ambient_blue"></label>
                 </div>
                 <div style="border: 1px solid #cccccc; width: 200px; margin: 1px;">
                     漫反射光颜色
@@ -1049,21 +1051,30 @@ uniform mat4 uProjectionMatrix;
 uniform vec3 uLightDir;
 uniform mat4 uVIMatrix;
 uniform mat4 uMITMatrix;    // Inverse & Transpose of Model Matrix
+uniform float uSpecular;
+uniform vec4 uKa;
+uniform vec4 uKd;
+uniform vec4 uKs;
 
-varying vec4 vPosition;
-varying vec4 vColor;
-varying vec3 vNormal;
-varying vec3 vLightDir;
-varying vec4 vViewDir;
+varying vec4 vLitColor;      // 逐顶点：光照在顶点算好，只把"颜色"插值出去（Gouraud）
 
 void main() {
-    vec4 pntPos = uProjectionMatrix * uViewMatrix * uModelMatrix * aPosition;
-    gl_Position = pntPos;
-    vPosition = uModelMatrix * aPosition;
-    vNormal = normalize(vec3(uMITMatrix * vec4(aNormal, 0.0)));
-    vLightDir = normalize(uLightDir);
-    vViewDir = normalize(uVIMatrix * vec4(0.0, 0.0, 0.0, 1.0) - vPosition);
-    vColor = aColor;
+    vec4 worldPos = uModelMatrix * aPosition;
+    gl_Position = uProjectionMatrix * uViewMatrix * worldPos;
+
+    // ── 光照在顶点着色器里完成（每个顶点只算一次）──
+    vec3 N = normalize(vec3(uMITMatrix * vec4(aNormal, 0.0)));
+    vec3 L = normalize(uLightDir);
+    vec3 V = normalize(vec3(uVIMatrix * vec4(0.0, 0.0, 0.0, 1.0) - worldPos));
+    vec3 R = normalize(2.0 * dot(N, L) * N - L);
+
+    vec4 ambient  = uKa;
+    vec4 diffuse  = vec4(uKd.rgb * clamp(dot(N, L), 0.0, 1.0), uKd.a);
+    vec4 specular = vec4(uKs.rgb * pow(clamp(dot(R, V), 0.0, 1.0), uSpecular), uKs.a);
+
+    // 最终颜色在顶点算好；光栅化时只对这个颜色做线性插值
+    vLitColor = (ambient + diffuse + specular) * aColor;
+    vLitColor.a = 1.0;
 }
                         </textarea>
                     </div>
@@ -1072,25 +1083,10 @@ void main() {
                         <textarea spellcheck="false" rows="31" cols="95" id="id_per_vertex_fragment_shader">
 precision mediump float;
 
-uniform float uSpecular;
-uniform vec4 uKa;
-uniform vec4 uKd;
-uniform vec4 uKs;
-
-varying vec4 vPosition;
-varying vec4 vColor;
-varying vec3 vNormal;
-varying vec3 vLightDir;
-varying vec4 vViewDir;
+varying vec4 vLitColor;     // 直接用顶点插值过来的颜色，片元不再算光照
 
 void main() {
-    vec4 color = vColor;
-    vec3 reflectDir = normalize(2.0 * dot(vNormal, vLightDir) * vNormal - vLightDir);
-    vec4 ambientColor = uKa;
-    vec4 diffuseColor = vec4(uKd.rgb * clamp(dot(vNormal, vLightDir), 0.0, 1.0), uKd.a);
-    vec4 specularColor = vec4(uKs.rgb * pow(clamp(dot(reflectDir, vec3(vViewDir.xyz)), 0.0, 1.0), uSpecular), uKs.a);
-    gl_FragColor = (ambientColor + diffuseColor + specularColor) * color;
-    gl_FragColor.a = 1.0;
+    gl_FragColor = vLitColor;
 }
                         </textarea>
                     </div>
@@ -1376,6 +1372,14 @@ void main() {
             </div>
         </div>
         <div id="id_octree_blog"></div>
+        <div id="id_aircombat_demo">
+            <h4 style="width: var(--sidebar-width); background: #ffffff" data-lang="air_combat">空战模拟</h4>
+            <div style="border: 1px solid #cccccc; width: 26em;">
+                <span data-lang="aircombat_help">操作：A/D 左右桶滚，W/S 俯仰，Q/E 偏航(较慢)。飞机持续向前飞，撞地会爆炸坠毁并在 1 秒后重生。</span><br>
+                <span id="id_aircombat_tip" style="display:none; color:#c0392b; font-weight:bold;"></span>
+            </div>
+        </div>
+        <div id="id_aircombat_blog"></div>
         <div id="id_yuv_video">
             <div>
                 <button style="display:block; width: 200px; height: 30px" onclick="updateYUVVideoShader()" data-lang="compile_and_run">编译并运行</button>

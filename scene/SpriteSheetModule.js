@@ -217,6 +217,51 @@ App.SpriteSheet = (function () {
         draw: function (gl, isGodView) {
             _draw(gl, _program, _quadBuffer, isGodView);
         },
+        // 世界空间 billboard 绘制：在 centerWorld 处画一块正对相机的爆炸贴片（供空战 demo 用）。
+        // vp = 投影*视图；viMatrix = 视图逆矩阵(用于取相机右/上轴做 billboard)；advance=是否推进帧。
+        drawAt: function (gl, vp, viMatrix, centerWorld, size, advance) {
+            if (!_program || !_quadBuffer) return;
+            if (advance) _update();
+            var p = _program;
+            gl.useProgram(p.program);
+            gl.enable(gl.BLEND);
+            gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+            gl.depthMask(false);
+
+            // billboard：用相机右/上轴张成的四边形，始终正对相机
+            var rx = viMatrix[0], ry = viMatrix[1], rz = viMatrix[2];
+            var ux = viMatrix[4], uy = viMatrix[5], uz = viMatrix[6];
+            var model = mat4.create();
+            // 列：right*size, up*size, (cross 任意), translate
+            model[0] = rx * size; model[1] = ry * size; model[2] = rz * size;
+            model[4] = ux * size; model[5] = uy * size; model[6] = uz * size;
+            model[8] = 0; model[9] = 0; model[10] = 1;
+            model[12] = centerWorld[0]; model[13] = centerWorld[1]; model[14] = centerWorld[2];
+            var mvp = mat4.create();
+            mat4.multiply(mvp, vp, model);
+            gl.uniformMatrix4fv(p.uniformLocations.uMVPMatrix, false, mvp);
+
+            gl.bindBuffer(gl.ARRAY_BUFFER, _quadBuffer.position);
+            gl.vertexAttribPointer(p.attribLocations.vertexPosition, 3, gl.FLOAT, false, 0, 0);
+            gl.enableVertexAttribArray(p.attribLocations.vertexPosition);
+            gl.bindBuffer(gl.ARRAY_BUFFER, _quadBuffer.uv);
+            gl.vertexAttribPointer(p.attribLocations.textureCoord, 2, gl.FLOAT, false, 0, 0);
+            gl.enableVertexAttribArray(p.attribLocations.textureCoord);
+
+            var col = _curFrame % COLS, row = Math.floor(_curFrame / COLS);
+            gl.uniform2f(p.uniformLocations.uUvScale, 1.0 / COLS, 1.0 / ROWS);
+            gl.uniform2f(p.uniformLocations.uUvOffset, col / COLS, row / ROWS);
+            gl.activeTexture(gl.TEXTURE0);
+            gl.bindTexture(gl.TEXTURE_2D, _texture);
+            gl.uniform1i(p.uniformLocations.uTexSampler, 0);
+
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, _quadBuffer.index);
+            gl.drawElements(gl.TRIANGLES, _quadBuffer.indexCount, gl.UNSIGNED_SHORT, 0);
+            gl.disableVertexAttribArray(p.attribLocations.vertexPosition);
+            gl.disableVertexAttribArray(p.attribLocations.textureCoord);
+            gl.depthMask(true);
+            gl.disable(gl.BLEND);
+        },
         setPlaying: function (v) {
             _playing = v;
             _lastT = 0;   // 重新计时，避免暂停期间累积出大 dt
