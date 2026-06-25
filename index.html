@@ -294,6 +294,7 @@
         <script src="scene/POMModule.js"></script>
         <script src="scene/PBRSphereModule.js"></script>
         <script src="scene/FractalModule.js"></script>
+        <script src="scene/GeometryShaderModule.js"></script>
         <script src="scene/EnvMapModule.js"></script>
         <script src="scene/InfiniteTerrainModule.js"></script>
         <script src="scene/OctreeModule.js"></script>
@@ -336,6 +337,8 @@
                         <li data-lang="rendering_tube">渲染管线</li>
                             <ul>
                                 <li><a href="#TOC0.1" onclick="switchDemo('Shader')" data-lang="shader">着色器</a></li>
+                                <li><a href="#TOC0.2" onclick="switchDemo('Fractal')" data-lang="fractal">分形着色器</a></li>
+                                <li><a href="#TOC0.3" onclick="switchDemo('GeomShader')" data-lang="geometry_shader">几何着色器</a></li>
                             </ul>
                         <li data-lang="texture">纹理</li>
                             <ul>
@@ -357,7 +360,6 @@
                                 <li><a href="#TOC3.5" onclick="switchDemo('NormalMapping')" data-lang="normal_mapping">法线贴图</a></li>
                                 <li><a href="#TOC3.6" onclick="switchDemo('Parallax')" data-lang="parallax_mapping">视差贴图</a></li>
                                 <li><a href="#TOC3.7" onclick="switchDemo('POM')" data-lang="pom">视差遮蔽贴图(POM)</a></li>
-                                <li><a href="#TOC3.8" onclick="switchDemo('Fractal')" data-lang="fractal">分形着色器</a></li>
                                 <li><a href="#TOC3.9" onclick="switchDemo('LensFlare')" data-lang="lens_flare">镜头光晕</a></li>
                                 <li><a href="#TOC3.10" onclick="switchDemo('PBR')" data-lang="pbr_rending">PBR</a></li>
                             </ul>
@@ -984,9 +986,9 @@ void main() {
                 <input type="checkbox" id="specularLightCheckBox" checked onchange="updateLightSwitch()" data-lang="spec_light"/>镜面光<br><br>
                 <div style="border: 1px solid #cccccc; width: 200px; margin: 1px;">
                     环境光颜色
-                    <br/>Red  : <br/><input id="ambient_color_red"   style="width: 160px;" type="range" value="0.5" min="0.0" max="1.0" step="0.01" oninput="updateAmbientColor()"/><label id="label_ambient_red"></label>
-                    <br/>Green: <input id="ambient_color_green" style="width: 160px;" type="range" value="0.5" min="0.0" max="1.0" step="0.01" oninput="updateAmbientColor()"/><label id="label_ambient_green"></label>
-                    <br/>Blue : <input id="ambient_color_blue"  style="width: 160px;" type="range" value="0.5" min="0.0" max="1.0" step="0.01" oninput="updateAmbientColor()"/><label id="label_ambient_blue"></label>
+                    <br/>Red  : <br/><input id="ambient_color_red"   style="width: 160px;" type="range" value="1.0" min="0.0" max="1.0" step="0.01" oninput="updateAmbientColor()"/><label id="label_ambient_red"></label>
+                    <br/>Green: <input id="ambient_color_green" style="width: 160px;" type="range" value="1.0" min="0.0" max="1.0" step="0.01" oninput="updateAmbientColor()"/><label id="label_ambient_green"></label>
+                    <br/>Blue : <input id="ambient_color_blue"  style="width: 160px;" type="range" value="1.0" min="0.0" max="1.0" step="0.01" oninput="updateAmbientColor()"/><label id="label_ambient_blue"></label>
                 </div>
                 <div style="border: 1px solid #cccccc; width: 200px; margin: 1px;">
                     漫反射光颜色
@@ -1484,6 +1486,21 @@ void main() {
             </div>
         </div>
         <div id="id_fractal_blog"></div>
+        <div id="id_geomshader_demo">
+            <h4 style="width: var(--sidebar-width); background: #ffffff" data-lang="geometry_shader">几何着色器</h4>
+            <div style="border: 1px solid #cccccc; width: 26em;">
+                <input type="checkbox" id="id_gs_mesh" checked onchange="updateGeometryShaderOptions()"/><span data-lang="gs_mesh">显示球体实体</span><br>
+                <input type="radio" id="id_gs_vert" name="gs_normal_mode" checked onchange="updateGeometryShaderOptions()"/><span data-lang="gs_vert">顶点法线（红）</span>
+                <input type="radio" id="id_gs_face" name="gs_normal_mode" onchange="updateGeometryShaderOptions()"/><span data-lang="gs_face">面法线（黄）</span><br>
+            </div>
+            <div style="border: 1px solid #cccccc; width: 26em; margin: 1px;">
+                <span data-lang="gs_len">法线长度</span><br/>
+                <input id="id_gs_len" style="width: 180px;" type="range" value="0.25" min="0.05" max="0.6" step="0.01" oninput="updateGeometryShaderOptions()"/>
+                <label id="label_gs_len">0.25</label><br>
+                <span style="font-size:smaller; color:#888" data-lang="gs_hint">WebGL 无几何着色器，法线线段由 CPU 预生成模拟</span>
+            </div>
+        </div>
+        <div id="id_geomshader_blog"></div>
         <div id="id_normalmap_demo">
             <h4 style="width: var(--sidebar-width); background: #ffffff" data-lang="normal_mapping">法线贴图</h4>
             <div style="border: 1px solid #cccccc; width: 22em;">

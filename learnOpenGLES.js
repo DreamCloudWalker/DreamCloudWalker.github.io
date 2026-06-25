@@ -161,6 +161,7 @@ var mNeedDrawParallax = false;
 var mNeedDrawPOM = false;
 var mNeedDrawPBRSphere = false;
 var mNeedDrawFractal = false;
+var mNeedDrawGeomShader = false;
 var mNeedDrawEnvMap = false;
 var mSphereBuffer = null;
 // draw axis
@@ -298,6 +299,7 @@ var mUIParallax = null;
 var mUIPOM = null;
 var mUIPBRSphere = null;
 var mUIFractal = null;
+var mUIGeomShader = null;
 var mUIEnvMap = null;
 var mUILOD = null;
 var mUIOctree = null;
@@ -403,6 +405,7 @@ class GLScene extends GLCanvas {
         App.POM.init(gl);
         App.PBRSphere.init(gl);
         App.Fractal.init(gl);
+        App.GeometryShader.init(gl);
         App.EnvMap.init(gl);
 
         // init shader
@@ -599,9 +602,19 @@ function languageSelect(language) {
     }
 }
 
+// 判断当前焦点是否在可输入控件上（文本框/多行文本/可编辑区）。
+// 是则不拦截 WASD/QE，让用户正常打字（如《着色器》Demo 的 shader 编辑框）。
+function _isTypingTarget(event) {
+    var el = (event && event.target) || document.activeElement;
+    if (!el) return false;
+    var tag = (el.tagName || '').toUpperCase();
+    return tag === 'INPUT' || tag === 'TEXTAREA' || el.isContentEditable === true;
+}
+
 // WASD/QE 控制相机平移：按住的键记入 mKeysDown，由 onDrawFrame 每帧按 deltaTime 平移。
 // W/S 前后、A/D 左右、Q/E 上下。方向（朝向）仍只通过上帝视角旋转控制。
 function onKeyDown(event) {
+    if (_isTypingTarget(event)) return;   // 焦点在输入框时不抢按键，让用户能输入 wasdqe
     var k = (event.key || '').toLowerCase();
     if (k === 'w' || k === 'a' || k === 's' || k === 'd' || k === 'q' || k === 'e') {
         mKeysDown[k] = true;
@@ -2219,6 +2232,7 @@ function switchDemo(demoId) {
     mNeedDrawPOM = false;
     mNeedDrawPBRSphere = false;
     mNeedDrawFractal = false;
+    mNeedDrawGeomShader = false;
     mNeedDrawEnvMap = false;
     mUsePhongForFighter = false;
     mNeedDrawFighter = false;
@@ -2252,6 +2266,7 @@ function switchDemo(demoId) {
     document.getElementById("id_pom_demo").style.display = 'none';
     document.getElementById("id_pbr_sphere_demo").style.display = 'none';
     document.getElementById("id_fractal_demo").style.display = 'none';
+    document.getElementById("id_geomshader_demo").style.display = 'none';
     document.getElementById("id_envmap_demo").style.display = 'none';
     document.getElementById("id_lod_demo").style.display = 'none';
     document.getElementById("id_octree_demo").style.display = 'none';
@@ -2287,6 +2302,9 @@ function switchDemo(demoId) {
     }
     if (null != mUIFractal) {
         mUIFractal.style.display = 'none';
+    }
+    if (null != mUIGeomShader) {
+        mUIGeomShader.style.display = 'none';
     }
     if (null != mUIEnvMap) {
         mUIEnvMap.style.display = 'none';
@@ -2447,6 +2465,7 @@ function switchDemo(demoId) {
             }
             mUIOctree.style.display = 'block';
             break;
+        case 'Shader':
             resumeMVPMatrix(false);
             mNeedDrawFighter = true;
             mNeedDrawBackground = true;
@@ -2699,6 +2718,20 @@ function switchDemo(demoId) {
                 mUIFractal.innerHTML = htmlContent;
             }
             mUIFractal.style.display = 'block';
+            break;
+        case 'GeomShader':
+            mNeedDrawGeomShader = true;
+            resumeMVPMatrix(false);
+            document.getElementById("id_geomshader_demo").style.display = 'flex';
+            updateGeometryShaderOptions();
+            if (null == mUIGeomShader) {
+                mUIGeomShader = document.getElementById("id_geomshader_blog");
+                var mr = new XMLHttpRequest();
+                mr.open('get', './blog/geometryShader.md', false);
+                mr.send();
+                mUIGeomShader.innerHTML = new showdown.Converter().makeHtml(mr.responseText);
+            }
+            mUIGeomShader.style.display = 'block';
             break;
         case 'EnvMap':
             mNeedDrawEnvMap = true;
@@ -3675,6 +3708,9 @@ function drawScene(gl, basicProgram, basicTexProgram, diffuseLightingProgram, no
     if (mNeedDrawFractal) {
         App.Fractal.draw(gl, false);
     }
+    if (mNeedDrawGeomShader) {
+        App.GeometryShader.draw(gl, false);
+    }
     if (mNeedDrawEnvMap) {
         App.EnvMap.draw(gl, false);
     }
@@ -3832,6 +3868,9 @@ function drawScene(gl, basicProgram, basicTexProgram, diffuseLightingProgram, no
     }
     if (mNeedDrawEnvMap) {
         App.EnvMap.draw(gl, true);
+    }
+    if (mNeedDrawGeomShader) {
+        App.GeometryShader.draw(gl, true);
     }
     if (mNeedDrawNormalMap) {
         App.NormalMap.draw(gl, true);
