@@ -103,8 +103,15 @@ App.InfiniteTerrain = (function () {
         var ox = cx * CHUNK, oz = cz * CHUNK;
         var vCount = (N + 1) * (N + 1);
         var positions = new Float32Array(vCount * 3);
+        var normals = new Float32Array(vCount * 3);
         var colors = new Float32Array(vCount * 3);
         var heights = new Float32Array(vCount);
+
+        // 法线用世界坐标的高度场梯度解析求出（中心差分），而不是从本块三角形累加。
+        // 因为 terrainHeightAt 是连续的世界函数，块边界顶点两侧算出的法线完全一致，
+        // 不会出现"各块只看自己三角形"造成的边界法线突变 → 拼接处不再有光照缝。
+        // eps 取一个固定世界尺度（与块分辨率无关），保证相邻块边界法线逐字节相同。
+        var eps = 0.5;
 
         // 顶点：以块中心为原点，铺 [-CHUNK/2, +CHUNK/2]
         var idx = 0;
@@ -118,6 +125,19 @@ App.InfiniteTerrain = (function () {
                 positions[idx * 3 + 1] = h;
                 positions[idx * 3 + 2] = lz;
                 heights[idx] = h;
+
+                // 解析法线：N = normalize(-dH/dx, 1, -dH/dz)，只依赖世界坐标
+                var hL = terrainHeightAt(wx - eps, wz);
+                var hR = terrainHeightAt(wx + eps, wz);
+                var hD = terrainHeightAt(wx, wz - eps);
+                var hU = terrainHeightAt(wx, wz + eps);
+                var nx = -(hR - hL) / (2 * eps);
+                var nz = -(hU - hD) / (2 * eps);
+                var ny = 1.0;
+                var nlen = Math.sqrt(nx * nx + ny * ny + nz * nz) || 1;
+                normals[idx * 3]     = nx / nlen;
+                normals[idx * 3 + 1] = ny / nlen;
+                normals[idx * 3 + 2] = nz / nlen;
 
                 var rockNoise = _noise.fbm((wx / FEATURE) * 10 + 50, (wz / FEATURE) * 10 + 50, 3, 2.2, 0.5);
                 var r, g, b;
@@ -150,8 +170,7 @@ App.InfiniteTerrain = (function () {
             }
         }
 
-        // 法线：按面法线累加到顶点再归一化
-        var normals = _computeNormals(positions, indices, vCount);
+        // 法线已在上面用世界高度场梯度解析求出（拼接无缝），此处不再从三角形累加。
 
         // 线框索引：每个网格单元画 3 条边（共享边只画一次，避免重复）：
         // 左边、上边、对角线 —— 足以勾出三角网格。
@@ -196,30 +215,6 @@ App.InfiniteTerrain = (function () {
             triCount: indices.length / 3,
             ox: ox, oz: oz,
         };
-    }
-
-    function _computeNormals(positions, indices, vCount) {
-        var normals = new Float32Array(vCount * 3);
-        for (var i = 0; i < indices.length; i += 3) {
-            var ia = indices[i] * 3, ib = indices[i + 1] * 3, ic = indices[i + 2] * 3;
-            var ax = positions[ia], ay = positions[ia + 1], az = positions[ia + 2];
-            var bx = positions[ib], by = positions[ib + 1], bz = positions[ib + 2];
-            var cx2 = positions[ic], cy = positions[ic + 1], cz2 = positions[ic + 2];
-            var e1x = bx - ax, e1y = by - ay, e1z = bz - az;
-            var e2x = cx2 - ax, e2y = cy - ay, e2z = cz2 - az;
-            var nx = e1y * e2z - e1z * e2y;
-            var ny = e1z * e2x - e1x * e2z;
-            var nz = e1x * e2y - e1y * e2x;
-            normals[ia] += nx; normals[ia + 1] += ny; normals[ia + 2] += nz;
-            normals[ib] += nx; normals[ib + 1] += ny; normals[ib + 2] += nz;
-            normals[ic] += nx; normals[ic + 1] += ny; normals[ic + 2] += nz;
-        }
-        for (var v = 0; v < vCount; v++) {
-            var x = normals[v * 3], y = normals[v * 3 + 1], z = normals[v * 3 + 2];
-            var len = Math.sqrt(x * x + y * y + z * z) || 1;
-            normals[v * 3] = x / len; normals[v * 3 + 1] = y / len; normals[v * 3 + 2] = z / len;
-        }
-        return normals;
     }
 
     // ═══ GLB 道具原型加载（THREE.GLTFLoader 仅解析，抽取为原生 WebGL）═══
@@ -753,10 +748,12 @@ App.InfiniteTerrain = (function () {
     // 地形上还散布球/圆柱/圆锥三种几何体，同样按到相机距离取 4 档预建网格。
     // ═══════════════════════════════════════════════════════════════════
     var _lodProgram = null;
-    var _lodChunks = {};         // key "cx,cz" -> { lod, terrains:[seg0..3 buffer 缓存], propSeed }
+    var _lodChunks = {};         // key "cx,cz" -> { cx,cz,lod,seg,terrain,shapes }
     var _lodRadius = 3;          // 相机周围加载半径（chunk 数）→ (2R+1)² 块
     var _lodSegsByRing = [64, 32, 16, 8];  // 每个 LOD 等级的地形细分数
-    var _lodLastKey = null;      // 相机所在 chunk，跨格才重算
+    var _lodLastKey = null;      // 是否已初始化过（null=未建）
+    var _lodLastX = 0, _lodLastZ = 0;  // 上次重算 LOD 时的相机位置
+    var LOD_UPDATE_DIST = 20;    // 相机移动超过此距离(未缩放)就重算 LOD 分级
     var _lodWireframe = true;
     var _lodColorByLevel = true;
     var _lodEnabled = true;      // false=全部用最高细分(对比)
@@ -939,19 +936,34 @@ App.InfiniteTerrain = (function () {
         return list;
     }
 
-    // 按相机所在 chunk 与目标 chunk 的切比雪夫距离决定 LOD 等级
-    function _lodForRing(ring) {
-        return Math.min(ring, _lodSegsByRing.length - 1);
+    // 用"相机到 chunk 最近边的真实世界距离"决定 LOD 等级（而非块下标差）。
+    // 这样无论相机在自己块内偏向哪一边，最近的地形始终是最高细分 —— 对称、无左右差异。
+    function _lodLevelForChunk(cx, cz) {
+        var minX = cx * CHUNK - CHUNK / 2, maxX = cx * CHUNK + CHUNK / 2;
+        var minZ = cz * CHUNK - CHUNK / 2, maxZ = cz * CHUNK + CHUNK / 2;
+        var dxw = Math.max(minX - _lodCamX, 0, _lodCamX - maxX);
+        var dzw = Math.max(minZ - _lodCamZ, 0, _lodCamZ - maxZ);
+        var dist = Math.sqrt(dxw * dxw + dzw * dzw);
+        // 每 CHUNK 距离升一级 LOD；最近一圈(dist<CHUNK)恒为 lod0(最高细分)
+        var lod = Math.floor(dist / CHUNK);
+        return Math.min(lod, _lodSegsByRing.length - 1);
     }
 
-    // 流式更新：以相机未缩放坐标为中心，维护 (2R+1)² chunk，
-    // 每个 chunk 的 LOD 等级 = 它到相机 chunk 的环号。LOD 变化或新块则(重)建几何。
+    // 用真实距离给单个实例(几何体)选 LOD（同样对称、与块下标无关）
+    function _lodLevelForPoint(x, z) {
+        var dxw = x - _lodCamX, dzw = z - _lodCamZ;
+        var dist = Math.sqrt(dxw * dxw + dzw * dzw);
+        var lod = Math.floor(dist / CHUNK);
+        return Math.min(lod, _lodSegsByRing.length - 1);
+    }
+
+    // 流式更新：以相机未缩放坐标为中心，维护 (2R+1)² chunk（按块下标决定加载范围），
+    // 每个 chunk 的 LOD 等级用"相机到该块最近边的真实距离"决定。LOD 变化或新块则(重)建。
     function _updateLOD(gl, camX, camZ) {
         _lodCamX = camX; _lodCamZ = camZ;
         var pcx = Math.floor(camX / CHUNK + 0.5);
         var pcz = Math.floor(camZ / CHUNK + 0.5);
         var R = _lodRadius;
-        var maxSeg = _lodSegsByRing[0];
 
         var need = {};
         _lodTriCount = 0;
@@ -960,9 +972,8 @@ App.InfiniteTerrain = (function () {
                 var cx = pcx + dx, cz = pcz + dz;
                 var key = cx + ',' + cz;
                 need[key] = true;
-                var ring = Math.max(Math.abs(dx), Math.abs(dz));
-                var lod = _lodEnabled ? _lodForRing(ring) : 0;  // lod0=最精细
-                var seg = _lodEnabled ? _lodSegsByRing[lod] : maxSeg;
+                var lod = _lodEnabled ? _lodLevelForChunk(cx, cz) : 0;  // lod0=最精细
+                var seg = _lodSegsByRing[lod];
 
                 var ck = _lodChunks[key];
                 if (!ck) {
@@ -1030,9 +1041,6 @@ App.InfiniteTerrain = (function () {
         gl.useProgram(p.program);
         gl.uniform3fv(p.uniforms.uLightDir, L);
 
-        var pcx = Math.floor(_lodCamX / CHUNK + 0.5);
-        var pcz = Math.floor(_lodCamZ / CHUNK + 0.5);
-
         for (var key in _lodChunks) {
             if (!_lodChunks.hasOwnProperty(key)) continue;
             var ck = _lodChunks[key];
@@ -1050,12 +1058,11 @@ App.InfiniteTerrain = (function () {
             gl.uniform1f(p.uniforms.uUseLevelColor, _lodColorByLevel ? 1.0 : 0.0);
             _drawLODGeom(gl, p, ck.terrain);
 
-            // ── 几何体（球/柱/锥）：按到相机的 chunk 环号选 LOD ──
+            // ── 几何体（球/柱/锥）：按到相机的真实距离选 LOD（与地形同一套距离分级）──
             if (_shapeLODs && ck.shapes) {
                 for (var si = 0; si < ck.shapes.length; si++) {
                     var inst = ck.shapes[si];
-                    var ring = Math.max(Math.abs(ck.cx - pcx), Math.abs(ck.cz - pcz));
-                    var slod = _lodEnabled ? _lodForRing(ring) : 0;
+                    var slod = _lodEnabled ? _lodLevelForPoint(inst.x, inst.z) : 0;
                     var geom = _shapeLODs[inst.type][slod];
                     var sm = mat4.create();
                     mat4.translate(sm, sm, [inst.x, inst.y, inst.z]);
@@ -1112,15 +1119,14 @@ App.InfiniteTerrain = (function () {
             _initShapeLODs(gl);
             _disposeLOD(gl);
         },
-        // 按相机未缩放坐标更新流式 LOD chunk（跨格才重算）
+        // 按相机未缩放坐标更新流式 LOD chunk。LOD 现按真实距离分级，相机在块内移动
+        // 也会改变各块的 LOD，故不再用"跨格"门控，而是相机移动超过阈值就重算
+        // （_updateLOD 内部仅对 seg 变化的块重建几何，开销可控）。
         updateLOD: function (gl, camX, camZ) {
-            var pcx = Math.floor(camX / CHUNK + 0.5);
-            var pcz = Math.floor(camZ / CHUNK + 0.5);
-            var key = pcx + ',' + pcz;
-            // 始终更新相机坐标(供 shape LOD 计算)，但仅跨格时重建 chunk
             _lodCamX = camX; _lodCamZ = camZ;
-            if (key === _lodLastKey) return;
-            _lodLastKey = key;
+            var moved = (camX - _lodLastX) * (camX - _lodLastX) + (camZ - _lodLastZ) * (camZ - _lodLastZ);
+            if (moved < LOD_UPDATE_DIST * LOD_UPDATE_DIST && _lodLastKey !== null) return;
+            _lodLastX = camX; _lodLastZ = camZ; _lodLastKey = 'set';
             _updateLOD(gl, camX, camZ);
         },
         // 强制重建（开关 LOD / 改参数时）
