@@ -162,6 +162,7 @@ var mNeedDrawPOM = false;
 var mNeedDrawPBRSphere = false;
 var mNeedDrawFractal = false;
 var mNeedDrawGeomShader = false;
+var mNeedDrawTessellation = false;
 var mNeedDrawEnvMap = false;
 var mSphereBuffer = null;
 // draw axis
@@ -300,6 +301,7 @@ var mUIPOM = null;
 var mUIPBRSphere = null;
 var mUIFractal = null;
 var mUIGeomShader = null;
+var mUITessellation = null;
 var mUIEnvMap = null;
 var mUILOD = null;
 var mUIOctree = null;
@@ -406,6 +408,7 @@ class GLScene extends GLCanvas {
         App.PBRSphere.init(gl);
         App.Fractal.init(gl);
         App.GeometryShader.init(gl);
+        App.Tessellation.init(gl);
         App.EnvMap.init(gl);
 
         // init shader
@@ -2233,6 +2236,7 @@ function switchDemo(demoId) {
     mNeedDrawPBRSphere = false;
     mNeedDrawFractal = false;
     mNeedDrawGeomShader = false;
+    mNeedDrawTessellation = false;
     mNeedDrawEnvMap = false;
     mUsePhongForFighter = false;
     mNeedDrawFighter = false;
@@ -2267,6 +2271,7 @@ function switchDemo(demoId) {
     document.getElementById("id_pbr_sphere_demo").style.display = 'none';
     document.getElementById("id_fractal_demo").style.display = 'none';
     document.getElementById("id_geomshader_demo").style.display = 'none';
+    document.getElementById("id_tessellation_demo").style.display = 'none';
     document.getElementById("id_envmap_demo").style.display = 'none';
     document.getElementById("id_lod_demo").style.display = 'none';
     document.getElementById("id_octree_demo").style.display = 'none';
@@ -2305,6 +2310,9 @@ function switchDemo(demoId) {
     }
     if (null != mUIGeomShader) {
         mUIGeomShader.style.display = 'none';
+    }
+    if (null != mUITessellation) {
+        mUITessellation.style.display = 'none';
     }
     if (null != mUIEnvMap) {
         mUIEnvMap.style.display = 'none';
@@ -2732,6 +2740,20 @@ function switchDemo(demoId) {
                 mUIGeomShader.innerHTML = new showdown.Converter().makeHtml(mr.responseText);
             }
             mUIGeomShader.style.display = 'block';
+            break;
+        case 'Tessellation':
+            mNeedDrawTessellation = true;
+            resumeMVPMatrix(false);
+            document.getElementById("id_tessellation_demo").style.display = 'flex';
+            updateTessellationOptions();
+            if (null == mUITessellation) {
+                mUITessellation = document.getElementById("id_tessellation_blog");
+                var mr = new XMLHttpRequest();
+                mr.open('get', './blog/tessellation.md', false);
+                mr.send();
+                mUITessellation.innerHTML = new showdown.Converter().makeHtml(mr.responseText);
+            }
+            mUITessellation.style.display = 'block';
             break;
         case 'EnvMap':
             mNeedDrawEnvMap = true;
@@ -3711,6 +3733,9 @@ function drawScene(gl, basicProgram, basicTexProgram, diffuseLightingProgram, no
     if (mNeedDrawGeomShader) {
         App.GeometryShader.draw(gl, false);
     }
+    if (mNeedDrawTessellation) {
+        App.Tessellation.draw(gl, false);
+    }
     if (mNeedDrawEnvMap) {
         App.EnvMap.draw(gl, false);
     }
@@ -3871,6 +3896,9 @@ function drawScene(gl, basicProgram, basicTexProgram, diffuseLightingProgram, no
     }
     if (mNeedDrawGeomShader) {
         App.GeometryShader.draw(gl, true);
+    }
+    if (mNeedDrawTessellation) {
+        App.Tessellation.draw(gl, true);
     }
     if (mNeedDrawNormalMap) {
         App.NormalMap.draw(gl, true);

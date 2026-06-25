@@ -295,6 +295,7 @@
         <script src="scene/PBRSphereModule.js"></script>
         <script src="scene/FractalModule.js"></script>
         <script src="scene/GeometryShaderModule.js"></script>
+        <script src="scene/TessellationModule.js"></script>
         <script src="scene/EnvMapModule.js"></script>
         <script src="scene/InfiniteTerrainModule.js"></script>
         <script src="scene/OctreeModule.js"></script>
@@ -339,6 +340,7 @@
                                 <li><a href="#TOC0.1" onclick="switchDemo('Shader')" data-lang="shader">着色器</a></li>
                                 <li><a href="#TOC0.2" onclick="switchDemo('Fractal')" data-lang="fractal">分形着色器</a></li>
                                 <li><a href="#TOC0.3" onclick="switchDemo('GeomShader')" data-lang="geometry_shader">几何着色器</a></li>
+                                <li><a href="#TOC0.4" onclick="switchDemo('Tessellation')" data-lang="tessellation_shader">细分着色器</a></li>
                             </ul>
                         <li data-lang="texture">纹理</li>
                             <ul>
@@ -1501,6 +1503,23 @@ void main() {
             </div>
         </div>
         <div id="id_geomshader_blog"></div>
+        <div id="id_tessellation_demo">
+            <h4 style="width: var(--sidebar-width); background: #ffffff" data-lang="tessellation_shader">细分着色器</h4>
+            <div style="border: 1px solid #cccccc; width: 26em; margin: 1px;">
+                <span data-lang="tess_level">细分级别</span><br/>
+                <input id="id_tess_level" style="width: 180px;" type="range" value="2" min="0" max="4" step="1" oninput="updateTessellationOptions()"/>
+                <label id="label_tess_level">2</label>
+            </div>
+            <div style="border: 1px solid #cccccc; width: 26em;">
+                <input type="checkbox" id="id_tess_project" checked onchange="updateTessellationOptions()"/><span data-lang="tess_project">投影到球面（TES 求值）</span><br>
+                <input type="checkbox" id="id_tess_wire" checked onchange="updateTessellationOptions()"/><span data-lang="tess_wire">显示线框</span><br>
+            </div>
+            <div style="border: 1px solid #cccccc; width: 26em;">
+                <span data-lang="tess_tricount_label">三角形数：</span><span id="id_tess_tricount">0</span><br>
+                <span style="font-size:smaller; color:#888" data-lang="tess_hint">WebGL 无细分着色器，递归细分由 CPU 模拟。取消投影=只细分不求值，仍是多面体</span>
+            </div>
+        </div>
+        <div id="id_tessellation_blog"></div>
         <div id="id_normalmap_demo">
             <h4 style="width: var(--sidebar-width); background: #ffffff" data-lang="normal_mapping">法线贴图</h4>
             <div style="border: 1px solid #cccccc; width: 22em;">
