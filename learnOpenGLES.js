@@ -638,12 +638,16 @@ function updateCameraPan(deltaTime) {
     mCameraPanY += rise * step;
 
     updateViewMatrixByMouse();
-    // 地形/LOD demo：平移即更新流式块，跟随相机。相机平移是"渲染空间"坐标，
+    // 地形 demo：平移即更新流式块，跟随相机。相机平移是"渲染空间"坐标，
     // 需除以 worldScale 换算回地形未缩放坐标，流式中心才正确。
-    if (mNeedDrawInfiniteTerrain || mNeedDrawLOD) {
-        var gl = mGLCanvas.getGL();
-        var ws = App.InfiniteTerrain.getWorldScale() || 1.0;
+    var gl = mGLCanvas.getGL();
+    var ws = App.InfiniteTerrain.getWorldScale() || 1.0;
+    if (mNeedDrawInfiniteTerrain) {
         App.InfiniteTerrain.updateChunks(gl, mCameraPanX / ws, mCameraPanZ / ws);
+    }
+    if (mNeedDrawLOD) {
+        // LOD 流式：相机走动 → 前方 chunk 生成、后方回收、各 chunk LOD 随距离升降
+        App.InfiniteTerrain.updateLOD(gl, mCameraPanX / ws, mCameraPanZ / ws);
     }
     return true;
 }
@@ -655,6 +659,15 @@ function updateOctreeStat() {
     if (el) {
         el.innerHTML = '绘制物体 ' + st.drawn + ' / ' + st.total +
             '，剔除节点 ' + st.culledNodes + ' / ' + st.nodes;
+    }
+}
+
+// 把 LOD 三角形/块数统计写到面板（每帧主视口绘制后调用，随相机移动实时变化）
+function updateLODStat() {
+    var el = document.getElementById('id_lod_tricount');
+    if (el) {
+        el.innerHTML = App.InfiniteTerrain.getLODTriCount().toLocaleString() +
+            '（' + App.InfiniteTerrain.getLODChunkCount() + ' 块）';
     }
 }
 
@@ -2394,14 +2407,19 @@ function switchDemo(demoId) {
             mUIPBRSphere.style.display = 'block';
             break;
         case 'LOD':
-            // 斜俯视看整片地形网格：沿用轨道相机 + 下俯(resumeMVPMatrix(true))。
+            // 第一人称贴地视角：相机略微下俯走在地形上，WASD 前后左右移动。
             resumeMVPMatrix(true);
             mNeedDrawLOD = true;
-            // 地形缩放：每块约 3 单位，近处细节清晰；7×7 网格(21单位)比视野大，
-            // 可用 WASD 在网格上平移飞行就近观察 LOD 分环。god 视角俯瞰全局。
-            App.InfiniteTerrain.setWorldScale(0.015);
-            App.InfiniteTerrain.setGroundY(-1.0);
+            // 拉大远裁剪面，让地形向远处铺开、能看到多圈 LOD 分级带（FBO 视锥教学
+            // demo 才需要 far=15，这里不需要，可自由放大并重建投影矩阵）。
+            mFar = 60.0;
+            mat4.perspective(mProjectionMatrix, 2 * mHalfFov, mAspect, mNear, mFar);
+            // worldScale 0.05 → chunk 约 10 单位；远裁剪 60 → 视野纵深约 5~6 个 chunk，
+            // 近处高细分、远处低细分的分级带清晰可见。走动时前方生成/后方回收/LOD 升降。
+            App.InfiniteTerrain.setWorldScale(0.05);
+            App.InfiniteTerrain.setGroundY(-2.0);
             App.InfiniteTerrain.initLOD(gl);
+            App.InfiniteTerrain.updateLOD(gl, 0, 0);
             document.getElementById("id_lod_demo").style.display = 'flex';
             updateLODOptions();   // 同步控件状态 + 刷新三角形计数
             if (null == mUILOD) {
@@ -3630,6 +3648,7 @@ function drawScene(gl, basicProgram, basicTexProgram, diffuseLightingProgram, no
         var vpLod = mat4.create();
         mat4.multiply(vpLod, mProjectionMatrix, mViewMatrix);
         App.InfiniteTerrain.drawLOD(gl, vpLod);
+        updateLODStat();
     }
     if (mNeedDrawOctree) {
         var vpOct = mat4.create();

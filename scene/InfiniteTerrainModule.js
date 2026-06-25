@@ -746,26 +746,32 @@ App.InfiniteTerrain = (function () {
     }
 
     // ═══════════════════════════════════════════════════════════════════
-    // LOD（层次细节）演示：独立于流式 chunk，自建一片以原点为中心的
-    // (2R+1)×(2R+1) 地形网格，每块的细分数按它到中心的"环号"递减：
-    // 近处高细分（密三角形），远处低细分（疏三角形）。可线框 + 按 LOD 染色。
+    // LOD（层次细节）流式演示：地形按 chunk 无限扩展，每个 chunk 的细分等级
+    // 由它到"相机所在 chunk"的距离(环号)决定 —— 离相机越近细分越精细。相机
+    // 用 WASD 移动时，前方 chunk 持续生成、后方回收，且每个 chunk 的 LOD 等级
+    // 随与相机的距离实时升降（同一 chunk 走近会变精细、走远会变粗糙）。
+    // 地形上还散布球/圆柱/圆锥三种几何体，同样按到相机距离取 4 档预建网格。
     // ═══════════════════════════════════════════════════════════════════
     var _lodProgram = null;
-    var _lodTiles = [];          // [{terrain, ox, oz, lod, ring}]
-    var _lodRadius = 3;          // 网格半径（3 → 7×7=49 块）
-    var _lodSegsByRing = [64, 32, 16, 8];  // 每环细分数（环号越大越疏）
-    var _lodEnabled = true;      // true=按距离分级；false=全部用最高细分
-    var _lodWireframe = true;    // 线框
-    var _lodColorByLevel = true; // 按 LOD 等级染色
-    var _lodTriCount = 0;        // 当前网格三角形总数（供 UI 显示）
+    var _lodChunks = {};         // key "cx,cz" -> { lod, terrains:[seg0..3 buffer 缓存], propSeed }
+    var _lodRadius = 3;          // 相机周围加载半径（chunk 数）→ (2R+1)² 块
+    var _lodSegsByRing = [64, 32, 16, 8];  // 每个 LOD 等级的地形细分数
+    var _lodLastKey = null;      // 相机所在 chunk，跨格才重算
+    var _lodWireframe = true;
+    var _lodColorByLevel = true;
+    var _lodEnabled = true;      // false=全部用最高细分(对比)
+    var _lodTriCount = 0;
+    var _lodCamX = 0, _lodCamZ = 0;  // 相机在"未缩放地形坐标"的位置
 
-    // 每个 LOD 等级的颜色（近→远：绿、黄、橙、红、紫）
+    // 三种几何体的 4 档 LOD 网格（预建，所有实例共享）
+    var _shapeLODs = null;       // { sphere:[lod0..3], cylinder:[...], cone:[...] }
+
+    // 每个 LOD 等级的颜色（近→远：绿、黄、橙、红）
     var _lodColors = [
         [0.30, 0.85, 0.35],
         [0.95, 0.90, 0.25],
         [0.98, 0.62, 0.20],
         [0.92, 0.30, 0.25],
-        [0.70, 0.35, 0.85],
     ];
 
     function _initLODShader(gl) {
@@ -804,74 +810,266 @@ App.InfiniteTerrain = (function () {
             ['uMVP', 'uModel', 'uLightDir', 'uLevelColor', 'uUseLevelColor', 'uFlat']);
     }
 
-    // 构建/重建 LOD 网格（开关 LOD 时重建）
-    function _buildLODGrid(gl) {
-        _disposeLODGrid(gl);
+    // 构建一个可索引几何 buffer（positions/normals/colors 同长，三角索引 + 线框索引）
+    function _makeShapeBuffer(gl, positions, normals, indices, rgb) {
+        var n = positions.length / 3;
+        var colors = new Float32Array(n * 3);
+        for (var i = 0; i < n; i++) { colors[i*3]=rgb[0]; colors[i*3+1]=rgb[1]; colors[i*3+2]=rgb[2]; }
+        var wire = [];
+        for (var t = 0; t < indices.length; t += 3) {
+            var a = indices[t], b = indices[t+1], c = indices[t+2];
+            wire.push(a,b, b,c, c,a);
+        }
+        function buf(target, arr, ArrType) {
+            var bb = gl.createBuffer(); gl.bindBuffer(target, bb);
+            gl.bufferData(target, new ArrType(arr), gl.STATIC_DRAW); return bb;
+        }
+        return {
+            position: buf(gl.ARRAY_BUFFER, positions, Float32Array),
+            normal:   buf(gl.ARRAY_BUFFER, normals, Float32Array),
+            color:    buf(gl.ARRAY_BUFFER, colors, Float32Array),
+            index:    buf(gl.ELEMENT_ARRAY_BUFFER, indices, Uint16Array),
+            indexCount: indices.length,
+            wire:     buf(gl.ELEMENT_ARRAY_BUFFER, wire, Uint16Array),
+            wireCount: wire.length,
+            triCount: indices.length / 3,
+        };
+    }
+
+    function _genSphere(seg) {
+        var pos = [], nrm = [], idx = [];
+        for (var iy = 0; iy <= seg; iy++) {
+            var v = iy / seg, phi = v * Math.PI;
+            for (var ix = 0; ix <= seg; ix++) {
+                var u = ix / seg, theta = u * Math.PI * 2;
+                var x = Math.sin(phi) * Math.cos(theta);
+                var y = Math.cos(phi);
+                var z = Math.sin(phi) * Math.sin(theta);
+                pos.push(x, y, z); nrm.push(x, y, z);
+            }
+        }
+        var row = seg + 1;
+        for (var yy = 0; yy < seg; yy++)
+            for (var xx = 0; xx < seg; xx++) {
+                var a = yy*row+xx, b = a+1, c = a+row, d = c+1;
+                idx.push(a,c,b, b,c,d);
+            }
+        return { pos: pos, nrm: nrm, idx: idx };
+    }
+
+    function _genCylinder(seg) {
+        var pos = [], nrm = [], idx = [];
+        for (var ring = 0; ring < 2; ring++) {
+            var y = ring === 0 ? -1 : 1;
+            for (var i = 0; i <= seg; i++) {
+                var a = i / seg * Math.PI * 2;
+                var cx = Math.cos(a), cz = Math.sin(a);
+                pos.push(cx, y, cz); nrm.push(cx, 0, cz);
+            }
+        }
+        var row = seg + 1;
+        for (var ss = 0; ss < seg; ss++) {
+            var a0 = ss, b0 = ss+1, c0 = row+ss, d0 = row+ss+1;
+            idx.push(a0,c0,b0, b0,c0,d0);
+        }
+        var topC = pos.length/3; pos.push(0,1,0); nrm.push(0,1,0);
+        var botC = pos.length/3; pos.push(0,-1,0); nrm.push(0,-1,0);
+        for (var k = 0; k < seg; k++) {
+            idx.push(topC, row + k, row + k + 1);
+            idx.push(botC, k + 1, k);
+        }
+        return { pos: pos, nrm: nrm, idx: idx };
+    }
+
+    function _genCone(seg) {
+        var pos = [], nrm = [], idx = [];
+        for (var i = 0; i <= seg; i++) {
+            var a = i / seg * Math.PI * 2;
+            var cx = Math.cos(a), cz = Math.sin(a);
+            pos.push(cx, -1, cz);
+            var nl = Math.sqrt(cx*cx + cz*cz + 0.25) || 1;
+            nrm.push(cx/nl, 0.5/nl, cz/nl);
+        }
+        var apex = pos.length/3; pos.push(0, 1, 0); nrm.push(0, 1, 0);
+        var botC = pos.length/3; pos.push(0, -1, 0); nrm.push(0, -1, 0);
+        for (var k = 0; k < seg; k++) {
+            idx.push(apex, k, k + 1);
+            idx.push(botC, k + 1, k);
+        }
+        return { pos: pos, nrm: nrm, idx: idx };
+    }
+
+    function _initShapeLODs(gl) {
+        if (_shapeLODs) return;
+        var SPHERE_SEG = [40, 20, 10, 5];
+        var TUBE_SEG   = [48, 24, 12, 6];
+        var c = [0.85, 0.85, 0.9];
+        _shapeLODs = { sphere: [], cylinder: [], cone: [] };
+        for (var i = 0; i < 4; i++) {
+            var sp = _genSphere(SPHERE_SEG[i]);
+            _shapeLODs.sphere.push(_makeShapeBuffer(gl, sp.pos, sp.nrm, sp.idx, c));
+            var cy = _genCylinder(TUBE_SEG[i]);
+            _shapeLODs.cylinder.push(_makeShapeBuffer(gl, cy.pos, cy.nrm, cy.idx, c));
+            var co = _genCone(TUBE_SEG[i]);
+            _shapeLODs.cone.push(_makeShapeBuffer(gl, co.pos, co.nrm, co.idx, c));
+        }
+    }
+
+    // 某个 chunk 里确定性散布的几何体实例（位置/类型/尺寸固定，渲染时按到相机距离选 LOD）
+    function _shapeInstances(cx, cz) {
+        var seed = ((cx * 73856093) ^ (cz * 19349663) ^ 0x5bd1e995) >>> 0;
+        var s = seed || 1;
+        var rng = function () {
+            s |= 0; s = s + 0x6D2B79F5 | 0;
+            var t = Math.imul(s ^ s >>> 15, 1 | s);
+            t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+            return ((t ^ t >>> 14) >>> 0) / 4294967296;
+        };
+        var types = ['sphere', 'cylinder', 'cone'];
+        var list = [];
+        var count = 5 + Math.floor(rng() * 4);
+        for (var i = 0; i < count; i++) {
+            var x = cx * CHUNK + (rng() - 0.5) * CHUNK * 0.9;
+            var z = cz * CHUNK + (rng() - 0.5) * CHUNK * 0.9;
+            var r = 6 + rng() * 8;
+            var type = types[Math.floor(rng() * types.length)];
+            var h = terrainHeightAt(x, z);
+            list.push({ type: type, x: x, y: h + r, z: z, r: r });
+        }
+        return list;
+    }
+
+    // 按相机所在 chunk 与目标 chunk 的切比雪夫距离决定 LOD 等级
+    function _lodForRing(ring) {
+        return Math.min(ring, _lodSegsByRing.length - 1);
+    }
+
+    // 流式更新：以相机未缩放坐标为中心，维护 (2R+1)² chunk，
+    // 每个 chunk 的 LOD 等级 = 它到相机 chunk 的环号。LOD 变化或新块则(重)建几何。
+    function _updateLOD(gl, camX, camZ) {
+        _lodCamX = camX; _lodCamZ = camZ;
+        var pcx = Math.floor(camX / CHUNK + 0.5);
+        var pcz = Math.floor(camZ / CHUNK + 0.5);
         var R = _lodRadius;
         var maxSeg = _lodSegsByRing[0];
+
+        var need = {};
         _lodTriCount = 0;
         for (var dz = -R; dz <= R; dz++) {
             for (var dx = -R; dx <= R; dx++) {
-                var ring = Math.max(Math.abs(dx), Math.abs(dz));  // 切比雪夫距离=环号
-                var lod = Math.min(ring, _lodSegsByRing.length - 1);
+                var cx = pcx + dx, cz = pcz + dz;
+                var key = cx + ',' + cz;
+                need[key] = true;
+                var ring = Math.max(Math.abs(dx), Math.abs(dz));
+                var lod = _lodEnabled ? _lodForRing(ring) : 0;  // lod0=最精细
                 var seg = _lodEnabled ? _lodSegsByRing[lod] : maxSeg;
-                var terrain = _buildChunkTerrainBuffer(gl, dx, dz, seg);
-                _lodTiles.push({ terrain: terrain, ox: dx * CHUNK, oz: dz * CHUNK, lod: lod, ring: ring });
-                _lodTriCount += terrain.triCount;
+
+                var ck = _lodChunks[key];
+                if (!ck) {
+                    ck = { cx: cx, cz: cz, lod: lod, seg: seg,
+                           terrain: _buildChunkTerrainBuffer(gl, cx, cz, seg),
+                           shapes: _shapeInstances(cx, cz) };
+                    _lodChunks[key] = ck;
+                } else if (ck.seg !== seg) {
+                    // LOD 等级变了（相机走近/走远）→ 重建该 chunk 的地形几何
+                    _freeTerrain(gl, ck.terrain);
+                    ck.lod = lod; ck.seg = seg;
+                    ck.terrain = _buildChunkTerrainBuffer(gl, cx, cz, seg);
+                }
+                _lodTriCount += ck.terrain.triCount;
+            }
+        }
+        // 回收范围外的 chunk（相机走过后方的块）
+        for (var ek in _lodChunks) {
+            if (_lodChunks.hasOwnProperty(ek) && !need[ek]) {
+                _freeTerrain(gl, _lodChunks[ek].terrain);
+                delete _lodChunks[ek];
             }
         }
     }
 
-    function _disposeLODGrid(gl) {
-        for (var i = 0; i < _lodTiles.length; i++) {
-            var t = _lodTiles[i].terrain;
-            gl.deleteBuffer(t.position); gl.deleteBuffer(t.normal);
-            gl.deleteBuffer(t.color); gl.deleteBuffer(t.index); gl.deleteBuffer(t.wire);
+    function _freeTerrain(gl, t) {
+        gl.deleteBuffer(t.position); gl.deleteBuffer(t.normal);
+        gl.deleteBuffer(t.color); gl.deleteBuffer(t.index); gl.deleteBuffer(t.wire);
+    }
+
+    function _disposeLOD(gl) {
+        for (var k in _lodChunks) {
+            if (_lodChunks.hasOwnProperty(k)) _freeTerrain(gl, _lodChunks[k].terrain);
         }
-        _lodTiles = [];
+        _lodChunks = {};
+        _lodLastKey = null;
+    }
+
+    // 绑定一个 LOD geom buffer 的 attribs 并按线框/实体绘制
+    function _drawLODGeom(gl, p, t) {
+        gl.bindBuffer(gl.ARRAY_BUFFER, t.position);
+        gl.vertexAttribPointer(p.attribs.aPosition, 3, gl.FLOAT, false, 0, 0);
+        gl.enableVertexAttribArray(p.attribs.aPosition);
+        gl.bindBuffer(gl.ARRAY_BUFFER, t.normal);
+        gl.vertexAttribPointer(p.attribs.aNormal, 3, gl.FLOAT, false, 0, 0);
+        gl.enableVertexAttribArray(p.attribs.aNormal);
+        gl.bindBuffer(gl.ARRAY_BUFFER, t.color);
+        gl.vertexAttribPointer(p.attribs.aColor, 3, gl.FLOAT, false, 0, 0);
+        gl.enableVertexAttribArray(p.attribs.aColor);
+        if (_lodWireframe) {
+            gl.uniform1f(p.uniforms.uFlat, 1.0);
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, t.wire);
+            gl.drawElements(gl.LINES, t.wireCount, gl.UNSIGNED_SHORT, 0);
+        } else {
+            gl.uniform1f(p.uniforms.uFlat, 0.0);
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, t.index);
+            gl.drawElements(gl.TRIANGLES, t.indexCount, gl.UNSIGNED_SHORT, 0);
+        }
     }
 
     function _drawLOD(gl, vpMatrix) {
-        if (!_lodProgram || !_lodTiles.length) return;
+        if (!_lodProgram) return;
         var L = _lightDir();
         var p = _lodProgram;
         gl.useProgram(p.program);
         gl.uniform3fv(p.uniforms.uLightDir, L);
 
-        for (var i = 0; i < _lodTiles.length; i++) {
-            var tile = _lodTiles[i];
-            var t = tile.terrain;
+        var pcx = Math.floor(_lodCamX / CHUNK + 0.5);
+        var pcz = Math.floor(_lodCamZ / CHUNK + 0.5);
+
+        for (var key in _lodChunks) {
+            if (!_lodChunks.hasOwnProperty(key)) continue;
+            var ck = _lodChunks[key];
+
+            // ── 地形块 ──
             var model = mat4.create();
-            mat4.translate(model, model, [t.ox, 0, t.oz]);
+            mat4.translate(model, model, [ck.cx * CHUNK, 0, ck.cz * CHUNK]);
             model = _wrapWorld(model);
             var mvp = mat4.create();
             mat4.multiply(mvp, vpMatrix, model);
             gl.uniformMatrix4fv(p.uniforms.uMVP, false, mvp);
             gl.uniformMatrix4fv(p.uniforms.uModel, false, model);
-
-            var col = _lodColors[Math.min(tile.lod, _lodColors.length - 1)];
+            var col = _lodColors[Math.min(ck.lod, _lodColors.length - 1)];
             gl.uniform3fv(p.uniforms.uLevelColor, col);
             gl.uniform1f(p.uniforms.uUseLevelColor, _lodColorByLevel ? 1.0 : 0.0);
+            _drawLODGeom(gl, p, ck.terrain);
 
-            gl.bindBuffer(gl.ARRAY_BUFFER, t.position);
-            gl.vertexAttribPointer(p.attribs.aPosition, 3, gl.FLOAT, false, 0, 0);
-            gl.enableVertexAttribArray(p.attribs.aPosition);
-            gl.bindBuffer(gl.ARRAY_BUFFER, t.normal);
-            gl.vertexAttribPointer(p.attribs.aNormal, 3, gl.FLOAT, false, 0, 0);
-            gl.enableVertexAttribArray(p.attribs.aNormal);
-            gl.bindBuffer(gl.ARRAY_BUFFER, t.color);
-            gl.vertexAttribPointer(p.attribs.aColor, 3, gl.FLOAT, false, 0, 0);
-            gl.enableVertexAttribArray(p.attribs.aColor);
-
-            if (_lodWireframe) {
-                // 线框：纯色线条，忽略光照
-                gl.uniform1f(p.uniforms.uFlat, 1.0);
-                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, t.wire);
-                gl.drawElements(gl.LINES, t.wireCount, gl.UNSIGNED_SHORT, 0);
-            } else {
-                gl.uniform1f(p.uniforms.uFlat, 0.0);
-                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, t.index);
-                gl.drawElements(gl.TRIANGLES, t.indexCount, gl.UNSIGNED_SHORT, 0);
+            // ── 几何体（球/柱/锥）：按到相机的 chunk 环号选 LOD ──
+            if (_shapeLODs && ck.shapes) {
+                for (var si = 0; si < ck.shapes.length; si++) {
+                    var inst = ck.shapes[si];
+                    var ring = Math.max(Math.abs(ck.cx - pcx), Math.abs(ck.cz - pcz));
+                    var slod = _lodEnabled ? _lodForRing(ring) : 0;
+                    var geom = _shapeLODs[inst.type][slod];
+                    var sm = mat4.create();
+                    mat4.translate(sm, sm, [inst.x, inst.y, inst.z]);
+                    mat4.scale(sm, sm, [inst.r, inst.r, inst.r]);
+                    sm = _wrapWorld(sm);
+                    var smvp = mat4.create();
+                    mat4.multiply(smvp, vpMatrix, sm);
+                    gl.uniformMatrix4fv(p.uniforms.uMVP, false, smvp);
+                    gl.uniformMatrix4fv(p.uniforms.uModel, false, sm);
+                    var scol = _lodColors[Math.min(slod, _lodColors.length - 1)];
+                    gl.uniform3fv(p.uniforms.uLevelColor, scol);
+                    gl.uniform1f(p.uniforms.uUseLevelColor, _lodColorByLevel ? 1.0 : 0.0);
+                    _drawLODGeom(gl, p, geom);
+                }
             }
         }
     }
@@ -908,14 +1106,31 @@ App.InfiniteTerrain = (function () {
         setWorldScale: function (s) { _worldScale = s; },
         getWorldScale: function () { return _worldScale; },
         // ── LOD（层次细节）演示接口 ──
-        initLOD: function (gl) { if (!_lodProgram) _lodProgram = _initLODShader(gl); _buildLODGrid(gl); },
-        buildLODGrid: function (gl) { _buildLODGrid(gl); },
+        // ── LOD 流式演示接口 ──
+        initLOD: function (gl) {
+            if (!_lodProgram) _lodProgram = _initLODShader(gl);
+            _initShapeLODs(gl);
+            _disposeLOD(gl);
+        },
+        // 按相机未缩放坐标更新流式 LOD chunk（跨格才重算）
+        updateLOD: function (gl, camX, camZ) {
+            var pcx = Math.floor(camX / CHUNK + 0.5);
+            var pcz = Math.floor(camZ / CHUNK + 0.5);
+            var key = pcx + ',' + pcz;
+            // 始终更新相机坐标(供 shape LOD 计算)，但仅跨格时重建 chunk
+            _lodCamX = camX; _lodCamZ = camZ;
+            if (key === _lodLastKey) return;
+            _lodLastKey = key;
+            _updateLOD(gl, camX, camZ);
+        },
+        // 强制重建（开关 LOD / 改参数时）
+        rebuildLOD: function (gl) { _lodLastKey = null; _updateLOD(gl, _lodCamX, _lodCamZ); },
         drawLOD: function (gl, vpMatrix) { _drawLOD(gl, vpMatrix); },
-        setLODEnabled: function (gl, v) { _lodEnabled = v; _buildLODGrid(gl); },
+        setLODEnabled: function (gl, v) { _lodEnabled = v; _lodLastKey = null; _updateLOD(gl, _lodCamX, _lodCamZ); },
         setLODWireframe: function (v) { _lodWireframe = v; },
         setLODColorByLevel: function (v) { _lodColorByLevel = v; },
         getLODTriCount: function () { return _lodTriCount; },
-        getLODLevels: function () { return _lodSegsByRing.slice(); },
+        getLODChunkCount: function () { var n = 0; for (var k in _lodChunks) if (_lodChunks.hasOwnProperty(k)) n++; return n; },
         // 大石头碰撞圆（供场景管理 Demo）
         getColliders: function () { return _colliders; },
         // 已加载块数（供 LOD/场景管理 Demo 显示）
