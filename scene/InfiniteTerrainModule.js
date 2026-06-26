@@ -1062,25 +1062,25 @@ App.InfiniteTerrain = (function () {
             _drawLODGeom(gl, p, ck.terrain);
 
             // ── 几何体（球/柱/锥）：按到相机的真实距离选 LOD（与地形同一套距离分级）──
-            if (_lodShowShapes && _shapeLODs && ck.shapes) {
-                for (var si = 0; si < ck.shapes.length; si++) {
-                    var inst = ck.shapes[si];
-                    var slod = _lodEnabled ? _lodLevelForPoint(inst.x, inst.z) : 0;
-                    var geom = _shapeLODs[inst.type][slod];
-                    var sm = mat4.create();
-                    mat4.translate(sm, sm, [inst.x, inst.y, inst.z]);
-                    mat4.scale(sm, sm, [inst.r, inst.r, inst.r]);
-                    sm = _wrapWorld(sm);
-                    var smvp = mat4.create();
-                    mat4.multiply(smvp, vpMatrix, sm);
-                    gl.uniformMatrix4fv(p.uniforms.uMVP, false, smvp);
-                    gl.uniformMatrix4fv(p.uniforms.uModel, false, sm);
-                    var scol = _lodColors[Math.min(slod, _lodColors.length - 1)];
-                    gl.uniform3fv(p.uniforms.uLevelColor, scol);
-                    gl.uniform1f(p.uniforms.uUseLevelColor, _lodColorByLevel ? 1.0 : 0.0);
-                    _drawLODGeom(gl, p, geom);
-                }
-            }
+            // if (_lodShowShapes && _shapeLODs && ck.shapes) {
+            //     for (var si = 0; si < ck.shapes.length; si++) {
+            //         var inst = ck.shapes[si];
+            //         var slod = _lodEnabled ? _lodLevelForPoint(inst.x, inst.z) : 0;
+            //         var geom = _shapeLODs[inst.type][slod];
+            //         var sm = mat4.create();
+            //         mat4.translate(sm, sm, [inst.x, inst.y, inst.z]);
+            //         mat4.scale(sm, sm, [inst.r, inst.r, inst.r]);
+            //         sm = _wrapWorld(sm);
+            //         var smvp = mat4.create();
+            //         mat4.multiply(smvp, vpMatrix, sm);
+            //         gl.uniformMatrix4fv(p.uniforms.uMVP, false, smvp);
+            //         gl.uniformMatrix4fv(p.uniforms.uModel, false, sm);
+            //         var scol = _lodColors[Math.min(slod, _lodColors.length - 1)];
+            //         gl.uniform3fv(p.uniforms.uLevelColor, scol);
+            //         gl.uniform1f(p.uniforms.uUseLevelColor, _lodColorByLevel ? 1.0 : 0.0);
+            //         _drawLODGeom(gl, p, geom);
+            //     }
+            // }
         }
     }
 
