@@ -16,7 +16,9 @@
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8080/scene/FresnelModule.js)",
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8080/blog/fresnel.md)",
       "Bash(node --check scene/NormalMapModule.js)",
-      "WebFetch(domain:agnes-ai.com)"
+      "WebFetch(domain:agnes-ai.com)",
+      "Bash(cd /Users/insta360/Documents/dengjian/dreamcloudwalker.github.io)",
+      "Bash(python3 -m http.server 8080)"
     ]
   }
 }

@@ -8,156 +8,483 @@
   <script src="imageEditor.js"></script>
   <script src="base/FrameBufferObject.js"></script>
   <script src="public/showdown_2_1_0.min.js"></script>
-  <style type="text/css">
-      div#canvas-frame {
-          border: none;
-          cursor: pointer;
-          width: 1024px;
-          height: 610px;
-          background-color: rgb(238, 238, 238);
-      }
-      div#horizontal {
-          display: flex;
-      }
-      div#id_image_edit_blog {
-          display: flex;
-      }
-  </style>
+  <!-- ═══ 全页面样式 ═══ -->
   <style>
-    #filterOptions label img {
-        border: 2px solid transparent; /* 默认无边框 */
-        border-radius: 5px; /* 可选：圆角边框 */
-        transition: border-color 0.3s; /* 平滑过渡效果 */
+    * { box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: #f2f3f5;
+      color: #1d2129;
+      margin: 16px 20px;
     }
 
-    #filterOptions label input:checked + img {
-        border: 5px solid #007BFF; /* 选中状态的外框颜色 */
+    /* ── 通用卡片 ── */
+    .card {
+      max-width: 1024px;
+      margin-top: 12px;
+      background: #fff;
+      border: 1px solid #e4e7ed;
+      border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+      overflow: hidden;
+    }
+    .card__header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 20px;
+      background: #f7f8fa;
+      border-bottom: 1px solid #e4e7ed;
+    }
+    .card__title {
+      font-size: 14px; font-weight: 600;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .card__body { padding: 16px 20px; }
+
+    /* ── 工具栏 ── */
+    .toolbar {
+      display: flex; align-items: center; flex-wrap: wrap; gap: 4px;
+      padding: 8px 10px;
+      background: #fff;
+      border: 1px solid #e4e7ed;
+      border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+      max-width: 1024px;
+      margin-top: 10px;
+    }
+    .toolbar__group { display: flex; align-items: center; gap: 3px; }
+    .toolbar__divider {
+      width: 1px; height: 24px;
+      background: #e4e7ed;
+      margin: 0 6px;
+    }
+    .toolbar__btn {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 5px 10px;
+      font-size: 12px; font-weight: 500;
+      color: #4e5969;
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all .15s;
+      white-space: nowrap;
+    }
+    .toolbar__btn:hover { background: #f7f8fa; border-color: #e4e7ed; }
+    .toolbar__btn:active { background: #eef0f3; }
+    .toolbar__btn--primary { color: #1e80ff; }
+    .toolbar__btn--primary:hover { background: #f0f5ff; border-color: #d6e4ff; }
+    .toolbar__btn--danger { color: #f53f3f; }
+    .toolbar__btn--danger:hover { background: #fff1f0; border-color: #fcd1d1; }
+
+    /* ── 滤镜选择器 ── */
+    .filter-grid {
+      display: flex; flex-wrap: wrap; gap: 10px;
+      padding: 4px 0;
+    }
+    .filter-grid label {
+      display: inline-block;
+      cursor: pointer;
+      border: 3px solid transparent;
+      border-radius: 8px;
+      transition: border-color .2s;
+      overflow: hidden;
+      line-height: 0;
+    }
+    .filter-grid label:hover { border-color: #c9cdd4; }
+    .filter-grid input:checked + img { border: 3px solid #1e80ff; border-radius: 5px; }
+    .filter-grid img {
+      width: 56px; height: 56px;
+      object-fit: cover;
+      border-radius: 5px;
     }
 
-    #filterOptions label img:hover {
-        border-color: #555; /* 鼠标悬停时的边框颜色 */
+    /* ── 信息面板 ── */
+    .info-panel {
+      display: flex; align-items: stretch; gap: 0;
+    }
+    .info-panel__item {
+      flex: 1;
+      padding: 12px 16px;
+      text-align: center;
+      border-right: 1px solid #e4e7ed;
+    }
+    .info-panel__item:last-child { border-right: none; }
+    .info-panel__label {
+      display: block;
+      font-size: 11px; font-weight: 500; color: #86909c;
+      margin-bottom: 4px;
+    }
+    .info-panel__value {
+      display: block;
+      font-size: 13px; font-weight: 500; color: #1d2129;
+    }
+
+    /* ── MVP 矩阵 ── */
+    .matrix-wrap {
+      display: flex; align-items: center; justify-content: center; gap: 4px;
+      padding: 4px 0;
+    }
+    .matrix-bracket { height: 64px; opacity: .4; }
+    .matrix-col { text-align: center; }
+    .matrix-cell {
+      display: block;
+      font-family: "SF Mono", "Fira Code", "Consolas", monospace;
+      font-size: 12px;
+      line-height: 1.6;
+      color: #4e5969;
+    }
+    .matrix-cell--highlight { color: #1e80ff; font-weight: 600; }
+
+    /* ── 着色器编辑器 ── */
+    .editor-grid {
+      display: flex; gap: 16px;
+    }
+    .editor-grid__col { flex: 1; min-width: 0; }
+    .editor-label {
+      display: block;
+      font-size: 12px; font-weight: 600; color: #4e5969;
+      margin-bottom: 6px;
+    }
+    .editor-label code {
+      font-size: 11px;
+      background: #eef0f3;
+      padding: 1px 6px;
+      border-radius: 3px;
+      color: #86909c;
+      font-weight: 400;
+    }
+    .editor-textarea {
+      width: 100%;
+      padding: 12px 14px;
+      font-family: "SF Mono", "Fira Code", "Consolas", monospace;
+      font-size: 12px;
+      line-height: 1.5;
+      color: #1d2129;
+      background: #fafbfc;
+      border: 1px solid #d9dde3;
+      border-radius: 6px;
+      outline: none;
+      resize: vertical;
+      tab-size: 2;
+      transition: border-color .2s, box-shadow .2s;
+    }
+    .editor-textarea:focus {
+      border-color: #1e80ff;
+      box-shadow: 0 0 0 3px rgba(30,128,255,.1);
+      background: #fff;
+    }
+
+    /* ── AI 卡片 (复用 card) ── */
+    .ai-card { max-width: 1024px; }
+    .ai-field { margin-bottom: 14px; }
+    .ai-field:last-of-type { margin-bottom: 0; }
+    .ai-field__label {
+      display: block;
+      font-size: 12px; font-weight: 500; color: #4e5969;
+      margin-bottom: 5px;
+    }
+    .ai-input-group { display: flex; align-items: center; gap: 8px; }
+    .ai-input-group .ai-input { flex: 1; }
+    .ai-input, .ai-select {
+      width: 100%;
+      padding: 7px 12px;
+      font-size: 13px;
+      border: 1px solid #d9dde3;
+      border-radius: 6px;
+      background: #fff;
+      color: #1d2129;
+      outline: none;
+      transition: border-color .2s, box-shadow .2s;
+    }
+    .ai-input:focus, .ai-select:focus {
+      border-color: #1e80ff;
+      box-shadow: 0 0 0 3px rgba(30,128,255,.15);
+    }
+    .ai-input::placeholder { color: #a9aeb8; }
+    .ai-select { cursor: pointer; }
+    .ai-link { font-size: 12px; color: #1e80ff; text-decoration: none; white-space: nowrap; }
+    .ai-link:hover { text-decoration: underline; }
+    .ai-textarea {
+      width: 100%;
+      padding: 8px 12px;
+      font-size: 13px;
+      border: 1px solid #d9dde3;
+      border-radius: 6px;
+      background: #fff;
+      color: #1d2129;
+      outline: none;
+      resize: vertical;
+      min-height: 46px;
+      max-height: 120px;
+      transition: border-color .2s, box-shadow .2s;
+    }
+    .ai-textarea:focus {
+      border-color: #1e80ff;
+      box-shadow: 0 0 0 3px rgba(30,128,255,.15);
+    }
+    .ai-textarea::placeholder { color: #a9aeb8; }
+
+    .ai-actions { display: flex; align-items: center; gap: 10px; margin-top: 16px; }
+    .ai-btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+      padding: 8px 20px;
+      font-size: 13px; font-weight: 500;
+      border: 1px solid transparent;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all .2s;
+      white-space: nowrap;
+      user-select: none;
+    }
+    .ai-btn:disabled { opacity: .55; cursor: not-allowed; }
+    .ai-btn--primary { background: #1e80ff; color: #fff; border-color: #1e80ff; }
+    .ai-btn--primary:hover:not(:disabled) { background: #0f6de0; }
+    .ai-btn--sm { padding: 5px 14px; font-size: 12px; }
+    .ai-btn--danger { background: #fff; color: #f53f3f; border-color: #fcd1d1; }
+    .ai-btn--danger:hover:not(:disabled) { background: #fff1f0; }
+
+    .ai-btn__spinner {
+      display: none; width: 14px; height: 14px;
+      border: 2px solid rgba(255,255,255,.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: ai-spin .6s linear infinite;
+    }
+    .ai-btn.is-loading .ai-btn__spinner { display: inline-block; }
+    .ai-btn.is-loading .ai-btn__icon { display: none; }
+    @keyframes ai-spin { to { transform: rotate(360deg); } }
+
+    .ai-status {
+      display: none; margin-top: 12px; padding: 8px 14px;
+      font-size: 13px; border-radius: 6px;
+      background: #f0f5ff; color: #1d2129;
+      border: 1px solid #d6e4ff;
+      transition: all .25s;
+    }
+    .ai-status.is-error  { background: #fff1f0; border-color: #fcd1d1; color: #f53f3f; }
+    .ai-status.is-success { background: #e8fae8; border-color: #b7ebc0; color: #27ae60; }
+    .ai-hint { font-size: 12px; color: #86909c; line-height: 1.5; }
+
+    .ai-result { display: none; margin-top: 18px; padding: 16px; background: #fafbfc; border: 1px solid #e4e7ed; border-radius: 8px; }
+    .ai-result.is-visible { display: block; }
+    .ai-result__header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+    .ai-result__header-title { font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+    .ai-result__header-title::before { content: ''; display: inline-block; width: 3px; height: 14px; background: #1e80ff; border-radius: 2px; }
+    .ai-result__header-actions { display: flex; align-items: center; gap: 8px; }
+    .ai-result__grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .ai-result__card { background: #fff; border: 1px solid #e4e7ed; border-radius: 6px; overflow: hidden; }
+    .ai-result__card-label { display: flex; align-items: center; justify-content: center; gap: 4px; padding: 5px 0; font-size: 11px; font-weight: 500; color: #86909c; background: #f7f8fa; border-bottom: 1px solid #e4e7ed; }
+    .ai-result__card-img { width: 100%; display: block; object-fit: contain; background: #f2f3f5; }
+    .ai-result__card-info { display: flex; justify-content: space-between; padding: 5px 10px; font-size: 11px; color: #86909c; border-top: 1px solid #e4e7ed; background: #f7f8fa; }
+
+    /* ── Blog ── */
+    .blog-card { max-width: 1024px; }
+    .blog-card .card__body { padding: 20px; }
+    .blog-card img { max-width: 100%; }
+    .blog-card code {
+      background: #eef0f3;
+      padding: 1px 5px;
+      border-radius: 3px;
+      font-size: 12px;
+    }
+    .blog-card pre {
+      background: #f7f8fa;
+      border: 1px solid #e4e7ed;
+      border-radius: 6px;
+      padding: 12px;
+      overflow-x: auto;
     }
   </style>
 
   <body onload="main();" ondblclick="doubleClick();" onkeypress="onKeyPress(event)" >
-    <canvas id="glcanvas" width="1024" height="610"></canvas>
+    <canvas id="glcanvas" width="1024" height="610" style="display:block; border-radius:8px; box-shadow:0 2px 10px rgba(0,0,0,.08);"></canvas>
 
-    <div id="horizontal">
-        <button style="display:block; margin:5; width: 60px; height: 30px" onclick="resume()">继续</button>
-        <button style="display:block; margin:5; width: 60px; height: 30px" onclick="pause()">暂停</button>
-        <button style="display:block; margin:5; width: 60px; height: 30px" onclick="rotate()">旋转</button>
-        <button style="display:block; margin:5; width: 70px; height: 30px" onclick="mirrorX()">水平镜像</button>
-        <button style="display:block; margin:5; width: 70px; height: 30px" onclick="mirrorY()">垂直镜像</button>
-        <button style="display:block; margin:5; width: 60px; height: 30px" onclick="save()">保存</button>
-        <button style="display:block; margin:5; width: 120px; height: 30px" onclick="document.getElementById('fileInput').click()">加载图片</button>
-        <input type="file" id="fileInput" accept="image/*" style="display:none" onchange="loadImage(event)">    
-        <button style="display:block; margin:5; width: 60px; height: 30px" onclick="toggleFilterOptions()">滤镜</button>
-        <button style="display:block; margin:5; width: 60px; height: 30px" onclick="toggleCrop()">裁剪</button>
+    <!-- ═══ 工具栏 ═══ -->
+    <div class="toolbar">
+      <div class="toolbar__group">
+        <button class="toolbar__btn" onclick="resume()">▶ 继续</button>
+        <button class="toolbar__btn" onclick="pause()">⏸ 暂停</button>
+        <button class="toolbar__btn" onclick="rotate()">↻ 旋转</button>
+        <button class="toolbar__btn" onclick="mirrorX()">⇔ 水平镜像</button>
+        <button class="toolbar__btn" onclick="mirrorY()">⇕ 垂直镜像</button>
+      </div>
+      <div class="toolbar__divider"></div>
+      <div class="toolbar__group">
+        <button class="toolbar__btn toolbar__btn--primary" onclick="save()">💾 保存</button>
+        <button class="toolbar__btn toolbar__btn--primary" onclick="document.getElementById('fileInput').click()">📂 加载图片</button>
+        <input type="file" id="fileInput" accept="image/*" style="display:none" onchange="loadImage(event)">
+      </div>
+      <div class="toolbar__divider"></div>
+      <div class="toolbar__group">
+        <button class="toolbar__btn toolbar__btn--primary" onclick="toggleFilterOptions()">🎨 滤镜</button>
+        <button class="toolbar__btn toolbar__btn--danger" onclick="toggleCrop()">✂ 裁剪</button>
+      </div>
     </div>
 
-    <!-- AI 图片编辑区域 - 放在最显眼的位置 -->
-    <div id="aiEditSection" style="border: 1px solid #007BFF; padding: 12px; margin-top: 10px; margin-bottom: 8px; width: 998px; background-color: #f0f7ff; border-radius: 6px;">
-        <div style="font-weight: bold; font-size: 16px; margin-bottom: 10px; color: #0056b3;">🤖 AI 图片编辑 (Agnes Image 2.1 Flash)</div>
-        <div style="display: flex; align-items: center; margin-bottom: 8px; flex-wrap: wrap;">
-            <label style="margin-right: 6px; width: 75px; font-size: 13px; font-weight: 500;">API Key:</label>
-            <input type="password" id="id_api_key" placeholder="输入你的 Agnes API Key" style="width: 420px; padding: 5px; border: 1px solid #ccc; border-radius: 3px;" />
-            <span style="margin-left: 10px; font-size: 12px; color: #888;">← 获取: agnes-ai.com</span>
+    <!-- ═══ AI 图片编辑 ═══ -->
+    <div class="card ai-card">
+      <div class="card__header">
+        <span class="card__title">🤖 AI 图片编辑</span>
+        <span style="font-size:11px; font-weight:500; padding:2px 10px; border-radius:10px; background:#e8f4ff; color:#1e80ff;">Agnes Image 2.1 Flash</span>
+      </div>
+      <div class="card__body">
+        <!-- API Key -->
+        <div class="ai-field">
+          <label class="ai-field__label">API Key</label>
+          <div class="ai-input-group">
+            <input type="password" id="id_api_key" class="ai-input" placeholder="输入你的 Agnes API Key" />
+            <a class="ai-link" href="https://agnes-ai.com" target="_blank">获取密钥 →</a>
+          </div>
         </div>
-        <div style="display: flex; align-items: center; margin-bottom: 8px;">
-            <label style="margin-right: 6px; width: 75px; font-size: 13px; font-weight: 500;">模式:</label>
-            <select id="id_ai_mode" onchange="onAiModeChange()" style="width: 170px; padding: 5px; border: 1px solid #ccc; border-radius: 3px;">
+        <!-- 模式 + 尺寸 -->
+        <div class="ai-field">
+          <div style="display:flex; align-items:center; gap:24px;">
+            <div style="flex:1;">
+              <label class="ai-field__label">模式</label>
+              <select id="id_ai_mode" class="ai-select" onchange="onAiModeChange()">
                 <option value="img2img">🎨 图生图 / 图片编辑</option>
-                <option value="txt2img">✨ 文生图 (Text-to-Image)</option>
-            </select>
-            <span id="id_ai_size_row" style="display: none; align-items: center;">
-                <label style="margin-left: 24px; margin-right: 6px; font-size: 13px; font-weight: 500;">尺寸:</label>
-                <select id="id_ai_size" style="width: 130px; padding: 5px; border: 1px solid #ccc; border-radius: 3px;">
-                    <option value="1024x1024">1024 × 1024</option>
-                    <option value="1024x768" selected>1024 × 768</option>
-                    <option value="768x1024">768 × 1024</option>
-                    <option value="512x512">512 × 512</option>
-                    <option value="512x384">512 × 384</option>
-                </select>
-            </span>
+                <option value="txt2img">✨ 文生图</option>
+              </select>
+            </div>
+            <div id="id_ai_size_row" style="display:none; flex:1;">
+              <label class="ai-field__label">输出尺寸</label>
+              <select id="id_ai_size" class="ai-select">
+                <option value="1024x1024">1024 × 1024</option>
+                <option value="1024x768" selected>1024 × 768</option>
+                <option value="768x1024">768 × 1024</option>
+                <option value="512x512">512 × 512</option>
+                <option value="512x384">512 × 384</option>
+              </select>
+            </div>
+          </div>
         </div>
-        <div style="display: flex; align-items: flex-start;">
-            <label style="margin-right: 6px; width: 75px; font-size: 13px; font-weight: 500; padding-top: 6px;">提示词:</label>
-            <textarea id="id_ai_prompt" placeholder="例如：让画面中的物体变成橙色，保持原始构图不变" style="width: 510px; height: 52px; padding: 5px; border: 1px solid #ccc; border-radius: 3px; resize: vertical;"></textarea>
-            <button id="id_ai_submit_btn" style="margin-left: 10px; width: 140px; height: 64px; background: linear-gradient(180deg, #007BFF, #0056b3); color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 14px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.2);" onclick="editWithAI()">🚀 AI 编辑</button>
+        <!-- 提示词 -->
+        <div class="ai-field">
+          <label class="ai-field__label">提示词</label>
+          <textarea id="id_ai_prompt" class="ai-textarea" placeholder="描述你想要的效果，例如：让画面中的物体变成橙色，保持原始构图不变"></textarea>
         </div>
-        <div id="id_ai_status" style="display: none; margin-top: 8px; padding: 6px 10px; background-color: #e8f4ff; border-radius: 4px; font-size: 13px; border: 1px solid #b8daff;"></div>
+        <!-- 操作 -->
+        <div class="ai-actions">
+          <button id="id_ai_submit_btn" class="ai-btn ai-btn--primary" onclick="editWithAI()">
+            <span class="ai-btn__spinner"></span>
+            <span class="ai-btn__icon">🚀</span>
+            <span class="ai-btn__text">开始编辑</span>
+          </button>
+          <span class="ai-hint">图生图模式自动使用源图尺寸，约 5-30 秒完成</span>
+        </div>
+        <!-- 状态 -->
+        <div id="id_ai_status" class="ai-status"></div>
+        <!-- 结果对比 -->
+        <div id="id_ai_result" class="ai-result">
+          <div class="ai-result__header">
+            <span class="ai-result__header-title">编辑结果</span>
+            <div class="ai-result__header-actions">
+              <button class="ai-btn ai-btn--primary ai-btn--sm" onclick="applyAiResult()">✓ 应用到画布</button>
+              <button class="ai-btn ai-btn--danger ai-btn--sm" onclick="discardAiResult()">✗ 放弃</button>
+            </div>
+          </div>
+          <div class="ai-result__grid">
+            <div class="ai-result__card">
+              <div class="ai-result__card-label">📷 原图</div>
+              <img id="id_ai_before_img" class="ai-result__card-img" />
+              <div class="ai-result__card-info">
+                <span id="id_ai_before_info">加载中...</span>
+                <span>原始</span>
+              </div>
+            </div>
+            <div class="ai-result__card">
+              <div class="ai-result__card-label">✨ AI 结果</div>
+              <img id="id_ai_after_img" class="ai-result__card-img" />
+              <div class="ai-result__card-info">
+                <span id="id_ai_after_info">加载中...</span>
+                <span>新生成</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
-    <!-- 滤镜选项容器 -->
-    <div id="filterOptions" style="display:none; margin-top:10px;">
-        <form id="filterForm" onchange="onFilterChange(event)">
-            <label>
-                <input type="radio" name="filter" value="filter1" checked style="display:none;">
-                <img src="./texture/lut_none.jpg" alt="无滤镜" title="无滤镜" style="width:50px; height:50px; cursor:pointer;">
-            </label>
-            <label>
-                <input type="radio" name="filter" value="filter2" style="display:none;">
-                <img src="./texture/lut_yellow.png" alt="滤镜2" title="滤镜2" style="width:50px; height:50px; cursor:pointer;">
-            </label>
-            <label>
-                <input type="radio" name="filter" value="filter3" style="display:none;">
-                <img src="./texture/lut_purple.png" alt="滤镜3" title="滤镜3" style="width:50px; height:50px; cursor:pointer;">
-            </label>
-            <label>
-                <input type="radio" name="filter" value="filter4" style="display:none;">
-                <img src="./texture/lut_2.png" alt="滤镜4" title="滤镜4" style="width:50px; height:50px; cursor:pointer;">
-            </label>
-            <label>
-                <input type="radio" name="filter" value="filter5" style="display:none;">
-                <img src="./texture/lut_3.png" alt="滤镜5" title="滤镜5" style="width:50px; height:50px; cursor:pointer;">
-            </label>
-            <label>
-                <input type="radio" name="filter" value="filter6" style="display:none;">
-                <img src="./texture/lut_4.png" alt="滤镜6" title="滤镜6" style="width:50px; height:50px; cursor:pointer;">
-            </label>
+    <!-- ═══ 滤镜选项 ═══ -->
+    <div id="filterOptions" class="card" style="display:none;">
+      <div class="card__header">
+        <span class="card__title">🎨 滤镜选择</span>
+      </div>
+      <div class="card__body">
+        <form id="filterForm" class="filter-grid" onchange="onFilterChange(event)">
+          <label><input type="radio" name="filter" value="filter1" checked style="display:none;"><img src="./texture/lut_none.jpg" alt="无滤镜"></label>
+          <label><input type="radio" name="filter" value="filter2" style="display:none;"><img src="./texture/lut_yellow.png" alt="滤镜2"></label>
+          <label><input type="radio" name="filter" value="filter3" style="display:none;"><img src="./texture/lut_purple.png" alt="滤镜3"></label>
+          <label><input type="radio" name="filter" value="filter4" style="display:none;"><img src="./texture/lut_2.png" alt="滤镜4"></label>
+          <label><input type="radio" name="filter" value="filter5" style="display:none;"><img src="./texture/lut_3.png" alt="滤镜5"></label>
+          <label><input type="radio" name="filter" value="filter6" style="display:none;"><img src="./texture/lut_4.png" alt="滤镜6"></label>
         </form>
+      </div>
     </div>
 
-    <div style="border: 1px solid #cccccc; width: 200px; padding: 5px">
-        MVP矩阵 = 
-        <div id="horizontal" style="margin: 5px">
-            <img src="./texture/matrixL.png">
-            <div id="matrix" style="margin: 5px;">
-                     <label id="id_image_edit_mvpmatrix_m00">1.00</label><br/>
-                <br/><label id="id_image_edit_mvpmatrix_m10">0.00</label><br/>
-                <br/><label id="id_image_edit_mvpmatrix_m20">0.00</label><br/>
-                <br/><label id="id_image_edit_mvpmatrix_m30">0.00</label>
+    <!-- ═══ 信息面板（图片信息 + MVP矩阵） ═══ -->
+    <div class="card">
+      <div class="card__header">
+        <span class="card__title">ℹ️ 画布信息</span>
+        <span style="font-size:11px; color:#86909c;" id="id_image_info_display">未加载图片</span>
+      </div>
+      <div class="card__body">
+        <div class="info-panel">
+          <div class="info-panel__item">
+            <span class="info-panel__label">图片尺寸</span>
+            <span class="info-panel__value" id="id_image_size_display">—</span>
+          </div>
+          <div class="info-panel__item">
+            <span class="info-panel__label">缩放</span>
+            <span class="info-panel__value" id="id_scale_display">1.00x</span>
+          </div>
+          <div class="info-panel__item" style="flex:2;">
+            <span class="info-panel__label">MVP 矩阵</span>
+            <div class="matrix-wrap">
+              <img class="matrix-bracket" src="./texture/matrixL.png">
+              <div class="matrix-col">
+                <span class="matrix-cell matrix-cell--highlight" id="id_image_edit_mvpmatrix_m00">1.00</span>
+                <span class="matrix-cell" id="id_image_edit_mvpmatrix_m10">0.00</span>
+                <span class="matrix-cell" id="id_image_edit_mvpmatrix_m20">0.00</span>
+                <span class="matrix-cell" id="id_image_edit_mvpmatrix_m30">0.00</span>
+              </div>
+              <div class="matrix-col">
+                <span class="matrix-cell" id="id_image_edit_mvpmatrix_m01">0.00</span>
+                <span class="matrix-cell matrix-cell--highlight" id="id_image_edit_mvpmatrix_m11">1.00</span>
+                <span class="matrix-cell" id="id_image_edit_mvpmatrix_m21">0.00</span>
+                <span class="matrix-cell" id="id_image_edit_mvpmatrix_m31">0.00</span>
+              </div>
+              <div class="matrix-col">
+                <span class="matrix-cell" id="id_image_edit_mvpmatrix_m02">0.00</span>
+                <span class="matrix-cell" id="id_image_edit_mvpmatrix_m12">0.00</span>
+                <span class="matrix-cell matrix-cell--highlight" id="id_image_edit_mvpmatrix_m22">1.00</span>
+                <span class="matrix-cell" id="id_image_edit_mvpmatrix_m32">0.00</span>
+              </div>
+              <div class="matrix-col">
+                <span class="matrix-cell" id="id_image_edit_mvpmatrix_m03">0.00</span>
+                <span class="matrix-cell" id="id_image_edit_mvpmatrix_m13">0.00</span>
+                <span class="matrix-cell" id="id_image_edit_mvpmatrix_m23">0.00</span>
+                <span class="matrix-cell matrix-cell--highlight" id="id_image_edit_mvpmatrix_m33">1.00</span>
+              </div>
+              <img class="matrix-bracket" src="./texture/matrixR.png">
             </div>
-            <div id="matrix" style="margin: 5px">
-                     <label id="id_image_edit_mvpmatrix_m01">0.00</label><br/>
-                <br/><label id="id_image_edit_mvpmatrix_m11">1.00</label><br/>
-                <br/><label id="id_image_edit_mvpmatrix_m21">0.00</label><br/>
-                <br/><label id="id_image_edit_mvpmatrix_m31">0.00</label>
-            </div>
-            <div id="matrix" style="margin: 5px">
-                     <label id="id_image_edit_mvpmatrix_m02">0.00</label><br/>
-                <br/><label id="id_image_edit_mvpmatrix_m12">0.00</label><br/>
-                <br/><label id="id_image_edit_mvpmatrix_m22">1.00</label><br/>
-                <br/><label id="id_image_edit_mvpmatrix_m32">0.00</label>
-            </div>
-            <div id="matrix" style="margin: 5px">
-                     <label id="id_image_edit_mvpmatrix_m03">0.00</label><br/>
-                <br/><label id="id_image_edit_mvpmatrix_m13">0.00</label><br/>
-                <br/><label id="id_image_edit_mvpmatrix_m23">0.00</label><br/>
-                <br/><label id="id_image_edit_mvpmatrix_m33">1.00</label>
-            </div>
-
-            <img src="./texture/matrixR.png">
+          </div>
         </div>
+      </div>
     </div>
 
-    <button style="display:block; margin:5; width: 200px; height: 30px" onclick="updateShader()">编译并运行下面着色程序</button>
-    <div id="vertical">
-        <div id="horizontal" style="width: 1024px;">
-            <div id="vertical">
-                <b>VertexShader</b>
-                <textarea spellcheck="false" rows="33" cols="70" id="id_vertex_shader">
-attribute vec4 aPosition;
+    <!-- ═══ 着色器编辑器 ═══ -->
+    <div class="card">
+      <div class="card__header">
+        <span class="card__title">📝 着色器编辑器</span>
+        <button class="ai-btn ai-btn--primary ai-btn--sm" onclick="updateShader()">▶ 编译运行</button>
+      </div>
+      <div class="card__body">
+        <div class="editor-grid">
+          <div class="editor-grid__col">
+            <span class="editor-label">Vertex Shader <code>.vs</code></span>
+            <textarea class="editor-textarea" spellcheck="false" rows="20" id="id_vertex_shader">attribute vec4 aPosition;
 attribute vec2 aTexCoord;
 
 uniform mat4   uModelMatrix;
@@ -171,25 +498,25 @@ void main() {
     gl_Position = pntPos;
 
     vTexCoord = aTexCoord;
-}
-                </textarea>
-            </div>
-            <div id="vertical">
-                <b>FragmentShader</b>
-                <textarea spellcheck="false" rows="33" cols="70" id="id_fragment_shader">
-precision mediump float;
+}</textarea>
+          </div>
+          <div class="editor-grid__col">
+            <span class="editor-label">Fragment Shader <code>.fs</code></span>
+            <textarea class="editor-textarea" spellcheck="false" rows="20" id="id_fragment_shader">precision mediump float;
 
 uniform sampler2D uTexture;
 varying vec2 vTexCoord;
 
 void main() {
     gl_FragColor = texture2D(uTexture, vTexCoord);
-}
-                </textarea>
-            </div>
-        </div><br>
+}</textarea>
+          </div>
+        </div>
+      </div>
     </div>
-    <div id="id_image_edit_blog"></div>
+
+    <!-- ═══ 博客 ═══ -->
+    <div class="card blog-card" id="id_image_edit_blog"><div class="card__body"></div></div>
   </body>
 
 </html>

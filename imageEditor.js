@@ -685,6 +685,20 @@ function updateHtmlMvpMatrixByRender() {
     document.getElementById("id_image_edit_mvpmatrix_m31").innerHTML = mMvpMatrix[7].toFixed(2);
     document.getElementById("id_image_edit_mvpmatrix_m32").innerHTML = mMvpMatrix[11].toFixed(2);
     document.getElementById("id_image_edit_mvpmatrix_m33").innerHTML = mMvpMatrix[15].toFixed(2);
+
+    // 更新信息面板
+    var sizeEl = document.getElementById('id_image_size_display');
+    if (sizeEl && mPlaneTextureInfo && mPlaneTextureInfo.width > 0) {
+        sizeEl.textContent = mPlaneTextureInfo.width + ' × ' + mPlaneTextureInfo.height;
+    }
+    var scaleEl = document.getElementById('id_scale_display');
+    if (scaleEl) {
+        scaleEl.textContent = mScale.toFixed(2) + 'x';
+    }
+    var infoEl = document.getElementById('id_image_info_display');
+    if (infoEl) {
+        infoEl.textContent = (mPlaneTextureInfo && mPlaneTextureInfo.width > 0) ? '图片已加载' : '未加载图片';
+    }
 }
 
 function onMouseWheel(event) {
@@ -1163,13 +1177,20 @@ function screenToWorld(dx, dy) {
 function initImageEditBlog() {
     if (null == mUIImageEdit) {
         mUIImageEdit = document.getElementById("id_image_edit_blog");
+        // 将内容放入 .card__body 子元素
+        var cardBody = mUIImageEdit.querySelector('.card__body');
+        if (!cardBody) {
+            cardBody = document.createElement('div');
+            cardBody.className = 'card__body';
+            mUIImageEdit.appendChild(cardBody);
+        }
         var markdownReader = new XMLHttpRequest();
         markdownReader.open('get', './blog/imageEdit.md', false);
         markdownReader.send();
 
         let convertor = new showdown.Converter();
         let htmlContent = convertor.makeHtml(markdownReader.responseText);
-        mUIImageEdit.innerHTML = htmlContent;
+        cardBody.innerHTML = htmlContent;
     }
     mUIImageEdit.style.display = 'block';
 }
@@ -1178,24 +1199,25 @@ function initImageEditBlog() {
 // AI 图片编辑 (Agnes Image 2.1 Flash)
 // ============================================================
 
+var mLastOriginalImageUrl = null;  // 调用 API 前截取的原始图像
+var mLastAiResultUrl = null;      // API 返回的结果图像
+var mLastAiResultWidth = 0;
+var mLastAiResultHeight = 0;
+
 /**
- * 获取当前 WebGL 画布的内容作为 Data URI (base64)
- * 优先使用 FBO 方式获取原始分辨率，回退到 canvas.toDataURL()
+ * 获取当前 WebGL 纹理的原始数据作为 Data URI
  */
 function captureCanvasDataUrl() {
-    // 如果纹理已加载，用 FBO 获取原始纹理数据（不含任何 letterbox/变换）
     if (mPlaneTextureInfo && mPlaneTextureInfo.width > 0 && mPlaneTextureInfo.height > 0) {
         const texWidth = mPlaneTextureInfo.width;
         const texHeight = mPlaneTextureInfo.height;
 
-        // 创建匹配原始纹理分辨率的 FBO
         if (null == mDumpFBO || mDumpFBO.width != texWidth || mDumpFBO.height != texHeight) {
             mDumpFBO = new FrameBufferObject(mGl, mGl.TEXTURE2, texWidth, texHeight);
         }
         mDumpFBO.bind();
         mGl.viewport(0, 0, texWidth, texHeight);
 
-        // 清空
         mGl.clearColor(1.0, 1.0, 1.0, 1.0);
         mGl.clearDepth(1.0);
         mGl.enable(mGl.DEPTH_TEST);
@@ -1204,38 +1226,23 @@ function captureCanvasDataUrl() {
 
         mGl.useProgram(mProgram.program);
 
-        // 顶点属性
         {
-            const numComponents = 3;
-            const type = mGl.FLOAT;
-            const normalize = false;
-            const stride = 0;
-            const offset = 0;
+            const n = 3, type = mGl.FLOAT, normalize = false, stride = 0, off = 0;
             mGl.bindBuffer(mGl.ARRAY_BUFFER, mBuffers.position);
-            mGl.vertexAttribPointer(
-                mProgram.attribLocations.vertexPosition,
-                numComponents, type, normalize, stride, offset);
+            mGl.vertexAttribPointer(mProgram.attribLocations.vertexPosition, n, type, normalize, stride, off);
             mGl.enableVertexAttribArray(mProgram.attribLocations.vertexPosition);
         }
         {
-            const numComponents = 2;
-            const type = mGl.FLOAT;
-            const normalize = false;
-            const stride = 0;
-            const offset = 0;
+            const n = 2, type = mGl.FLOAT, normalize = false, stride = 0, off = 0;
             mGl.bindBuffer(mGl.ARRAY_BUFFER, mBuffers.uv);
-            mGl.vertexAttribPointer(
-                mProgram.attribLocations.textureCoord,
-                numComponents, type, normalize, stride, offset);
+            mGl.vertexAttribPointer(mProgram.attribLocations.textureCoord, n, type, normalize, stride, off);
             mGl.enableVertexAttribArray(mProgram.attribLocations.textureCoord);
         }
 
-        // 绑定纹理
         mGl.activeTexture(mGl.TEXTURE0);
         mGl.bindTexture(mGl.TEXTURE_2D, mPlaneTextureInfo.texture);
         mGl.uniform1i(mProgram.uniformLocations.uTextureHandle, 0);
 
-        // 单位矩阵 — 不做任何缩放/变换，纹理原始内容填充整个 FBO
         const identity = mat4.create();
         mGl.uniformMatrix4fv(mProgram.uniformLocations.uProjectionMatrixHandle, false, identity);
         mGl.uniformMatrix4fv(mProgram.uniformLocations.uViewMatrixHandle, false, identity);
@@ -1246,149 +1253,121 @@ function captureCanvasDataUrl() {
         mGl.disableVertexAttribArray(mProgram.attribLocations.vertexPosition);
         mGl.disableVertexAttribArray(mProgram.attribLocations.textureCoord);
 
-        // 读取像素（原始分辨率）
         const pixels = new Uint8Array(texWidth * texHeight * 4);
         mGl.readPixels(0, 0, texWidth, texHeight, mGl.RGBA, mGl.UNSIGNED_BYTE, pixels);
 
         mDumpFBO.unbind();
         mGl.viewport(0, 0, mViewportWidth, mViewportHeight);
 
-        // 像素 → Canvas → DataURL
-        const tempCanvas = document.createElement('canvas');
-        tempCanvas.width = texWidth;
-        tempCanvas.height = texHeight;
-        const tempCtx = tempCanvas.getContext('2d');
+        const c = document.createElement('canvas');
+        c.width = texWidth; c.height = texHeight;
+        const ctx = c.getContext('2d');
+        const id = ctx.createImageData(texWidth, texHeight);
+        id.data.set(pixels);
+        ctx.putImageData(id, 0, 0);
+        ctx.scale(1, -1);
+        ctx.drawImage(c, 0, -texHeight);
 
-        const imageData = tempCtx.createImageData(texWidth, texHeight);
-        imageData.data.set(pixels);
-        tempCtx.putImageData(imageData, 0, 0);
-
-        // WebGL 坐标系 Y 轴翻转补偿
-        tempCtx.scale(1, -1);
-        tempCtx.drawImage(tempCanvas, 0, -texHeight);
-
-        return tempCanvas.toDataURL('image/png');
+        return c.toDataURL('image/png');
     }
 
-    // 回退：直接从 WebGL canvas 读取（带 letterbox，不推荐）
-    const canvas = document.getElementById('glcanvas');
-    try {
-        return canvas.toDataURL('image/png');
-    } catch (e) {
-        console.error('captureCanvasDataUrl failed:', e);
-        return null;
-    }
+    try { return document.getElementById('glcanvas').toDataURL('image/png'); }
+    catch (e) { console.error('captureCanvasDataUrl failed:', e); return null; }
 }
 
 /**
- * 将 base64 图像数据加载到编辑器
+ * 将 API 返回的 base64 结果展示到对比面板
  */
-function loadBase64ImageToEditor(base64Data, statusEl) {
+function showAiResultInPanel(base64Data, origW, origH, aiW, aiH) {
+    mLastAiResultUrl = 'data:image/png;base64,' + base64Data;
+    mLastAiResultWidth = aiW;
+    mLastAiResultHeight = aiH;
+
+    document.getElementById('id_ai_before_img').src = mLastOriginalImageUrl;
+    document.getElementById('id_ai_before_info').textContent = origW + ' × ' + origH;
+
+    document.getElementById('id_ai_after_img').src = mLastAiResultUrl;
+    document.getElementById('id_ai_after_info').textContent = aiW + ' × ' + aiH;
+
+    document.getElementById('id_ai_result').classList.add('is-visible');
+}
+
+/**
+ * 应用 AI 结果到画布
+ */
+function applyAiResult() {
+    if (!mLastAiResultUrl) return;
     const img = new Image();
     img.onload = function () {
-        const textureInfo = loadTextureByImage(mGl, img);
-        mPlaneTextureInfo = textureInfo;
-        // 重置变换
-        mScale = 1.0;
-        mTransX = 0.0;
-        mTransY = 0.0;
-        mPitching = 0.0;
-        mYawing = 0.0;
-        mRolling = 0.0;
-        if (statusEl) {
-            statusEl.textContent = '✅ AI 处理完成！';
-            statusEl.style.color = 'green';
-            statusEl.style.backgroundColor = '#e8f5e9';
-            setTimeout(() => {
-                statusEl.style.display = 'none';
-                statusEl.style.color = '';
-                statusEl.style.backgroundColor = '';
-            }, 5000);
-        }
-        document.getElementById('id_ai_submit_btn').disabled = false;
-        document.getElementById('id_ai_submit_btn').textContent = '🚀 AI 编辑';
+        mPlaneTextureInfo = loadTextureByImage(mGl, img);
+        mScale = 1.0; mTransX = 0; mTransY = 0;
+        mPitching = 0; mYawing = 0; mRolling = 0;
+        discardAiResult();
     };
     img.onerror = function () {
-        console.error('Failed to load AI result image');
-        if (statusEl) {
-            statusEl.textContent = '❌ 加载处理结果失败';
-            statusEl.style.color = 'red';
-            statusEl.style.backgroundColor = '#ffebee';
-        }
-        document.getElementById('id_ai_submit_btn').disabled = false;
-        document.getElementById('id_ai_submit_btn').textContent = '🚀 AI 编辑';
+        alert('加载 AI 结果到画布失败');
     };
-    img.src = 'data:image/png;base64,' + base64Data;
+    img.src = mLastAiResultUrl;
 }
 
 /**
- * 将 URL 图像加载到编辑器
+ * 放弃 AI 结果
  */
-function loadUrlImageToEditor(url, statusEl) {
-    const textureInfo = loadTextureByUrl(mGl, url);
-    // 轮询等待纹理加载完成
-    const checkLoaded = setInterval(function () {
-        if (textureInfo.width > 0 && textureInfo.height > 0) {
-            clearInterval(checkLoaded);
-            mPlaneTextureInfo = textureInfo;
-            mScale = 1.0;
-            mTransX = 0.0;
-            mTransY = 0.0;
-            mPitching = 0.0;
-            mYawing = 0.0;
-            mRolling = 0.0;
-            if (statusEl) {
-                statusEl.textContent = '✅ AI 处理完成！';
-                statusEl.style.color = 'green';
-                statusEl.style.backgroundColor = '#e8f5e9';
-                setTimeout(() => {
-                    statusEl.style.display = 'none';
-                    statusEl.style.color = '';
-                    statusEl.style.backgroundColor = '';
-                }, 5000);
-            }
-            document.getElementById('id_ai_submit_btn').disabled = false;
-            document.getElementById('id_ai_submit_btn').textContent = '🚀 AI 编辑';
-        }
-    }, 100);
-    // 超时保护
-    setTimeout(function () {
-        clearInterval(checkLoaded);
-    }, 30000);
+function discardAiResult() {
+    document.getElementById('id_ai_result').classList.remove('is-visible');
+    mLastAiResultUrl = null;
 }
 
 /**
- * 模式切换回调：图生图时隐藏尺寸选择（自动用源图尺寸），文生图时显示
+ * 模式切换
  */
 function onAiModeChange() {
-    const mode = document.getElementById('id_ai_mode').value;
-    const sizeRow = document.getElementById('id_ai_size_row');
-    sizeRow.style.display = (mode === 'txt2img') ? 'inline-flex' : 'none';
+    var mode = document.getElementById('id_ai_mode').value;
+    var row = document.getElementById('id_ai_size_row');
+    row.style.display = (mode === 'txt2img') ? 'block' : 'none';
 }
 
 /**
- * 主入口：调用 Agnes Image 2.1 Flash API 进行图片编辑/生成
+ * 按钮加载态
+ */
+function setButtonLoading(loading) {
+    var btn = document.getElementById('id_ai_submit_btn');
+    if (loading) {
+        btn.classList.add('is-loading');
+        btn.disabled = true;
+    } else {
+        btn.classList.remove('is-loading');
+        btn.disabled = false;
+    }
+}
+
+/**
+ * 状态栏
+ */
+function setStatus(msg, type) {
+    var el = document.getElementById('id_ai_status');
+    el.textContent = msg;
+    el.className = 'ai-status';
+    el.style.display = 'block';
+    if (type === 'error') el.classList.add('is-error');
+    if (type === 'success') el.classList.add('is-success');
+}
+
+/**
+ * 主入口：调用 Agnes Image 2.1 Flash API
  */
 function editWithAI() {
-    const apiKey = document.getElementById('id_api_key').value.trim();
-    const prompt = document.getElementById('id_ai_prompt').value.trim();
-    const mode = document.getElementById('id_ai_mode').value;
-    const size = document.getElementById('id_ai_size').value;
-    const statusEl = document.getElementById('id_ai_status');
-    const submitBtn = document.getElementById('id_ai_submit_btn');
+    var apiKey = document.getElementById('id_api_key').value.trim();
+    var prompt = document.getElementById('id_ai_prompt').value.trim();
+    var mode = document.getElementById('id_ai_mode').value;
+    var size = document.getElementById('id_ai_size').value;
 
-    // 参数校验
-    if (!apiKey) {
-        alert('请输入 API Key');
-        return;
-    }
-    if (!prompt) {
-        alert('请输入提示词');
-        return;
-    }
+    if (!apiKey) { alert('请输入 API Key'); return; }
+    if (!prompt) { alert('请输入提示词'); return; }
 
-    // 图生图模式：自动使用原始图片尺寸，忽略下拉框选择
-    let actualSize = size;
+    discardAiResult();
+
+    var actualSize = size;
     if (mode === 'img2img') {
         if (!mPlaneTextureInfo || mPlaneTextureInfo.width === 0) {
             alert('图生图模式需要先加载一张图片');
@@ -1397,45 +1376,34 @@ function editWithAI() {
         actualSize = mPlaneTextureInfo.width + 'x' + mPlaneTextureInfo.height;
     }
 
-    // 禁用按钮，显示状态
-    submitBtn.disabled = true;
-    submitBtn.textContent = '⏳ 处理中...';
-    statusEl.style.display = 'block';
-    statusEl.textContent = '正在处理...';
-    statusEl.style.color = '';
-    statusEl.style.backgroundColor = '#e8f4ff';
+    setButtonLoading(true);
+    setStatus('正在准备...', '');
 
-    // 构建请求体
-    const requestBody = {
+    var requestBody = {
         model: 'agnes-image-2.1-flash',
         prompt: prompt,
         size: actualSize
     };
 
     if (mode === 'img2img') {
-        // 图生图：截取当前画布，发送 base64 图像
-        statusEl.textContent = '正在截取当前图像 (' + actualSize + ')...';
-        const imageDataUrl = captureCanvasDataUrl();
+        setStatus('正在截取原图 (' + actualSize + ')...', '');
+        var imageDataUrl = captureCanvasDataUrl();
         if (!imageDataUrl) {
-            statusEl.textContent = '❌ 截取图像失败';
-            statusEl.style.color = 'red';
-            statusEl.style.backgroundColor = '#ffebee';
-            submitBtn.disabled = false;
-            submitBtn.textContent = '🚀 AI 编辑';
+            setStatus('❌ 截取图像失败', 'error');
+            setButtonLoading(false);
             return;
         }
-        statusEl.textContent = '正在调用 AI 模型处理...';
+        mLastOriginalImageUrl = imageDataUrl;
+        setStatus('⏳ 正在调用 AI 模型处理...', '');
         requestBody.extra_body = {
             image: [imageDataUrl],
             response_format: 'b64_json'
         };
     } else {
-        // 文生图
-        statusEl.textContent = '正在调用 AI 模型生成 (' + actualSize + ')...';
+        setStatus('⏳ 正在调用 AI 模型生成 (' + actualSize + ')...', '');
         requestBody.return_base64 = true;
     }
 
-    // 调用 API
     fetch('https://apihub.agnes-ai.com/v1/images/generations', {
         method: 'POST',
         headers: {
@@ -1444,32 +1412,56 @@ function editWithAI() {
         },
         body: JSON.stringify(requestBody)
     })
-    .then(function (response) {
-        if (!response.ok) {
-            return response.json().then(function (err) {
-                throw new Error(JSON.stringify(err));
-            });
+    .then(function (res) {
+        if (!res.ok) {
+            return res.json().then(function (err) { throw new Error(JSON.stringify(err)); });
         }
-        return response.json();
+        return res.json();
     })
     .then(function (data) {
-        console.log('AI API response received');
-        statusEl.textContent = '处理完成，正在加载结果...';
-        const b64json = data.data[0].b64_json;
-        if (b64json) {
-            loadBase64ImageToEditor(b64json, statusEl);
+        setStatus('✅ 处理完成，正在加载结果...', '');
+        var b64 = data.data[0].b64_json;
+        if (b64) {
+            var tmp = new Image();
+            tmp.onload = function () {
+                var ow = mPlaneTextureInfo ? mPlaneTextureInfo.width : 0;
+                var oh = mPlaneTextureInfo ? mPlaneTextureInfo.height : 0;
+                showAiResultInPanel(b64, ow, oh, tmp.width, tmp.height);
+                setStatus('✅ 编辑完成，预览后选择"应用到画布"或"放弃"', 'success');
+                setButtonLoading(false);
+            };
+            tmp.onerror = function () {
+                setStatus('❌ 解析结果图片失败', 'error');
+                setButtonLoading(false);
+            };
+            tmp.src = 'data:image/png;base64,' + b64;
         } else if (data.data[0].url) {
-            loadUrlImageToEditor(data.data[0].url, statusEl);
+            setStatus('✅ 处理完成，正在加载...', '');
+            var ow = mPlaneTextureInfo ? mPlaneTextureInfo.width : 0;
+            var oh = mPlaneTextureInfo ? mPlaneTextureInfo.height : 0;
+            mLastOriginalImageUrl = captureCanvasDataUrl();
+
+            document.getElementById('id_ai_before_img').src = mLastOriginalImageUrl;
+            document.getElementById('id_ai_before_info').textContent = ow + ' × ' + oh;
+
+            var afterImg = document.getElementById('id_ai_after_img');
+            afterImg.src = data.data[0].url;
+            afterImg.onload = function () {
+                mLastAiResultUrl = data.data[0].url;
+                mLastAiResultWidth = afterImg.naturalWidth;
+                mLastAiResultHeight = afterImg.naturalHeight;
+                document.getElementById('id_ai_after_info').textContent = afterImg.naturalWidth + ' × ' + afterImg.naturalHeight;
+                document.getElementById('id_ai_result').classList.add('is-visible');
+                setStatus('✅ 编辑完成，预览后选择"应用到画布"或"放弃"', 'success');
+                setButtonLoading(false);
+            };
         } else {
             throw new Error('No image data in response');
         }
     })
     .catch(function (error) {
         console.error('AI Edit Error:', error);
-        statusEl.textContent = '❌ 处理失败: ' + error.message;
-        statusEl.style.color = 'red';
-        statusEl.style.backgroundColor = '#ffebee';
-        submitBtn.disabled = false;
-        submitBtn.textContent = '🚀 AI 编辑';
+        setStatus('❌ 处理失败: ' + error.message, 'error');
+        setButtonLoading(false);
     });
 }
