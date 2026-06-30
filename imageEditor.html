@@ -55,6 +55,39 @@
         <button style="display:block; margin:5; width: 60px; height: 30px" onclick="toggleCrop()">裁剪</button>
     </div>
 
+    <!-- AI 图片编辑区域 - 放在最显眼的位置 -->
+    <div id="aiEditSection" style="border: 1px solid #007BFF; padding: 12px; margin-top: 10px; margin-bottom: 8px; width: 998px; background-color: #f0f7ff; border-radius: 6px;">
+        <div style="font-weight: bold; font-size: 16px; margin-bottom: 10px; color: #0056b3;">🤖 AI 图片编辑 (Agnes Image 2.1 Flash)</div>
+        <div style="display: flex; align-items: center; margin-bottom: 8px; flex-wrap: wrap;">
+            <label style="margin-right: 6px; width: 75px; font-size: 13px; font-weight: 500;">API Key:</label>
+            <input type="password" id="id_api_key" placeholder="输入你的 Agnes API Key" style="width: 420px; padding: 5px; border: 1px solid #ccc; border-radius: 3px;" />
+            <span style="margin-left: 10px; font-size: 12px; color: #888;">← 获取: agnes-ai.com</span>
+        </div>
+        <div style="display: flex; align-items: center; margin-bottom: 8px;">
+            <label style="margin-right: 6px; width: 75px; font-size: 13px; font-weight: 500;">模式:</label>
+            <select id="id_ai_mode" onchange="onAiModeChange()" style="width: 170px; padding: 5px; border: 1px solid #ccc; border-radius: 3px;">
+                <option value="img2img">🎨 图生图 / 图片编辑</option>
+                <option value="txt2img">✨ 文生图 (Text-to-Image)</option>
+            </select>
+            <span id="id_ai_size_row" style="display: none; align-items: center;">
+                <label style="margin-left: 24px; margin-right: 6px; font-size: 13px; font-weight: 500;">尺寸:</label>
+                <select id="id_ai_size" style="width: 130px; padding: 5px; border: 1px solid #ccc; border-radius: 3px;">
+                    <option value="1024x1024">1024 × 1024</option>
+                    <option value="1024x768" selected>1024 × 768</option>
+                    <option value="768x1024">768 × 1024</option>
+                    <option value="512x512">512 × 512</option>
+                    <option value="512x384">512 × 384</option>
+                </select>
+            </span>
+        </div>
+        <div style="display: flex; align-items: flex-start;">
+            <label style="margin-right: 6px; width: 75px; font-size: 13px; font-weight: 500; padding-top: 6px;">提示词:</label>
+            <textarea id="id_ai_prompt" placeholder="例如：让画面中的物体变成橙色，保持原始构图不变" style="width: 510px; height: 52px; padding: 5px; border: 1px solid #ccc; border-radius: 3px; resize: vertical;"></textarea>
+            <button id="id_ai_submit_btn" style="margin-left: 10px; width: 140px; height: 64px; background: linear-gradient(180deg, #007BFF, #0056b3); color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 14px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.2);" onclick="editWithAI()">🚀 AI 编辑</button>
+        </div>
+        <div id="id_ai_status" style="display: none; margin-top: 8px; padding: 6px 10px; background-color: #e8f4ff; border-radius: 4px; font-size: 13px; border: 1px solid #b8daff;"></div>
+    </div>
+
     <!-- 滤镜选项容器 -->
     <div id="filterOptions" style="display:none; margin-top:10px;">
         <form id="filterForm" onchange="onFilterChange(event)">

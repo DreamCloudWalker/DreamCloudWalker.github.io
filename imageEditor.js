@@ -1173,3 +1173,303 @@ function initImageEditBlog() {
     }
     mUIImageEdit.style.display = 'block';
 }
+
+// ============================================================
+// AI 图片编辑 (Agnes Image 2.1 Flash)
+// ============================================================
+
+/**
+ * 获取当前 WebGL 画布的内容作为 Data URI (base64)
+ * 优先使用 FBO 方式获取原始分辨率，回退到 canvas.toDataURL()
+ */
+function captureCanvasDataUrl() {
+    // 如果纹理已加载，用 FBO 获取原始纹理数据（不含任何 letterbox/变换）
+    if (mPlaneTextureInfo && mPlaneTextureInfo.width > 0 && mPlaneTextureInfo.height > 0) {
+        const texWidth = mPlaneTextureInfo.width;
+        const texHeight = mPlaneTextureInfo.height;
+
+        // 创建匹配原始纹理分辨率的 FBO
+        if (null == mDumpFBO || mDumpFBO.width != texWidth || mDumpFBO.height != texHeight) {
+            mDumpFBO = new FrameBufferObject(mGl, mGl.TEXTURE2, texWidth, texHeight);
+        }
+        mDumpFBO.bind();
+        mGl.viewport(0, 0, texWidth, texHeight);
+
+        // 清空
+        mGl.clearColor(1.0, 1.0, 1.0, 1.0);
+        mGl.clearDepth(1.0);
+        mGl.enable(mGl.DEPTH_TEST);
+        mGl.depthFunc(mGl.LEQUAL);
+        mGl.clear(mGl.COLOR_BUFFER_BIT | mGl.DEPTH_BUFFER_BIT);
+
+        mGl.useProgram(mProgram.program);
+
+        // 顶点属性
+        {
+            const numComponents = 3;
+            const type = mGl.FLOAT;
+            const normalize = false;
+            const stride = 0;
+            const offset = 0;
+            mGl.bindBuffer(mGl.ARRAY_BUFFER, mBuffers.position);
+            mGl.vertexAttribPointer(
+                mProgram.attribLocations.vertexPosition,
+                numComponents, type, normalize, stride, offset);
+            mGl.enableVertexAttribArray(mProgram.attribLocations.vertexPosition);
+        }
+        {
+            const numComponents = 2;
+            const type = mGl.FLOAT;
+            const normalize = false;
+            const stride = 0;
+            const offset = 0;
+            mGl.bindBuffer(mGl.ARRAY_BUFFER, mBuffers.uv);
+            mGl.vertexAttribPointer(
+                mProgram.attribLocations.textureCoord,
+                numComponents, type, normalize, stride, offset);
+            mGl.enableVertexAttribArray(mProgram.attribLocations.textureCoord);
+        }
+
+        // 绑定纹理
+        mGl.activeTexture(mGl.TEXTURE0);
+        mGl.bindTexture(mGl.TEXTURE_2D, mPlaneTextureInfo.texture);
+        mGl.uniform1i(mProgram.uniformLocations.uTextureHandle, 0);
+
+        // 单位矩阵 — 不做任何缩放/变换，纹理原始内容填充整个 FBO
+        const identity = mat4.create();
+        mGl.uniformMatrix4fv(mProgram.uniformLocations.uProjectionMatrixHandle, false, identity);
+        mGl.uniformMatrix4fv(mProgram.uniformLocations.uViewMatrixHandle, false, identity);
+        mGl.uniformMatrix4fv(mProgram.uniformLocations.uModelMatrixHandle, false, identity);
+
+        mGl.drawArrays(mGl.TRIANGLE_STRIP, 0, mVertices.length / 3);
+
+        mGl.disableVertexAttribArray(mProgram.attribLocations.vertexPosition);
+        mGl.disableVertexAttribArray(mProgram.attribLocations.textureCoord);
+
+        // 读取像素（原始分辨率）
+        const pixels = new Uint8Array(texWidth * texHeight * 4);
+        mGl.readPixels(0, 0, texWidth, texHeight, mGl.RGBA, mGl.UNSIGNED_BYTE, pixels);
+
+        mDumpFBO.unbind();
+        mGl.viewport(0, 0, mViewportWidth, mViewportHeight);
+
+        // 像素 → Canvas → DataURL
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = texWidth;
+        tempCanvas.height = texHeight;
+        const tempCtx = tempCanvas.getContext('2d');
+
+        const imageData = tempCtx.createImageData(texWidth, texHeight);
+        imageData.data.set(pixels);
+        tempCtx.putImageData(imageData, 0, 0);
+
+        // WebGL 坐标系 Y 轴翻转补偿
+        tempCtx.scale(1, -1);
+        tempCtx.drawImage(tempCanvas, 0, -texHeight);
+
+        return tempCanvas.toDataURL('image/png');
+    }
+
+    // 回退：直接从 WebGL canvas 读取（带 letterbox，不推荐）
+    const canvas = document.getElementById('glcanvas');
+    try {
+        return canvas.toDataURL('image/png');
+    } catch (e) {
+        console.error('captureCanvasDataUrl failed:', e);
+        return null;
+    }
+}
+
+/**
+ * 将 base64 图像数据加载到编辑器
+ */
+function loadBase64ImageToEditor(base64Data, statusEl) {
+    const img = new Image();
+    img.onload = function () {
+        const textureInfo = loadTextureByImage(mGl, img);
+        mPlaneTextureInfo = textureInfo;
+        // 重置变换
+        mScale = 1.0;
+        mTransX = 0.0;
+        mTransY = 0.0;
+        mPitching = 0.0;
+        mYawing = 0.0;
+        mRolling = 0.0;
+        if (statusEl) {
+            statusEl.textContent = '✅ AI 处理完成！';
+            statusEl.style.color = 'green';
+            statusEl.style.backgroundColor = '#e8f5e9';
+            setTimeout(() => {
+                statusEl.style.display = 'none';
+                statusEl.style.color = '';
+                statusEl.style.backgroundColor = '';
+            }, 5000);
+        }
+        document.getElementById('id_ai_submit_btn').disabled = false;
+        document.getElementById('id_ai_submit_btn').textContent = '🚀 AI 编辑';
+    };
+    img.onerror = function () {
+        console.error('Failed to load AI result image');
+        if (statusEl) {
+            statusEl.textContent = '❌ 加载处理结果失败';
+            statusEl.style.color = 'red';
+            statusEl.style.backgroundColor = '#ffebee';
+        }
+        document.getElementById('id_ai_submit_btn').disabled = false;
+        document.getElementById('id_ai_submit_btn').textContent = '🚀 AI 编辑';
+    };
+    img.src = 'data:image/png;base64,' + base64Data;
+}
+
+/**
+ * 将 URL 图像加载到编辑器
+ */
+function loadUrlImageToEditor(url, statusEl) {
+    const textureInfo = loadTextureByUrl(mGl, url);
+    // 轮询等待纹理加载完成
+    const checkLoaded = setInterval(function () {
+        if (textureInfo.width > 0 && textureInfo.height > 0) {
+            clearInterval(checkLoaded);
+            mPlaneTextureInfo = textureInfo;
+            mScale = 1.0;
+            mTransX = 0.0;
+            mTransY = 0.0;
+            mPitching = 0.0;
+            mYawing = 0.0;
+            mRolling = 0.0;
+            if (statusEl) {
+                statusEl.textContent = '✅ AI 处理完成！';
+                statusEl.style.color = 'green';
+                statusEl.style.backgroundColor = '#e8f5e9';
+                setTimeout(() => {
+                    statusEl.style.display = 'none';
+                    statusEl.style.color = '';
+                    statusEl.style.backgroundColor = '';
+                }, 5000);
+            }
+            document.getElementById('id_ai_submit_btn').disabled = false;
+            document.getElementById('id_ai_submit_btn').textContent = '🚀 AI 编辑';
+        }
+    }, 100);
+    // 超时保护
+    setTimeout(function () {
+        clearInterval(checkLoaded);
+    }, 30000);
+}
+
+/**
+ * 模式切换回调：图生图时隐藏尺寸选择（自动用源图尺寸），文生图时显示
+ */
+function onAiModeChange() {
+    const mode = document.getElementById('id_ai_mode').value;
+    const sizeRow = document.getElementById('id_ai_size_row');
+    sizeRow.style.display = (mode === 'txt2img') ? 'inline-flex' : 'none';
+}
+
+/**
+ * 主入口：调用 Agnes Image 2.1 Flash API 进行图片编辑/生成
+ */
+function editWithAI() {
+    const apiKey = document.getElementById('id_api_key').value.trim();
+    const prompt = document.getElementById('id_ai_prompt').value.trim();
+    const mode = document.getElementById('id_ai_mode').value;
+    const size = document.getElementById('id_ai_size').value;
+    const statusEl = document.getElementById('id_ai_status');
+    const submitBtn = document.getElementById('id_ai_submit_btn');
+
+    // 参数校验
+    if (!apiKey) {
+        alert('请输入 API Key');
+        return;
+    }
+    if (!prompt) {
+        alert('请输入提示词');
+        return;
+    }
+
+    // 图生图模式：自动使用原始图片尺寸，忽略下拉框选择
+    let actualSize = size;
+    if (mode === 'img2img') {
+        if (!mPlaneTextureInfo || mPlaneTextureInfo.width === 0) {
+            alert('图生图模式需要先加载一张图片');
+            return;
+        }
+        actualSize = mPlaneTextureInfo.width + 'x' + mPlaneTextureInfo.height;
+    }
+
+    // 禁用按钮，显示状态
+    submitBtn.disabled = true;
+    submitBtn.textContent = '⏳ 处理中...';
+    statusEl.style.display = 'block';
+    statusEl.textContent = '正在处理...';
+    statusEl.style.color = '';
+    statusEl.style.backgroundColor = '#e8f4ff';
+
+    // 构建请求体
+    const requestBody = {
+        model: 'agnes-image-2.1-flash',
+        prompt: prompt,
+        size: actualSize
+    };
+
+    if (mode === 'img2img') {
+        // 图生图：截取当前画布，发送 base64 图像
+        statusEl.textContent = '正在截取当前图像 (' + actualSize + ')...';
+        const imageDataUrl = captureCanvasDataUrl();
+        if (!imageDataUrl) {
+            statusEl.textContent = '❌ 截取图像失败';
+            statusEl.style.color = 'red';
+            statusEl.style.backgroundColor = '#ffebee';
+            submitBtn.disabled = false;
+            submitBtn.textContent = '🚀 AI 编辑';
+            return;
+        }
+        statusEl.textContent = '正在调用 AI 模型处理...';
+        requestBody.extra_body = {
+            image: [imageDataUrl],
+            response_format: 'b64_json'
+        };
+    } else {
+        // 文生图
+        statusEl.textContent = '正在调用 AI 模型生成 (' + actualSize + ')...';
+        requestBody.return_base64 = true;
+    }
+
+    // 调用 API
+    fetch('https://apihub.agnes-ai.com/v1/images/generations', {
+        method: 'POST',
+        headers: {
+            'Authorization': 'Bearer ' + apiKey,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(requestBody)
+    })
+    .then(function (response) {
+        if (!response.ok) {
+            return response.json().then(function (err) {
+                throw new Error(JSON.stringify(err));
+            });
+        }
+        return response.json();
+    })
+    .then(function (data) {
+        console.log('AI API response received');
+        statusEl.textContent = '处理完成，正在加载结果...';
+        const b64json = data.data[0].b64_json;
+        if (b64json) {
+            loadBase64ImageToEditor(b64json, statusEl);
+        } else if (data.data[0].url) {
+            loadUrlImageToEditor(data.data[0].url, statusEl);
+        } else {
+            throw new Error('No image data in response');
+        }
+    })
+    .catch(function (error) {
+        console.error('AI Edit Error:', error);
+        statusEl.textContent = '❌ 处理失败: ' + error.message;
+        statusEl.style.color = 'red';
+        statusEl.style.backgroundColor = '#ffebee';
+        submitBtn.disabled = false;
+        submitBtn.textContent = '🚀 AI 编辑';
+    });
+}
